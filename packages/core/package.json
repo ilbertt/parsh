@@ -5,7 +5,8 @@
   "scripts": {
     "build": "bun run build.ts",
     "check:types": "bun run --bun tsc",
-    "test": "tsc -p tsconfig.types.json && bun test"
+    "test:types": "bun run --bun tsc -p tsconfig.types.json --diagnostics",
+    "test": "bun test:types && bun test"
   },
   "devDependencies": {
     "@repo/pack-utils": "workspace:*",

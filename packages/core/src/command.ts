@@ -46,6 +46,27 @@ type DefinedCommand<
   handler?: (ctx: unknown) => void | Promise<void>;
 };
 
+type DefinedRootCommand<Options extends Record<string, AnySchema>> = {
+  path: '';
+  options: Options;
+  params: Record<string, never>;
+  helpArg: HelpArgConfig;
+  handler?: (ctx: unknown) => void | Promise<void>;
+};
+
+export function defineRootCommand<const Options extends Record<string, AnySchema>>(def: {
+  options: Options;
+  helpArg?: HelpArgConfig;
+  handler?: (ctx: { options: Simplify<InferSchemas<Options>> }) => void | Promise<void>;
+}): DefinedRootCommand<Options> {
+  return {
+    params: {} as Record<string, never>,
+    helpArg: { enabled: true },
+    ...(def as object),
+    path: '',
+  } as DefinedRootCommand<Options>;
+}
+
 export function defineCommand<
   P extends keyof CommandRegistry,
   const Options extends Record<string, AnySchema>,

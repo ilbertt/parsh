@@ -2,11 +2,6 @@ import type { CommandNode, ExtractedCommand, SourceSegment } from '#types.ts';
 
 export interface EmitOptions {
   /**
-   * TS expression for inferring root options, e.g. `"typeof import('../root.ts').rootOptions"`.
-   * If omitted, root options contribute `{}` to every command's `ctx.root.options`.
-   */
-  rootOptionsTypeExpr?: string;
-  /**
    * Module specifier augmented by the generated `declare module` block and imported
    * for `InferSchemas` / `RuntimeNode`. Defaults to `'@parsh/core'`.
    * Override for in-repo dogfooding (e.g., `'@repo/core'`).
@@ -28,12 +23,13 @@ interface FlatEntry {
   ancestorCmds: ExtractedCommand[];
 }
 
-function flattenTree(root: CommandNode): FlatEntry[] {
+function flattenTree(opts: { root: CommandNode; rootCmd: ExtractedCommand | null }): FlatEntry[] {
   const out: FlatEntry[] = [];
   function walk(input: { node: CommandNode; ancestorCmds: ExtractedCommand[] }) {
     const cmd = input.node.command;
+    const isTreeRoot = input.node === opts.root;
     let nextAncestorCmds = input.ancestorCmds;
-    if (cmd) {
+    if (cmd && !isTreeRoot) {
       out.push({
         pathString: pathStringOf(input.node.path.map(parseSegKey)),
         cmd,
@@ -51,7 +47,7 @@ function flattenTree(root: CommandNode): FlatEntry[] {
       walk({ node: input.node.paramChild, ancestorCmds: nextAncestorCmds });
     }
   }
-  walk({ node: root, ancestorCmds: [] });
+  walk({ node: opts.root, ancestorCmds: [] });
   return out;
 }
 
@@ -81,19 +77,19 @@ function emitParentsMap(entry: FlatEntry): string {
   return `{\n${lines.join('\n')}\n      }`;
 }
 
-function emitRootBlock(rootOptionsTypeExpr: string | undefined): string {
-  const optionsType = rootOptionsTypeExpr ? `InferSchemas<${rootOptionsTypeExpr}>` : '{}';
+function emitRootBlock(rootCmd: ExtractedCommand | null): string {
+  const optionsType =
+    rootCmd && rootCmd.optionNames.length > 0
+      ? `InferSchemas<typeof ${rootCmd.importName}.options>`
+      : '{}';
   return `{ options: ${optionsType} }`;
 }
 
-function emitRegistryEntry(opts: {
-  entry: FlatEntry;
-  rootOptionsTypeExpr: string | undefined;
-}): string {
+function emitRegistryEntry(opts: { entry: FlatEntry; rootCmd: ExtractedCommand | null }): string {
   const p = opts.entry.pathString;
   return `    '${p}': {
       parents: ${emitParentsMap(opts.entry)};
-      root: ${emitRootBlock(opts.rootOptionsTypeExpr)};
+      root: ${emitRootBlock(opts.rootCmd)};
     };`;
 }
 
@@ -131,9 +127,13 @@ ${ind}}`;
 }
 
 export function emitGeneratedFile(opts: { root: CommandNode; emitOptions: EmitOptions }): string {
-  const entries = flattenTree(opts.root);
-  const imports = entries
-    .map((e) => e.cmd)
+  const rootCmd = opts.root.command;
+  const entries = flattenTree({ root: opts.root, rootCmd });
+  const importCmds: ExtractedCommand[] = [...entries.map((e) => e.cmd)];
+  if (rootCmd) {
+    importCmds.push(rootCmd);
+  }
+  const imports = importCmds
     // biome-ignore lint/complexity/useMaxParams: Array.sort comparator is inherently (a, b)
     .sort((a, b) => a.importName.localeCompare(b.importName));
 
@@ -152,12 +152,7 @@ export function emitGeneratedFile(opts: { root: CommandNode; emitOptions: EmitOp
   lines.push(`declare module '${coreModule}' {`);
   lines.push('  interface CommandRegistry {');
   for (const e of entries) {
-    lines.push(
-      emitRegistryEntry({
-        entry: e,
-        rootOptionsTypeExpr: opts.emitOptions.rootOptionsTypeExpr,
-      }),
-    );
+    lines.push(emitRegistryEntry({ entry: e, rootCmd }));
   }
   lines.push('  }');
   lines.push('}');

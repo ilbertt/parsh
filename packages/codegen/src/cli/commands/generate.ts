@@ -8,7 +8,6 @@ export const command = defineCommand('generate', {
   options: {
     commands: z.string().default('./src/commands'),
     out: z.string().default('./src/commandTree.gen.ts'),
-    'root-options': z.string().optional(),
     'core-module': z.string().optional(),
     watch: z.boolean().default(false),
   },
@@ -18,9 +17,6 @@ export const command = defineCommand('generate', {
     const opts: GenerateOptions = {
       commandsDir,
       outFile,
-      ...(ctx.options['root-options'] !== undefined
-        ? { rootOptionsTypeExpr: ctx.options['root-options'] }
-        : {}),
       ...(ctx.options['core-module'] !== undefined
         ? { coreModule: ctx.options['core-module'] }
         : {}),

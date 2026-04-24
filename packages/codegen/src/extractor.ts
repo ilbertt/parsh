@@ -164,6 +164,35 @@ function importNameFor(opts: { filePath: string }): string {
   return `${camel}Cmd`;
 }
 
+export async function extractRootCommand(opts: {
+  filePath: string;
+  outDir: string;
+}): Promise<ExtractedCommand> {
+  const source = await readFile(opts.filePath, 'utf8');
+  const callMatch = source.match(/defineRootCommand\s*\(\s*\{/);
+  if (!callMatch) {
+    throw new Error(`parsh: ${opts.filePath} does not contain a defineRootCommand({ ... }) call`);
+  }
+  const defBody = readBalancedBraceBody({
+    source,
+    start: callMatch.index! + callMatch[0].length,
+  });
+  const optionNames = extractInlineObjectKeys({ body: defBody, prop: 'options' });
+  let spec = relative(opts.outDir, opts.filePath);
+  if (!spec.startsWith('.')) {
+    spec = `./${spec}`;
+  }
+  return {
+    filePath: opts.filePath,
+    pathString: '',
+    segments: [],
+    optionNames,
+    paramNames: [],
+    importName: 'rootCmd',
+    importSpecifier: spec,
+  };
+}
+
 export async function extractCommand(opts: {
   filePath: string;
   expectedSegments: SourceSegment[];

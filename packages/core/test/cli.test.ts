@@ -35,7 +35,10 @@ function makeTree(opts: {
 
   return {
     segment: null,
-    command: null,
+    command: {
+      path: '',
+      options: { verbose: z.boolean().default(false) },
+    } satisfies RuntimeCommand,
     paramChild: null,
     literalChildren: {
       deploy: {
@@ -101,7 +104,6 @@ function makeCli(opts: { calls: Called[]; idSchema?: () => z.ZodType<string | nu
       calls: opts.calls,
       idSchema: opts.idSchema ?? z.string,
     }),
-    options: { verbose: z.boolean().default(false) },
   });
 }
 

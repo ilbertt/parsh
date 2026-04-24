@@ -1,7 +1,9 @@
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { extractCommand } from '#extractor.ts';
+import { extractCommand, extractRootCommand } from '#extractor.ts';
 import type { CommandNode, SourceSegment } from '#types.ts';
+
+const ROOT_FILE = '_root.ts';
 
 function dirNameToSegment(name: string): SourceSegment {
   if (name.startsWith('[') && name.endsWith(']')) {
@@ -159,5 +161,16 @@ export async function walkCommandsDir(opts: {
   }
 
   await visit({ dirAbs: opts.commandsDir, node: root });
+
+  const rootFilePath = join(opts.commandsDir, ROOT_FILE);
+  try {
+    const st = await stat(rootFilePath);
+    if (st.isFile()) {
+      root.command = await extractRootCommand({ filePath: rootFilePath, outDir });
+    }
+  } catch {
+    // no _root.ts — fine
+  }
+
   return root;
 }

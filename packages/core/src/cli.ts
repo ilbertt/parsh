@@ -26,11 +26,10 @@ export interface RuntimeNode {
 
 type SchemaRecord = Record<string, AnySchema>;
 
-interface CreateCliOptions<RootOptions extends SchemaRecord = SchemaRecord> {
+interface CreateCliOptions {
   programName: string;
   programDescription?: string;
   tree: RuntimeNode;
-  options?: RootOptions;
 }
 
 function probeBoolean(schema: AnySchema): boolean {
@@ -52,8 +51,8 @@ function probeBoolean(schema: AnySchema): boolean {
   }
 }
 
-function collectAllOptionSchemas(opts: { root: SchemaRecord; tree: RuntimeNode }): SchemaRecord {
-  const all: SchemaRecord = { ...opts.root };
+function collectAllOptionSchemas(tree: RuntimeNode): SchemaRecord {
+  const all: SchemaRecord = {};
   function walk(node: RuntimeNode) {
     if (node.command) {
       for (const [name, schema] of Object.entries(node.command.options)) {
@@ -67,7 +66,7 @@ function collectAllOptionSchemas(opts: { root: SchemaRecord; tree: RuntimeNode }
       walk(node.paramChild);
     }
   }
-  walk(opts.tree);
+  walk(tree);
   return all;
 }
 
@@ -147,7 +146,18 @@ function renderRootUsage(opts: {
   if (opts.programDescription) {
     lines.push(opts.programDescription, '');
   }
-  lines.push(`Usage: ${opts.programName} <command> [options]`, '', 'Commands:');
+  lines.push(`Usage: ${opts.programName} <command> [options]`, '');
+
+  const rootOptions = opts.root.command ? Object.keys(opts.root.command.options) : [];
+  if (rootOptions.length > 0) {
+    lines.push('Options:');
+    for (const name of rootOptions) {
+      lines.push(`  --${name}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('Commands:');
   function walk(input: { node: RuntimeNode; prefix: string[] }) {
     for (const [name, child] of Object.entries(input.node.literalChildren)) {
       const pieces = [...input.prefix, name];
@@ -194,8 +204,9 @@ function renderCommandUsage(opts: {
     if (v.path === cmd.path) {
       continue;
     }
+    const from = v.path === '' ? '<root>' : v.path;
     for (const name of Object.keys(v.options)) {
-      inheritedOptions.push(`--${name}  (from ${v.path})`);
+      inheritedOptions.push(`--${name}  (from ${from})`);
     }
   }
   if (inheritedOptions.length > 0) {
@@ -254,7 +265,6 @@ function detectSameLevelCollisions(tree: RuntimeNode): string[] {
 
 export class Cli {
   readonly #tree: RuntimeNode;
-  readonly #rootOptions: SchemaRecord;
   readonly #programName: string;
   readonly #programDescription: string | undefined;
   readonly #parseOptions: ParseArgsConfig['options'];
@@ -267,11 +277,10 @@ export class Cli {
       );
     }
     this.#tree = options.tree;
-    this.#rootOptions = options.options ?? {};
     this.#programName = options.programName;
     this.#programDescription = options.programDescription;
 
-    const allSchemas = collectAllOptionSchemas({ root: this.#rootOptions, tree: this.#tree });
+    const allSchemas = collectAllOptionSchemas(this.#tree);
     const parseOptions: ParseArgsConfig['options'] = {};
     for (const [name, schema] of Object.entries(allSchemas)) {
       parseOptions[name] = { type: probeBoolean(schema) ? 'boolean' : 'string' };
@@ -307,7 +316,7 @@ export class Cli {
 
     const wantsHelp = helpRequested(argv);
 
-    if (parsed.positionals.length === 0 && wantsHelp) {
+    if (parsed.positionals.length === 0 && wantsHelp && !this.#tree.command) {
       console.log(this.#renderRootUsage());
       return 0;
     }
@@ -330,32 +339,27 @@ export class Cli {
     const targetHelpEnabled = node.command.helpArg?.enabled !== false;
     if (wantsHelp && targetHelpEnabled) {
       console.log(
-        renderCommandUsage({
-          programName: this.#programName,
-          node,
-          visited: visitedCommands
-            .map((v) => v.command)
-            .filter((c): c is RuntimeCommand => c !== null),
-        }),
+        node === this.#tree
+          ? this.#renderRootUsage()
+          : renderCommandUsage({
+              programName: this.#programName,
+              node,
+              visited: visitedCommands
+                .map((v) => v.command)
+                .filter((c): c is RuntimeCommand => c !== null),
+            }),
       );
       return 0;
     }
 
     const rawValues = parsed.values as Record<string, unknown>;
-    const rootResult = await validateRecord({
-      schemas: this.#rootOptions,
-      values: rawValues,
-      kind: 'option',
-    });
-    if (!rootResult.ok) {
-      console.error(`${this.#errorPrefix()}: ${rootResult.error}${helpHint(targetHelpEnabled)}`);
-      return 2;
-    }
+    const rootCommand = this.#tree.command;
 
     const parents: Record<
       string,
       { options: Record<string, unknown>; params: Record<string, unknown> }
     > = {};
+    let rootOptions: Record<string, unknown> = {};
     let targetOwnOptions: Record<string, unknown> = {};
     let targetOwnParams: Record<string, unknown> = {};
 
@@ -398,10 +402,14 @@ export class Cli {
       }
 
       const isTarget = i === visitedCommands.length - 1;
+      const isRoot = v.command === rootCommand;
+      if (isRoot) {
+        rootOptions = optionsResult.value;
+      }
       if (isTarget) {
         targetOwnOptions = optionsResult.value;
         targetOwnParams = paramsResult.value;
-      } else {
+      } else if (!isRoot) {
         parents[v.command.path] = { options: optionsResult.value, params: paramsResult.value };
       }
     }
@@ -410,18 +418,20 @@ export class Cli {
       options: targetOwnOptions,
       params: targetOwnParams,
       parents,
-      root: { options: rootResult.value },
+      root: { options: rootOptions },
     };
 
     if (!node.command.handler) {
       console.log(
-        renderCommandUsage({
-          programName: this.#programName,
-          node,
-          visited: visitedCommands
-            .map((v) => v.command)
-            .filter((c): c is RuntimeCommand => c !== null),
-        }),
+        node === this.#tree
+          ? this.#renderRootUsage()
+          : renderCommandUsage({
+              programName: this.#programName,
+              node,
+              visited: visitedCommands
+                .map((v) => v.command)
+                .filter((c): c is RuntimeCommand => c !== null),
+            }),
       );
       return 0;
     }
@@ -441,8 +451,6 @@ export class Cli {
   }
 }
 
-export function createCli<RootOptions extends SchemaRecord = SchemaRecord>(
-  options: CreateCliOptions<RootOptions>,
-): Cli {
+export function createCli(options: CreateCliOptions): Cli {
   return new Cli(options);
 }

@@ -1,0 +1,20 @@
+{
+  "name": "@my-org/my-package",
+  "description": "Send and receive messages from WhatsApp Business API",
+  "version": "0.0.26",
+  "author": "My Org <my-org@my-org.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/my-org/my-package",
+    "directory": "packages/my-package"
+  },
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "dist/*",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {}
+}

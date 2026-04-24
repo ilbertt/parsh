@@ -1,9 +1,8 @@
 import { readdir, stat } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import { extractCommand } from '#extractor.ts';
 import type { CommandNode, SourceSegment } from '#types.ts';
 
-/** Convert a filesystem directory name to a path segment. `[id]` → param; otherwise literal. */
 function dirNameToSegment(name: string): SourceSegment {
   if (name.startsWith('[') && name.endsWith(']')) {
     return { kind: 'param', name: name.slice(1, -1) };
@@ -11,7 +10,6 @@ function dirNameToSegment(name: string): SourceSegment {
   return { kind: 'literal', value: name };
 }
 
-/** True for files that are commands: `.ts`, not starting with `_`, not `.test.ts` / `.gen.ts`. */
 function isCommandFile(filename: string): boolean {
   if (!filename.endsWith('.ts')) {
     return false;
@@ -132,10 +130,6 @@ async function attachCommandFile(opts: {
   target.command = extracted;
 }
 
-/**
- * Walk the commands directory and build the intermediate tree.
- * `outFile` is the absolute path to the generated file, used to compute import specifiers.
- */
 export async function walkCommandsDir(opts: {
   commandsDir: string;
   outFile: string;
@@ -166,14 +160,4 @@ export async function walkCommandsDir(opts: {
 
   await visit({ dirAbs: opts.commandsDir, node: root });
   return root;
-}
-
-/** Compute relative import specifier from `outFile` to `target`. Strips `.ts`. */
-export function importSpecifierFor(opts: { outFile: string; target: string }): string {
-  const outDir = opts.outFile.replace(/[^/]+$/, '');
-  let rel = relative(outDir, opts.target);
-  if (!rel.startsWith('.')) {
-    rel = `./${rel}`;
-  }
-  return rel;
 }

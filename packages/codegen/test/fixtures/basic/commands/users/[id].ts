@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const command = defineCommand('users [id]', {
   params: { id: z.string() },
-  args: {},
+  options: {},
   handler: (ctx) => {
     console.log(`user ${ctx.params.id}`);
   },

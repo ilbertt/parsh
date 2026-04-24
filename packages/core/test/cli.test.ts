@@ -17,10 +17,10 @@ function stderrText(): string {
 }
 
 type Ctx = {
-  args: Record<string, unknown>;
+  options: Record<string, unknown>;
   params: Record<string, unknown>;
-  parents: Record<string, { args: Record<string, unknown>; params: Record<string, unknown> }>;
-  root: { args: Record<string, unknown> };
+  parents: Record<string, { options: Record<string, unknown>; params: Record<string, unknown> }>;
+  root: { options: Record<string, unknown> };
 };
 
 type Called = { path: string; ctx: Ctx };
@@ -42,7 +42,7 @@ function makeTree(opts: {
         segment: { kind: 'literal', value: 'deploy' },
         command: {
           path: 'deploy',
-          args: { env: z.enum(['staging', 'prod']) },
+          options: { env: z.enum(['staging', 'prod']) },
           handler: record('deploy'),
         } satisfies RuntimeCommand,
         literalChildren: {},
@@ -52,7 +52,7 @@ function makeTree(opts: {
         segment: { kind: 'literal', value: 'users' },
         command: {
           path: 'users',
-          args: { workspace: z.string() },
+          options: { workspace: z.string() },
           handler: record('users'),
         } satisfies RuntimeCommand,
         literalChildren: {
@@ -60,7 +60,7 @@ function makeTree(opts: {
             segment: { kind: 'literal', value: 'create' },
             command: {
               path: 'users create',
-              args: { email: z.string() },
+              options: { email: z.string() },
               handler: record('users create'),
             } satisfies RuntimeCommand,
             literalChildren: {},
@@ -71,7 +71,7 @@ function makeTree(opts: {
           segment: { kind: 'param', name: 'id' },
           command: {
             path: 'users [id]',
-            args: {},
+            options: {},
             params: { id: opts.idSchema() },
             handler: () => {},
           } satisfies RuntimeCommand,
@@ -80,7 +80,7 @@ function makeTree(opts: {
               segment: { kind: 'literal', value: 'edit' },
               command: {
                 path: 'users [id] edit',
-                args: {},
+                options: {},
                 handler: record('users [id] edit'),
               } satisfies RuntimeCommand,
               literalChildren: {},
@@ -101,18 +101,18 @@ function makeCli(opts: { calls: Called[]; idSchema?: () => z.ZodType<string | nu
       calls: opts.calls,
       idSchema: opts.idSchema ?? z.string,
     }),
-    args: { verbose: z.boolean().default(false) },
+    options: { verbose: z.boolean().default(false) },
   });
 }
 
 describe('argument parsing', () => {
-  test('own args populate ctx.args; root args populate ctx.root.args', async () => {
+  test('own options populate ctx.options; root options populate ctx.root.options', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run(['deploy', '--env', 'prod']);
 
     expect(code).toBe(0);
-    expect(calls[0]?.ctx.args).toEqual({ env: 'prod' });
-    expect(calls[0]?.ctx.root.args).toEqual({ verbose: false });
+    expect(calls[0]?.ctx.options).toEqual({ env: 'prod' });
+    expect(calls[0]?.ctx.root.options).toEqual({ verbose: false });
   });
 
   test('lifts a bare boolean flag to true', async () => {
@@ -120,10 +120,10 @@ describe('argument parsing', () => {
     const code = await makeCli({ calls }).run(['deploy', '--env', 'prod', '--verbose']);
 
     expect(code).toBe(0);
-    expect(calls[0]?.ctx.root.args.verbose).toBe(true);
+    expect(calls[0]?.ctx.root.options.verbose).toBe(true);
   });
 
-  test('ancestor args land in ctx.parents[path].args', async () => {
+  test('ancestor options land in ctx.parents[path].options', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run([
       'users',
@@ -135,14 +135,14 @@ describe('argument parsing', () => {
     ]);
 
     expect(code).toBe(0);
-    expect(calls[0]?.ctx.args).toEqual({ email: 'a@b.com' });
-    expect(calls[0]?.ctx.parents.users?.args).toEqual({ workspace: 'acme' });
-    expect(calls[0]?.ctx.root.args).toEqual({ verbose: false });
+    expect(calls[0]?.ctx.options).toEqual({ email: 'a@b.com' });
+    expect(calls[0]?.ctx.parents.users?.options).toEqual({ workspace: 'acme' });
+    expect(calls[0]?.ctx.root.options).toEqual({ verbose: false });
   });
 });
 
 describe('validation failures', () => {
-  test('missing required own arg exits 2 and surfaces the arg name', async () => {
+  test('missing required own option exits 2 and surfaces the option name', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run(['deploy']);
 
@@ -151,7 +151,7 @@ describe('validation failures', () => {
     expect(stderrText()).toContain('env');
   });
 
-  test('missing required ancestor arg exits 2', async () => {
+  test('missing required ancestor option exits 2', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run(['users', 'create', '--email', 'a@b.com']);
 
@@ -201,13 +201,13 @@ describe('direct handler invocation', () => {
     const deployCmd = tree.literalChildren.deploy!.command!;
 
     await deployCmd.handler!({
-      args: { env: 'prod' },
+      options: { env: 'prod' },
       params: {},
       parents: {},
-      root: { args: { verbose: false } },
+      root: { options: { verbose: false } },
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.ctx.args).toEqual({ env: 'prod' });
+    expect(calls[0]?.ctx.options).toEqual({ env: 'prod' });
   });
 });

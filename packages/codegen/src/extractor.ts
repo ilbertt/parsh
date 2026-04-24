@@ -2,11 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { basename, relative } from 'node:path';
 import type { ExtractedCommand, SourceSegment } from '#types.ts';
 
-/**
- * Parse a path string like `users [id] edit` into segments.
- * Bracket tokens `[name]` are dynamic params; other space-separated tokens are literals.
- */
-export function parsePathString(pathString: string): SourceSegment[] {
+function parsePathString(pathString: string): SourceSegment[] {
   const tokens = pathString.trim().split(/\s+/).filter(Boolean);
   const segments: SourceSegment[] = [];
   for (const tok of tokens) {
@@ -39,14 +35,9 @@ function segmentsEqual(opts: { a: SourceSegment[]; b: SourceSegment[] }): boolea
   return true;
 }
 
-/**
- * Find the `defineCommand('...', { ... })` call in source and extract:
- *  - the path string (first argument);
- *  - the names of keys in inline `args: { ... }` / `params: { ... }` literals.
- */
 function extractFromSource(opts: { source: string; filePath: string }): {
   pathString: string;
-  argNames: string[];
+  optionNames: string[];
   paramNames: string[];
 } {
   const src = opts.source;
@@ -63,16 +54,11 @@ function extractFromSource(opts: { source: string; filePath: string }): {
   });
   return {
     pathString,
-    argNames: extractInlineObjectKeys({ body: defBody, prop: 'args' }),
+    optionNames: extractInlineObjectKeys({ body: defBody, prop: 'options' }),
     paramNames: extractInlineObjectKeys({ body: defBody, prop: 'params' }),
   };
 }
 
-/**
- * Extract top-level keys from a `<prop>: { key1: ..., key2: ..., ... }` literal
- * inside `body`. Returns [] if the prop is absent or assigned an identifier
- * rather than an inline object literal.
- */
 function extractInlineObjectKeys(opts: { body: string; prop: string }): string[] {
   const re = new RegExp(`(^|[\\s,;{])${opts.prop}\\s*:\\s*\\{`);
   const m = opts.body.match(re);
@@ -86,10 +72,6 @@ function extractInlineObjectKeys(opts: { body: string; prop: string }): string[]
   return topLevelObjectKeys(inner);
 }
 
-/**
- * Scan forward from `start` (which must be one past an opening `{`) and return
- * the substring up to the matching closing `}`. Nested braces are tracked.
- */
 function readBalancedBraceBody(opts: { source: string; start: number }): string {
   let depth = 1;
   let i = opts.start;
@@ -113,10 +95,6 @@ function readBalancedBraceBody(opts: { source: string; start: number }): string 
   return body.join('');
 }
 
-/**
- * Collect the top-level key names from an object-literal body, ignoring keys
- * that appear inside nested `(...)`, `[...]`, or `{...}` (which would be values).
- */
 function topLevelObjectKeys(body: string): string[] {
   const topLevel = stripBalanced(body);
   const keyRe = /(^|[,{])\s*(?:(['"])([^'"]+)\2|([A-Za-z_$][\w$]*))\s*:/g;
@@ -170,10 +148,6 @@ function stripBalanced(src: string): string {
   return out.join('');
 }
 
-/**
- * Build a stable camelCase identifier from the relative command path.
- * `/.../commands/users/[id]/edit.ts` → `usersIdEditCmd`
- */
 function importNameFor(opts: { filePath: string }): string {
   const noExt = opts.filePath.replace(/\.ts$/, '');
   const parts = noExt.split('/');
@@ -196,7 +170,7 @@ export async function extractCommand(opts: {
   outDir: string;
 }): Promise<ExtractedCommand> {
   const source = await readFile(opts.filePath, 'utf8');
-  const { pathString, argNames, paramNames } = extractFromSource({
+  const { pathString, optionNames, paramNames } = extractFromSource({
     source,
     filePath: opts.filePath,
   });
@@ -218,7 +192,7 @@ export async function extractCommand(opts: {
     filePath: opts.filePath,
     pathString,
     segments,
-    argNames,
+    optionNames,
     paramNames,
     importName: importNameFor({ filePath: opts.filePath }),
     importSpecifier: spec,

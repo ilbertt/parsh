@@ -23,7 +23,9 @@ export async function generateCommandTree(opts: GenerateOptions): Promise<void> 
   const output = emitGeneratedFile({
     root,
     emitOptions: {
-      ...(opts.rootArgsTypeExpr !== undefined ? { rootArgsTypeExpr: opts.rootArgsTypeExpr } : {}),
+      ...(opts.rootOptionsTypeExpr !== undefined
+        ? { rootOptionsTypeExpr: opts.rootOptionsTypeExpr }
+        : {}),
       ...(opts.coreModule !== undefined ? { coreModule: opts.coreModule } : {}),
     },
   });

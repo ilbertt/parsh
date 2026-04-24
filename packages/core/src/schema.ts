@@ -45,6 +45,6 @@ export type AnySchema = StandardSchema<unknown, unknown>;
 
 export type InferOutput<S> = S extends StandardSchema<unknown, infer O> ? O : never;
 
-export type InferArgs<Schemas extends Record<string, AnySchema>> = {
+export type InferSchemas<Schemas extends Record<string, AnySchema>> = {
   -readonly [K in keyof Schemas]: InferOutput<Schemas[K]>;
 };

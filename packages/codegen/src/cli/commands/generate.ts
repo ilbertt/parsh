@@ -5,21 +5,25 @@ import { z } from 'zod';
 import { type GenerateOptions, generateCommandTree } from '#generate.ts';
 
 export const command = defineCommand('generate', {
-  args: {
+  options: {
     commands: z.string().default('./src/commands'),
     out: z.string().default('./src/commandTree.gen.ts'),
-    'root-args': z.string().optional(),
+    'root-options': z.string().optional(),
     'core-module': z.string().optional(),
     watch: z.boolean().default(false),
   },
   handler: async (ctx) => {
-    const commandsDir = resolve(ctx.args.commands);
-    const outFile = resolve(ctx.args.out);
+    const commandsDir = resolve(ctx.options.commands);
+    const outFile = resolve(ctx.options.out);
     const opts: GenerateOptions = {
       commandsDir,
       outFile,
-      ...(ctx.args['root-args'] !== undefined ? { rootArgsTypeExpr: ctx.args['root-args'] } : {}),
-      ...(ctx.args['core-module'] !== undefined ? { coreModule: ctx.args['core-module'] } : {}),
+      ...(ctx.options['root-options'] !== undefined
+        ? { rootOptionsTypeExpr: ctx.options['root-options'] }
+        : {}),
+      ...(ctx.options['core-module'] !== undefined
+        ? { coreModule: ctx.options['core-module'] }
+        : {}),
     };
 
     const runOnce = async (): Promise<void> => {
@@ -28,7 +32,7 @@ export const command = defineCommand('generate', {
         console.log(`parsh-codegen: wrote ${outFile}`);
       } catch (err) {
         console.error((err as Error).message);
-        if (!ctx.args.watch) {
+        if (!ctx.options.watch) {
           process.exit(1);
         }
       }
@@ -36,7 +40,7 @@ export const command = defineCommand('generate', {
 
     await runOnce();
 
-    if (ctx.args.watch) {
+    if (ctx.options.watch) {
       console.log(`parsh-codegen: watching ${commandsDir} for adds/removes/renames…`);
       let debounce: ReturnType<typeof setTimeout> | null = null;
       watch(commandsDir, { recursive: true }, () => {

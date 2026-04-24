@@ -1,26 +1,19 @@
 import { type ParseArgsConfig, parseArgs } from 'node:util';
 import type { AnySchema } from '#schema.ts';
 
-export type TreeSegment =
+type TreeSegment =
   | { readonly kind: 'literal'; readonly value: string }
   | { readonly kind: 'param'; readonly name: string };
 
-/**
- * Structural command shape used at runtime. Matches what `defineCommand` returns,
- * without referencing `CommandRegistry` — which is empty until user augmentation.
- */
 export interface RuntimeCommand {
   path: string;
-  args: Record<string, AnySchema>;
+  options: Record<string, AnySchema>;
   params?: Record<string, AnySchema>;
   helpArg?: { enabled: boolean };
-  /**
-   * Structural runtime handler. `ctx` is widened with `any` so that hand-built
-   * `RuntimeCommand`s in tests (or user code) can use specific `ctx` shapes —
-   * contravariance forbids the same with `unknown`. The ctx type that matters
-   * is enforced at the `defineCommand` call site via `HandlerCtx<P>`.
-   */
-  // biome-ignore lint/suspicious/noExplicitAny: intentional — see doc above
+  // `any` is required so hand-built `RuntimeCommand`s can use specific `ctx`
+  // shapes — contravariance forbids the same with `unknown`. The real ctx
+  // type is enforced at the `defineCommand` call site.
+  // biome-ignore lint/suspicious/noExplicitAny: see note above
   handler?: (ctx: any) => void | Promise<void>;
 }
 
@@ -31,15 +24,13 @@ export interface RuntimeNode {
   paramChild: RuntimeNode | null;
 }
 
-export type ArgsShape = Record<string, AnySchema>;
+type SchemaRecord = Record<string, AnySchema>;
 
-export interface CreateCliOptions<RootArgs extends ArgsShape = ArgsShape> {
-  /** Program name — shown in usage and used as the prefix for error messages. */
+interface CreateCliOptions<RootOptions extends SchemaRecord = SchemaRecord> {
   programName: string;
-  /** Optional one-liner printed above the usage block. */
   programDescription?: string;
   tree: RuntimeNode;
-  args?: RootArgs;
+  options?: RootOptions;
 }
 
 function probeBoolean(schema: AnySchema): boolean {
@@ -61,11 +52,11 @@ function probeBoolean(schema: AnySchema): boolean {
   }
 }
 
-function collectAllArgSchemas(opts: { root: ArgsShape; tree: RuntimeNode }): ArgsShape {
-  const all: ArgsShape = { ...opts.root };
+function collectAllOptionSchemas(opts: { root: SchemaRecord; tree: RuntimeNode }): SchemaRecord {
+  const all: SchemaRecord = { ...opts.root };
   function walk(node: RuntimeNode) {
     if (node.command) {
-      for (const [name, schema] of Object.entries(node.command.args)) {
+      for (const [name, schema] of Object.entries(node.command.options)) {
         all[name] = schema;
       }
     }
@@ -120,9 +111,9 @@ function walkTree(opts: { tree: RuntimeNode; positionals: string[] }): WalkResul
 }
 
 async function validateRecord(opts: {
-  schemas: ArgsShape;
+  schemas: SchemaRecord;
   values: Record<string, unknown>;
-  kind: 'arg' | 'param';
+  kind: 'option' | 'param';
 }): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; error: string }> {
   const out: Record<string, unknown> = {};
   for (const [name, schema] of Object.entries(opts.schemas)) {
@@ -189,27 +180,27 @@ function renderCommandUsage(opts: {
   const lines: string[] = [];
   lines.push(`Usage: ${opts.programName} ${segments.join(' ')} [options]`, '');
 
-  const ownArgs = Object.keys(cmd.args);
-  if (ownArgs.length > 0) {
-    lines.push('Arguments:');
-    for (const name of ownArgs) {
+  const ownOptions = Object.keys(cmd.options);
+  if (ownOptions.length > 0) {
+    lines.push('Options:');
+    for (const name of ownOptions) {
       lines.push(`  --${name}`);
     }
     lines.push('');
   }
 
-  const inheritedArgs: string[] = [];
+  const inheritedOptions: string[] = [];
   for (const v of opts.visited) {
     if (v.path === cmd.path) {
       continue;
     }
-    for (const name of Object.keys(v.args)) {
-      inheritedArgs.push(`--${name}  (from ${v.path})`);
+    for (const name of Object.keys(v.options)) {
+      inheritedOptions.push(`--${name}  (from ${v.path})`);
     }
   }
-  if (inheritedArgs.length > 0) {
-    lines.push('Inherited:');
-    for (const line of inheritedArgs) {
+  if (inheritedOptions.length > 0) {
+    lines.push('Inherited options:');
+    for (const line of inheritedOptions) {
       lines.push(`  ${line}`);
     }
     lines.push('');
@@ -242,9 +233,9 @@ function detectSameLevelCollisions(tree: RuntimeNode): string[] {
   function walk(input: { node: RuntimeNode; path: string[] }) {
     if (input.node.command) {
       const paramName = input.node.segment?.kind === 'param' ? input.node.segment.name : null;
-      if (paramName !== null && paramName in input.node.command.args) {
+      if (paramName !== null && paramName in input.node.command.options) {
         issues.push(
-          `command ${input.path.join(' ') || '(root)'} declares arg "${paramName}" that shadows its own param [${paramName}]`,
+          `command ${input.path.join(' ') || '(root)'} declares option "${paramName}" that shadows its own param [${paramName}]`,
         );
       }
     }
@@ -263,7 +254,7 @@ function detectSameLevelCollisions(tree: RuntimeNode): string[] {
 
 export class Cli {
   readonly #tree: RuntimeNode;
-  readonly #rootArgs: ArgsShape;
+  readonly #rootOptions: SchemaRecord;
   readonly #programName: string;
   readonly #programDescription: string | undefined;
   readonly #parseOptions: ParseArgsConfig['options'];
@@ -276,11 +267,11 @@ export class Cli {
       );
     }
     this.#tree = options.tree;
-    this.#rootArgs = options.args ?? {};
+    this.#rootOptions = options.options ?? {};
     this.#programName = options.programName;
     this.#programDescription = options.programDescription;
 
-    const allSchemas = collectAllArgSchemas({ root: this.#rootArgs, tree: this.#tree });
+    const allSchemas = collectAllOptionSchemas({ root: this.#rootOptions, tree: this.#tree });
     const parseOptions: ParseArgsConfig['options'] = {};
     for (const [name, schema] of Object.entries(allSchemas)) {
       parseOptions[name] = { type: probeBoolean(schema) ? 'boolean' : 'string' };
@@ -300,7 +291,6 @@ export class Cli {
     return this.#programName;
   }
 
-  /** Run against an explicit argv. For tests / programmatic use. */
   async run(argv: string[]): Promise<number> {
     let parsed: ReturnType<typeof parseArgs>;
     try {
@@ -353,9 +343,9 @@ export class Cli {
 
     const rawValues = parsed.values as Record<string, unknown>;
     const rootResult = await validateRecord({
-      schemas: this.#rootArgs,
+      schemas: this.#rootOptions,
       values: rawValues,
-      kind: 'arg',
+      kind: 'option',
     });
     if (!rootResult.ok) {
       console.error(`${this.#errorPrefix()}: ${rootResult.error}${helpHint(targetHelpEnabled)}`);
@@ -364,9 +354,9 @@ export class Cli {
 
     const parents: Record<
       string,
-      { args: Record<string, unknown>; params: Record<string, unknown> }
+      { options: Record<string, unknown>; params: Record<string, unknown> }
     > = {};
-    let targetOwnArgs: Record<string, unknown> = {};
+    let targetOwnOptions: Record<string, unknown> = {};
     let targetOwnParams: Record<string, unknown> = {};
 
     for (let i = 0; i < visitedCommands.length; i++) {
@@ -374,18 +364,20 @@ export class Cli {
       if (!v.command) {
         continue;
       }
-      const argsResult = await validateRecord({
-        schemas: v.command.args,
+      const optionsResult = await validateRecord({
+        schemas: v.command.options,
         values: rawValues,
-        kind: 'arg',
+        kind: 'option',
       });
-      if (!argsResult.ok) {
-        console.error(`${this.#errorPrefix()}: ${argsResult.error}${helpHint(targetHelpEnabled)}`);
+      if (!optionsResult.ok) {
+        console.error(
+          `${this.#errorPrefix()}: ${optionsResult.error}${helpHint(targetHelpEnabled)}`,
+        );
         return 2;
       }
 
       const ownParamValues: Record<string, unknown> = {};
-      const ownParamSchemas: ArgsShape = {};
+      const ownParamSchemas: SchemaRecord = {};
       if (v.paramName) {
         const schema = v.command.params?.[v.paramName];
         if (schema) {
@@ -407,18 +399,18 @@ export class Cli {
 
       const isTarget = i === visitedCommands.length - 1;
       if (isTarget) {
-        targetOwnArgs = argsResult.value;
+        targetOwnOptions = optionsResult.value;
         targetOwnParams = paramsResult.value;
       } else {
-        parents[v.command.path] = { args: argsResult.value, params: paramsResult.value };
+        parents[v.command.path] = { options: optionsResult.value, params: paramsResult.value };
       }
     }
 
     const ctx = {
-      args: targetOwnArgs,
+      options: targetOwnOptions,
       params: targetOwnParams,
       parents,
-      root: { args: rootResult.value },
+      root: { options: rootResult.value },
     };
 
     if (!node.command.handler) {
@@ -443,15 +435,14 @@ export class Cli {
     }
   }
 
-  /** Run against `process.argv.slice(2)` and exit with the result code. */
   async main(): Promise<never> {
     const code = await this.run(process.argv.slice(2));
     process.exit(code);
   }
 }
 
-export function createCli<RootArgs extends ArgsShape = ArgsShape>(
-  options: CreateCliOptions<RootArgs>,
+export function createCli<RootOptions extends SchemaRecord = SchemaRecord>(
+  options: CreateCliOptions<RootOptions>,
 ): Cli {
   return new Cli(options);
 }

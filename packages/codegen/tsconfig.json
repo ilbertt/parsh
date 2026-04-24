@@ -1,10 +1,5 @@
 {
   "extends": "@repo/typescript-config/base.json",
-  "compilerOptions": {
-    "paths": {
-      "@parsh/core": ["../core/src/index.ts"]
-    }
-  },
   "include": ["src", "test", "build.ts"],
   "exclude": [
     "node_modules",

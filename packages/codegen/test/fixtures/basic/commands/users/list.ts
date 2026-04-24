@@ -1,4 +1,4 @@
-import { defineCommand } from '@parsh/core';
+import { defineCommand } from '@repo/core';
 import { z } from 'zod';
 
 export const args = { limit: z.coerce.number() };

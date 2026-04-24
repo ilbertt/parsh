@@ -7,7 +7,7 @@
     "check:types": "bun run --bun tsc",
     "test": "bun test",
     "generate:self": "bun src/cli/bin.ts generate --commands src/cli/commands --out src/cli/commandTree.gen.ts --core-module @repo/core",
-    "generate:fixtures": "bun src/cli/bin.ts generate --commands test/fixtures/basic/commands --out test/fixtures/basic/commandTree.expected.ts"
+    "generate:fixtures": "bun src/cli/bin.ts generate --commands test/fixtures/basic/commands --out test/fixtures/basic/commandTree.expected.ts --core-module @repo/core"
   },
   "bin": {
     "parsh-codegen": "./src/cli/bin.ts"

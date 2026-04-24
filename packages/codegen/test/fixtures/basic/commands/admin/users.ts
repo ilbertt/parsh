@@ -1,4 +1,4 @@
-import { defineCommand } from '@parsh/core';
+import { defineCommand } from '@repo/core';
 
 export const args = {};
 

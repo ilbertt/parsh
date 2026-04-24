@@ -9,6 +9,7 @@ function fixture(name: string) {
   return {
     commandsDir: join(FIXTURES, name, 'commands'),
     outFile: join(FIXTURES, name, 'commandTree.gen.ts'),
+    coreModule: '@repo/core',
   };
 }
 
@@ -28,11 +29,11 @@ function paramShadowsAncestorParam(name: string): RegExp {
 
 describe('generateCommandTree', () => {
   test('basic fixture matches the expected output byte-for-byte', async () => {
-    const { commandsDir, outFile } = fixture('basic');
-    await generateCommandTree({ commandsDir, outFile });
+    const basic = fixture('basic');
+    await generateCommandTree(basic);
 
     const [generated, expected] = await Promise.all([
-      readFile(outFile, 'utf8'),
+      readFile(basic.outFile, 'utf8'),
       readFile(join(FIXTURES, 'basic', 'commandTree.expected.ts'), 'utf8'),
     ]);
     expect(generated).toBe(expected);

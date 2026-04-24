@@ -1,9 +1,10 @@
 {
-  "name": "bun-monorepo",
+  "name": "parsh-monorepo",
   "type": "module",
   "private": true,
   "scripts": {
     "build": "bun run --bun turbo build",
+    "test": "bun run --bun turbo test",
     "check:types": "bun run --bun turbo check:types",
     "check:codestyle": "bun run --bun biome check",
     "check:all": "bun check:types && bun check:codestyle",
@@ -12,11 +13,11 @@
   },
   "workspaces": {
     "packages": [
-      "apps/*",
       "packages/*"
     ],
     "catalog": {
-      "typescript": "^5.9.3"
+      "typescript": "^5.9.3",
+      "zod": "^4.3.6"
     }
   },
   "devDependencies": {
@@ -26,6 +27,7 @@
     "@commitlint/format": "^20.5.0",
     "@commitlint/types": "^20.5.0",
     "@types/bun": "latest",
+    "typescript": "catalog:",
     "turbo": "^2.9.5"
   },
   "packageManager": "bun@1.3.13"

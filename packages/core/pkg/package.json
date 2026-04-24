@@ -1,0 +1,18 @@
+{
+  "name": "@parsh/core",
+  "description": "Type-safe router for TypeScript CLIs.",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ilbertt/parsh",
+    "directory": "packages/core"
+  },
+  "license": "Unlicense",
+  "type": "module",
+  "files": [
+    "dist/*",
+    "package.json",
+    "README.md"
+  ],
+  "dependencies": {}
+}

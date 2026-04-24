@@ -1,0 +1,23 @@
+{
+  "name": "@parsh/codegen",
+  "description": "Filesystem-driven command tree generator for parsh.",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ilbertt/parsh",
+    "directory": "packages/codegen"
+  },
+  "license": "Unlicense",
+  "type": "module",
+  "bin": {
+    "parsh-codegen": "./dist/cli/bin.js"
+  },
+  "files": [
+    "dist/*",
+    "package.json",
+    "README.md"
+  ],
+  "dependencies": {
+    "@biomejs/biome": "^2.4.10"
+  }
+}

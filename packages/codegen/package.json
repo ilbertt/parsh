@@ -1,0 +1,26 @@
+{
+  "name": "@repo/codegen",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run build.ts",
+    "check:types": "bun run --bun tsc",
+    "test": "bun test",
+    "generate:self": "bun src/cli/bin.ts generate --commands src/cli/commands --out src/cli/commandTree.gen.ts --core-module @repo/core",
+    "generate:fixtures": "bun src/cli/bin.ts generate --commands test/fixtures/basic/commands --out test/fixtures/basic/commandTree.expected.ts"
+  },
+  "bin": {
+    "parsh-codegen": "./src/cli/bin.ts"
+  },
+  "devDependencies": {
+    "@repo/core": "workspace:*",
+    "@repo/pack-utils": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "catalog:",
+    "zod": "catalog:"
+  },
+  "dependencies": {},
+  "imports": {
+    "#*": "./src/*"
+  }
+}

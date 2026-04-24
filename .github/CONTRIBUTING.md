@@ -1,11 +1,15 @@
-# Contributing to <repository-name>
+# Contributing to parsh
 
 ## Development setup
 
 ```bash
-git clone <repository-url>
-cd <repository-name>
+git clone https://github.com/ilbertt/parsh
+cd parsh
 bun install
+# sanity checks
+bun check:all
+bun run test
+bun run build
 ```
 
 ## Commit messages

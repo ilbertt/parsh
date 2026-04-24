@@ -13,10 +13,12 @@ export interface RuntimeCommand {
   path: string;
   args: Record<string, AnySchema>;
   params?: Record<string, AnySchema>;
+  helpArg?: { enabled: boolean };
   /**
-   * Handler storage. The specific `ctx` shape per command is enforced at the
-   * `defineCommand` call site via `HandlerCtx<P>`; `RuntimeCommand` is the
-   * structural runtime storage and keeps the signature bivariant.
+   * Structural runtime handler. `ctx` is widened with `any` so that hand-built
+   * `RuntimeCommand`s in tests (or user code) can use specific `ctx` shapes —
+   * contravariance forbids the same with `unknown`. The ctx type that matters
+   * is enforced at the `defineCommand` call site via `HandlerCtx<P>`.
    */
   // biome-ignore lint/suspicious/noExplicitAny: intentional — see doc above
   handler?: (ctx: any) => void | Promise<void>;
@@ -32,6 +34,10 @@ export interface RuntimeNode {
 export type ArgsShape = Record<string, AnySchema>;
 
 export interface CreateCliOptions<RootArgs extends ArgsShape = ArgsShape> {
+  /** Program name — shown in usage and used as the prefix for error messages. */
+  programName: string;
+  /** Optional one-liner printed above the usage block. */
+  programDescription?: string;
   tree: RuntimeNode;
   args?: RootArgs;
 }
@@ -141,8 +147,16 @@ async function validateRecord(opts: {
   return { ok: true, value: out };
 }
 
-function renderUsage(opts: { root: RuntimeNode; programName: string }): string {
-  const lines: string[] = [`Usage: ${opts.programName} <command> [options]`, '', 'Commands:'];
+function renderRootUsage(opts: {
+  root: RuntimeNode;
+  programName: string;
+  programDescription: string | undefined;
+}): string {
+  const lines: string[] = [];
+  if (opts.programDescription) {
+    lines.push(opts.programDescription, '');
+  }
+  lines.push(`Usage: ${opts.programName} <command> [options]`, '', 'Commands:');
   function walk(input: { node: RuntimeNode; prefix: string[] }) {
     for (const [name, child] of Object.entries(input.node.literalChildren)) {
       const pieces = [...input.prefix, name];
@@ -163,6 +177,64 @@ function renderUsage(opts: { root: RuntimeNode; programName: string }): string {
   }
   walk({ node: opts.root, prefix: [] });
   return lines.join('\n');
+}
+
+function renderCommandUsage(opts: {
+  programName: string;
+  node: RuntimeNode;
+  visited: ReadonlyArray<RuntimeCommand>;
+}): string {
+  const cmd = opts.node.command!;
+  const segments = cmd.path.split(' ').map((s) => (s.startsWith('[') ? `<${s.slice(1, -1)}>` : s));
+  const lines: string[] = [];
+  lines.push(`Usage: ${opts.programName} ${segments.join(' ')} [options]`, '');
+
+  const ownArgs = Object.keys(cmd.args);
+  if (ownArgs.length > 0) {
+    lines.push('Arguments:');
+    for (const name of ownArgs) {
+      lines.push(`  --${name}`);
+    }
+    lines.push('');
+  }
+
+  const inheritedArgs: string[] = [];
+  for (const v of opts.visited) {
+    if (v.path === cmd.path) {
+      continue;
+    }
+    for (const name of Object.keys(v.args)) {
+      inheritedArgs.push(`--${name}  (from ${v.path})`);
+    }
+  }
+  if (inheritedArgs.length > 0) {
+    lines.push('Inherited:');
+    for (const line of inheritedArgs) {
+      lines.push(`  ${line}`);
+    }
+    lines.push('');
+  }
+
+  const subs = Object.keys(opts.node.literalChildren).sort();
+  if (subs.length > 0 || opts.node.paramChild) {
+    lines.push('Subcommands:');
+    for (const name of subs) {
+      lines.push(`  ${name}`);
+    }
+    if (opts.node.paramChild?.segment?.kind === 'param') {
+      lines.push(`  <${opts.node.paramChild.segment.name}>`);
+    }
+  }
+
+  return lines.join('\n').trimEnd();
+}
+
+function helpRequested(argv: string[]): boolean {
+  return argv.includes('--help') || argv.includes('-h');
+}
+
+function helpHint(enabled: boolean): string {
+  return enabled ? ' — use --help or -h to see usage' : '';
 }
 
 function detectSameLevelCollisions(tree: RuntimeNode): string[] {
@@ -192,17 +264,21 @@ function detectSameLevelCollisions(tree: RuntimeNode): string[] {
 export class Cli {
   readonly #tree: RuntimeNode;
   readonly #rootArgs: ArgsShape;
+  readonly #programName: string;
+  readonly #programDescription: string | undefined;
   readonly #parseOptions: ParseArgsConfig['options'];
 
   constructor(options: CreateCliOptions) {
     const issues = detectSameLevelCollisions(options.tree);
     if (issues.length > 0) {
       throw new Error(
-        `parsh: command tree has ${issues.length} issue(s):\n${issues.map((i) => `  - ${i}`).join('\n')}`,
+        `${options.programName}: command tree has ${issues.length} issue(s):\n${issues.map((i) => `  - ${i}`).join('\n')}`,
       );
     }
     this.#tree = options.tree;
     this.#rootArgs = options.args ?? {};
+    this.#programName = options.programName;
+    this.#programDescription = options.programDescription;
 
     const allSchemas = collectAllArgSchemas({ root: this.#rootArgs, tree: this.#tree });
     const parseOptions: ParseArgsConfig['options'] = {};
@@ -212,13 +288,20 @@ export class Cli {
     this.#parseOptions = parseOptions;
   }
 
+  #renderRootUsage(): string {
+    return renderRootUsage({
+      root: this.#tree,
+      programName: this.#programName,
+      programDescription: this.#programDescription,
+    });
+  }
+
+  #errorPrefix(): string {
+    return this.#programName;
+  }
+
   /** Run against an explicit argv. For tests / programmatic use. */
   async run(argv: string[]): Promise<number> {
-    if (argv.includes('--help') || argv.includes('-h')) {
-      console.log(renderUsage({ root: this.#tree, programName: 'cli' }));
-      return 0;
-    }
-
     let parsed: ReturnType<typeof parseArgs>;
     try {
       parsed = parseArgs({
@@ -228,8 +311,15 @@ export class Cli {
         allowPositionals: true,
       });
     } catch (err) {
-      console.error(`parsh: failed to parse arguments: ${(err as Error).message}`);
+      console.error(`${this.#errorPrefix()}: failed to parse arguments: ${(err as Error).message}`);
       return 2;
+    }
+
+    const wantsHelp = helpRequested(argv);
+
+    if (parsed.positionals.length === 0 && wantsHelp) {
+      console.log(this.#renderRootUsage());
+      return 0;
     }
 
     const { node, visitedCommands, unknown, unknownToken } = walkTree({
@@ -238,60 +328,109 @@ export class Cli {
     });
 
     if (unknown) {
-      console.error(`parsh: unknown command: ${unknownToken}`);
+      console.error(`${this.#errorPrefix()}: unknown command: ${unknownToken}`);
       return 2;
     }
 
     if (!node.command) {
-      console.log(renderUsage({ root: this.#tree, programName: 'cli' }));
+      console.log(this.#renderRootUsage());
       return 0;
     }
 
-    const accumulatedArgSchemas: ArgsShape = { ...this.#rootArgs };
-    for (const v of visitedCommands) {
-      if (v.command) {
-        for (const [name, schema] of Object.entries(v.command.args)) {
-          accumulatedArgSchemas[name] = schema;
-        }
-      }
+    const targetHelpEnabled = node.command.helpArg?.enabled !== false;
+    if (wantsHelp && targetHelpEnabled) {
+      console.log(
+        renderCommandUsage({
+          programName: this.#programName,
+          node,
+          visited: visitedCommands
+            .map((v) => v.command)
+            .filter((c): c is RuntimeCommand => c !== null),
+        }),
+      );
+      return 0;
     }
 
-    const paramSchemas: ArgsShape = {};
-    const paramRawValues: Record<string, unknown> = {};
-    for (const v of visitedCommands) {
-      if (v.paramName && v.command) {
-        const schema = v.command.params?.[v.paramName];
-        if (schema) {
-          paramSchemas[v.paramName] = schema;
-          paramRawValues[v.paramName] = v.paramValue;
-        }
-      }
-    }
-
-    const argsResult = await validateRecord({
-      schemas: accumulatedArgSchemas,
-      values: parsed.values as Record<string, unknown>,
+    const rawValues = parsed.values as Record<string, unknown>;
+    const rootResult = await validateRecord({
+      schemas: this.#rootArgs,
+      values: rawValues,
       kind: 'arg',
     });
-    if (!argsResult.ok) {
-      console.error(`parsh: ${argsResult.error}`);
+    if (!rootResult.ok) {
+      console.error(`${this.#errorPrefix()}: ${rootResult.error}${helpHint(targetHelpEnabled)}`);
       return 2;
     }
 
-    const paramsResult = await validateRecord({
-      schemas: paramSchemas,
-      values: paramRawValues,
-      kind: 'param',
-    });
-    if (!paramsResult.ok) {
-      console.error(`parsh: ${paramsResult.error}`);
-      return 2;
+    const parents: Record<
+      string,
+      { args: Record<string, unknown>; params: Record<string, unknown> }
+    > = {};
+    let targetOwnArgs: Record<string, unknown> = {};
+    let targetOwnParams: Record<string, unknown> = {};
+
+    for (let i = 0; i < visitedCommands.length; i++) {
+      const v = visitedCommands[i]!;
+      if (!v.command) {
+        continue;
+      }
+      const argsResult = await validateRecord({
+        schemas: v.command.args,
+        values: rawValues,
+        kind: 'arg',
+      });
+      if (!argsResult.ok) {
+        console.error(`${this.#errorPrefix()}: ${argsResult.error}${helpHint(targetHelpEnabled)}`);
+        return 2;
+      }
+
+      const ownParamValues: Record<string, unknown> = {};
+      const ownParamSchemas: ArgsShape = {};
+      if (v.paramName) {
+        const schema = v.command.params?.[v.paramName];
+        if (schema) {
+          ownParamSchemas[v.paramName] = schema;
+          ownParamValues[v.paramName] = v.paramValue;
+        }
+      }
+      const paramsResult = await validateRecord({
+        schemas: ownParamSchemas,
+        values: ownParamValues,
+        kind: 'param',
+      });
+      if (!paramsResult.ok) {
+        console.error(
+          `${this.#errorPrefix()}: ${paramsResult.error}${helpHint(targetHelpEnabled)}`,
+        );
+        return 2;
+      }
+
+      const isTarget = i === visitedCommands.length - 1;
+      if (isTarget) {
+        targetOwnArgs = argsResult.value;
+        targetOwnParams = paramsResult.value;
+      } else {
+        parents[v.command.path] = { args: argsResult.value, params: paramsResult.value };
+      }
     }
 
-    const ctx = { args: argsResult.value, params: paramsResult.value };
+    const ctx = {
+      args: targetOwnArgs,
+      params: targetOwnParams,
+      parents,
+      root: { args: rootResult.value },
+    };
 
     if (!node.command.handler) {
-      console.log(renderUsage({ root: this.#tree, programName: 'cli' }));
+      console.log(
+        renderCommandUsage({
+          programName: this.#programName,
+          node,
+          visited: visitedCommands
+            .map((v) => v.command)
+            .filter((c): c is RuntimeCommand => c !== null),
+        }),
+      );
       return 0;
     }
 
@@ -299,7 +438,7 @@ export class Cli {
       await node.command.handler(ctx);
       return 0;
     } catch (err) {
-      console.error(`parsh: handler error: ${(err as Error).message}`);
+      console.error(`${this.#errorPrefix()}: handler error: ${(err as Error).message}`);
       return 1;
     }
   }
@@ -311,7 +450,7 @@ export class Cli {
   }
 }
 
-export function createCLI<RootArgs extends ArgsShape = ArgsShape>(
+export function createCli<RootArgs extends ArgsShape = ArgsShape>(
   options: CreateCliOptions<RootArgs>,
 ): Cli {
   return new Cli(options);

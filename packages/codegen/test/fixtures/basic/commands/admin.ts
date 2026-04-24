@@ -1,10 +1,8 @@
 import { defineCommand } from '@repo/core';
 import { z } from 'zod';
 
-export const args = { role: z.enum(['ops', 'super']) };
-
 export const command = defineCommand('admin', {
-  args,
+  args: { role: z.enum(['ops', 'super']) },
   handler: (ctx) => {
     console.log(`role=${ctx.args.role}`);
   },

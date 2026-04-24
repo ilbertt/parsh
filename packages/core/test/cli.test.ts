@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, type Mock, spyOn, test } from 'bun:test';
 import { z } from 'zod';
-import { createCLI, type RuntimeCommand, type RuntimeNode } from '#index.ts';
+import { createCli, type RuntimeCommand, type RuntimeNode } from '#index.ts';
 
 let stderrSpy: Mock<typeof console.error>;
 
@@ -16,46 +16,23 @@ function stderrText(): string {
   return stderrSpy.mock.calls.flat().map(String).join('\n').toLowerCase();
 }
 
-type Called = { path: string; args: Record<string, unknown>; params: Record<string, unknown> };
+type Ctx = {
+  args: Record<string, unknown>;
+  params: Record<string, unknown>;
+  parents: Record<string, { args: Record<string, unknown>; params: Record<string, unknown> }>;
+  root: { args: Record<string, unknown> };
+};
+
+type Called = { path: string; ctx: Ctx };
 
 function makeTree(opts: {
   calls: Called[];
   idSchema: () => z.ZodType<string | number>;
 }): RuntimeNode {
-  const deployCmd: RuntimeCommand = {
-    path: 'deploy',
-    args: { env: z.enum(['staging', 'prod']) },
-    handler: (ctx) => {
-      opts.calls.push({ path: 'deploy', args: ctx.args, params: ctx.params });
-    },
+  const record = (path: string) => (ctx: Ctx) => {
+    opts.calls.push({ path, ctx });
   };
-  const usersCmd: RuntimeCommand = {
-    path: 'users',
-    args: { workspace: z.string() },
-    handler: (ctx) => {
-      opts.calls.push({ path: 'users', args: ctx.args, params: ctx.params });
-    },
-  };
-  const usersCreateCmd: RuntimeCommand = {
-    path: 'users create',
-    args: { email: z.string() },
-    handler: (ctx) => {
-      opts.calls.push({ path: 'users create', args: ctx.args, params: ctx.params });
-    },
-  };
-  const usersIdCmd: RuntimeCommand = {
-    path: 'users [id]',
-    args: {},
-    params: { id: opts.idSchema() },
-    handler: () => {},
-  };
-  const usersIdEditCmd: RuntimeCommand = {
-    path: 'users [id] edit',
-    args: {},
-    handler: (ctx) => {
-      opts.calls.push({ path: 'users [id] edit', args: ctx.args, params: ctx.params });
-    },
-  };
+
   return {
     segment: null,
     command: null,
@@ -63,28 +40,49 @@ function makeTree(opts: {
     literalChildren: {
       deploy: {
         segment: { kind: 'literal', value: 'deploy' },
-        command: deployCmd,
+        command: {
+          path: 'deploy',
+          args: { env: z.enum(['staging', 'prod']) },
+          handler: record('deploy'),
+        } satisfies RuntimeCommand,
         literalChildren: {},
         paramChild: null,
       },
       users: {
         segment: { kind: 'literal', value: 'users' },
-        command: usersCmd,
+        command: {
+          path: 'users',
+          args: { workspace: z.string() },
+          handler: record('users'),
+        } satisfies RuntimeCommand,
         literalChildren: {
           create: {
             segment: { kind: 'literal', value: 'create' },
-            command: usersCreateCmd,
+            command: {
+              path: 'users create',
+              args: { email: z.string() },
+              handler: record('users create'),
+            } satisfies RuntimeCommand,
             literalChildren: {},
             paramChild: null,
           },
         },
         paramChild: {
           segment: { kind: 'param', name: 'id' },
-          command: usersIdCmd,
+          command: {
+            path: 'users [id]',
+            args: {},
+            params: { id: opts.idSchema() },
+            handler: () => {},
+          } satisfies RuntimeCommand,
           literalChildren: {
             edit: {
               segment: { kind: 'literal', value: 'edit' },
-              command: usersIdEditCmd,
+              command: {
+                path: 'users [id] edit',
+                args: {},
+                handler: record('users [id] edit'),
+              } satisfies RuntimeCommand,
               literalChildren: {},
               paramChild: null,
             },
@@ -97,7 +95,8 @@ function makeTree(opts: {
 }
 
 function makeCli(opts: { calls: Called[]; idSchema?: () => z.ZodType<string | number> }) {
-  return createCLI({
+  return createCli({
+    programName: 'test',
     tree: makeTree({
       calls: opts.calls,
       idSchema: opts.idSchema ?? z.string,
@@ -107,16 +106,13 @@ function makeCli(opts: { calls: Called[]; idSchema?: () => z.ZodType<string | nu
 }
 
 describe('argument parsing', () => {
-  test('parses a required string flag and fills a defaulted boolean', async () => {
+  test('own args populate ctx.args; root args populate ctx.root.args', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run(['deploy', '--env', 'prod']);
 
     expect(code).toBe(0);
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatchObject({
-      path: 'deploy',
-      args: { env: 'prod', verbose: false },
-    });
+    expect(calls[0]?.ctx.args).toEqual({ env: 'prod' });
+    expect(calls[0]?.ctx.root.args).toEqual({ verbose: false });
   });
 
   test('lifts a bare boolean flag to true', async () => {
@@ -124,10 +120,10 @@ describe('argument parsing', () => {
     const code = await makeCli({ calls }).run(['deploy', '--env', 'prod', '--verbose']);
 
     expect(code).toBe(0);
-    expect(calls[0]?.args.verbose).toBe(true);
+    expect(calls[0]?.ctx.root.args.verbose).toBe(true);
   });
 
-  test('accepts flags at any position, across subcommand boundaries', async () => {
+  test('ancestor args land in ctx.parents[path].args', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run([
       'users',
@@ -139,15 +135,14 @@ describe('argument parsing', () => {
     ]);
 
     expect(code).toBe(0);
-    expect(calls[0]).toMatchObject({
-      path: 'users create',
-      args: { email: 'a@b.com', workspace: 'acme', verbose: false },
-    });
+    expect(calls[0]?.ctx.args).toEqual({ email: 'a@b.com' });
+    expect(calls[0]?.ctx.parents.users?.args).toEqual({ workspace: 'acme' });
+    expect(calls[0]?.ctx.root.args).toEqual({ verbose: false });
   });
 });
 
 describe('validation failures', () => {
-  test('missing required arg exits 2 and surfaces the arg name', async () => {
+  test('missing required own arg exits 2 and surfaces the arg name', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run(['deploy']);
 
@@ -156,7 +151,7 @@ describe('validation failures', () => {
     expect(stderrText()).toContain('env');
   });
 
-  test('missing inherited arg exits 2', async () => {
+  test('missing required ancestor arg exits 2', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run(['users', 'create', '--email', 'a@b.com']);
 
@@ -174,15 +169,13 @@ describe('validation failures', () => {
 });
 
 describe('param capture', () => {
-  test('captures a dynamic segment as a string param', async () => {
+  test('ancestor dynamic segment lands in ctx.parents[path].params', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run(['users', '--workspace', 'x', '123', 'edit']);
 
     expect(code).toBe(0);
-    expect(calls[0]).toMatchObject({
-      path: 'users [id] edit',
-      params: { id: '123' },
-    });
+    expect(calls[0]?.path).toBe('users [id] edit');
+    expect(calls[0]?.ctx.parents['users [id]']?.params).toEqual({ id: '123' });
   });
 
   test('rejects a param value that fails its schema', async () => {
@@ -208,11 +201,13 @@ describe('direct handler invocation', () => {
     const deployCmd = tree.literalChildren.deploy!.command!;
 
     await deployCmd.handler!({
-      args: { env: 'prod', verbose: false },
+      args: { env: 'prod' },
       params: {},
+      parents: {},
+      root: { args: { verbose: false } },
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.args.env).toBe('prod');
+    expect(calls[0]?.ctx.args).toEqual({ env: 'prod' });
   });
 });

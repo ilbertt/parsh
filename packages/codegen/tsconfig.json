@@ -4,6 +4,7 @@
   "exclude": [
     "node_modules",
     "pkg",
+    "test/fixtures/**/commandTree.gen.ts",
     "test/fixtures/collision-arg",
     "test/fixtures/collision-param-arg",
     "test/fixtures/collision-param-param"

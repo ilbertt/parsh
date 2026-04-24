@@ -1,49 +1,84 @@
 import type { CommandEntry, CommandRegistry, Simplify } from '#registry.ts';
-import type { AnySchema } from '#schema.ts';
-
-export type HandlerCtx<P extends keyof CommandRegistry> = CommandRegistry[P] extends CommandEntry
-  ? Simplify<
-      {
-        args: Simplify<CommandRegistry[P]['own'] & CommandRegistry[P]['inherited']>;
-        params: Simplify<CommandRegistry[P]['params'] & CommandRegistry[P]['inheritedParams']>;
-      } & CommandRegistry[P]['ctx']
-    >
-  : never;
+import type { AnySchema, InferArgs } from '#schema.ts';
 
 /**
- * Source-of-truth constraint for `params`: the path string declares which params
- * exist; the `params` object declares their schemas. Keys must match exactly.
- * - Registry entry with empty `params` → field is optional, must be empty if present.
- * - Registry entry with non-empty `params` → field is required, keys must match exactly.
+ * Extract the last space-separated segment of a path string.
+ * `'users [id] edit'` → `'edit'`
  */
-export type ParamsConstraint<P extends keyof CommandRegistry> =
-  CommandRegistry[P] extends CommandEntry
-    ? keyof CommandRegistry[P]['params'] extends never
-      ? { params?: Record<string, never> }
-      : { params: { [K in keyof CommandRegistry[P]['params']]: AnySchema } }
-    : never;
+type LastSegment<P extends string> = P extends `${string} ${infer Rest}` ? LastSegment<Rest> : P;
 
-export type CommandDef<P extends keyof CommandRegistry> = {
-  args: Record<string, AnySchema>;
-  handler?: (ctx: HandlerCtx<P>) => void | Promise<void>;
-} & ParamsConstraint<P>;
+/**
+ * The param name introduced by this command's own (last) segment, or `never` if
+ * the last segment is a literal.
+ */
+type OwnParamName<P extends string> = LastSegment<P> extends `[${infer N}]` ? N : never;
+
+/**
+ * Shape of the `params` field in `defineCommand(path, def)`:
+ * - path has no bracket in its last segment → `params` optional, must be empty.
+ * - path ends in `[name]` → `params` required with exactly one key `name`.
+ */
+export type ParamsConstraint<P extends string> = [OwnParamName<P>] extends [never]
+  ? { params?: Record<string, never> }
+  : { params: { [K in OwnParamName<P>]: AnySchema } };
+
+type OwnParamsOf<P extends string, Params extends Record<string, AnySchema>> = [
+  OwnParamName<P>,
+] extends [never]
+  ? Record<string, never>
+  : InferArgs<Params>;
+
+/**
+ * Per-command handler ctx. `args` / `params` are the command's OWN fields,
+ * inferred locally from the `args` / `params` literals. Ancestor contributions
+ * live under `parents` keyed by the ancestor's path string; root args live
+ * under `root.args`.
+ */
+export type HandlerCtx<
+  P extends keyof CommandRegistry,
+  Args extends Record<string, AnySchema>,
+  Params extends Record<string, AnySchema>,
+> = CommandRegistry[P] extends CommandEntry
+  ? Simplify<{
+      args: Simplify<InferArgs<Args>>;
+      params: Simplify<OwnParamsOf<P & string, Params>>;
+      parents: CommandRegistry[P]['parents'];
+      root: CommandRegistry[P]['root'];
+    }>
+  : never;
+
+export type HelpArgConfig = { enabled: boolean };
 
 export type DefinedCommand<
   P extends keyof CommandRegistry,
   Args extends Record<string, AnySchema>,
+  Params extends Record<string, AnySchema>,
 > = {
   path: P;
   args: Args;
-  handler?: (ctx: HandlerCtx<P>) => void | Promise<void>;
-} & ParamsConstraint<P>;
+  params: Params;
+  helpArg: HelpArgConfig;
+  handler?: (ctx: unknown) => void | Promise<void>;
+};
 
 export function defineCommand<
   P extends keyof CommandRegistry,
   const Args extends Record<string, AnySchema>,
+  const Params extends Record<string, AnySchema> = Record<string, never>,
   // biome-ignore lint/complexity/useMaxParams: DX — path-first call shape (path, def) is the declared API
 >(
   path: P,
-  def: { args: Args; handler?: (ctx: HandlerCtx<P>) => void | Promise<void> } & ParamsConstraint<P>,
-): DefinedCommand<P, Args> {
-  return { ...def, path } as DefinedCommand<P, Args>;
+  def: {
+    args: Args;
+    helpArg?: HelpArgConfig;
+    handler?: (ctx: HandlerCtx<P, Args, Params>) => void | Promise<void>;
+  } & ParamsConstraint<P & string> &
+    (Params extends Record<string, never> ? unknown : { params: Params }),
+): DefinedCommand<P, Args, Params> {
+  return {
+    params: {} as Params,
+    helpArg: { enabled: true },
+    ...(def as object),
+    path,
+  } as DefinedCommand<P, Args, Params>;
 }

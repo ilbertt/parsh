@@ -1,11 +1,9 @@
 import { defineCommand } from '@repo/core';
 import { z } from 'zod';
 
-export const args = { email: z.string() };
-
 export const command = defineCommand('users create', {
-  args,
+  args: { email: z.string() },
   handler: (ctx) => {
-    console.log(`create ${ctx.args.email} in ${ctx.args.workspace}`);
+    console.log(`create ${ctx.args.email} in ${ctx.parents.users.args.workspace}`);
   },
 });

@@ -1,11 +1,9 @@
 import { defineCommand } from '@repo/core';
 import { z } from 'zod';
 
-export const args = { mode: z.enum(['basic', 'full']) };
-
 export const command = defineCommand('users [id] edit', {
-  args,
+  args: { mode: z.enum(['basic', 'full']) },
   handler: (ctx) => {
-    console.log(`edit ${ctx.params.id} mode=${ctx.args.mode}`);
+    console.log(`edit ${ctx.parents['users [id]'].params.id} mode=${ctx.args.mode}`);
   },
 });

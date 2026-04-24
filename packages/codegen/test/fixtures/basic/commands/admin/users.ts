@@ -1,10 +1,8 @@
 import { defineCommand } from '@repo/core';
 
-export const args = {};
-
 export const command = defineCommand('admin users', {
-  args,
+  args: {},
   handler: (ctx) => {
-    console.log(`admin users role=${ctx.args.role}`);
+    console.log(`admin users role=${ctx.parents.admin.args.role}`);
   },
 });

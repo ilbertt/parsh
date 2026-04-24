@@ -2,98 +2,68 @@ import { expectTypeOf } from 'expect-type';
 import { z } from 'zod';
 import { type CommandRegistry, defineCommand } from '#index.ts';
 
-type Log = { info(msg: string): void };
-// biome-ignore lint/complexity/noBannedTypes: spec-mandated empty params shape
-type NoParams = { params: {}; inheritedParams: {} };
-
 declare module '#index.ts' {
   interface CommandRegistry {
     deploy: {
-      own: { env: 'staging' | 'prod' };
-      inherited: { verbose: boolean };
-      ctx: { log: Log };
-    } & NoParams;
+      parents: {};
+      root: { args: { verbose: boolean } };
+    };
     users: {
-      own: { workspace: string };
-      inherited: { verbose: boolean };
-      ctx: { log: Log };
-    } & NoParams;
+      parents: {};
+      root: { args: { verbose: boolean } };
+    };
     'users create': {
-      own: { email: string };
-      inherited: { workspace: string; verbose: boolean };
-      ctx: { log: Log };
-    } & NoParams;
-    'users list': {
-      own: { limit: number };
-      inherited: { workspace: string; verbose: boolean };
-      ctx: { log: Log };
-    } & NoParams;
+      parents: { users: { args: { workspace: string }; params: {} } };
+      root: { args: { verbose: boolean } };
+    };
     'items [sku]': {
-      own: { force: boolean };
-      inherited: { verbose: boolean };
-      ctx: { log: Log };
-      params: { sku: string };
-      // biome-ignore lint/complexity/noBannedTypes: spec-mandated empty-object shape
-      inheritedParams: {};
+      parents: {};
+      root: { args: { verbose: boolean } };
     };
     'items [sku] edit': {
-      own: { mode: 'basic' | 'full' };
-      inherited: { force: boolean; verbose: boolean };
-      ctx: { log: Log };
-      // biome-ignore lint/complexity/noBannedTypes: spec-mandated empty-object shape
-      params: {};
-      inheritedParams: { sku: string };
+      parents: { 'items [sku]': { args: { force: boolean }; params: { sku: string } } };
+      root: { args: { verbose: boolean } };
     };
   }
 }
 
-const deployCmd = defineCommand('deploy', {
+defineCommand('deploy', {
   args: { env: z.enum(['staging', 'prod']) },
   handler: (ctx) => {
-    ctx.log.info(`env=${ctx.args.env} verbose=${ctx.args.verbose}`);
+    expectTypeOf(ctx.args).toEqualTypeOf<{ env: 'staging' | 'prod' }>();
+    expectTypeOf(ctx.params).toEqualTypeOf<Record<string, never>>();
+    expectTypeOf<keyof typeof ctx.parents>().toBeNever();
+    expectTypeOf(ctx.root.args).toEqualTypeOf<{ verbose: boolean }>();
   },
 });
-type CtxOf<T> = T extends { handler?: (ctx: infer C) => unknown } ? C : never;
-
-expectTypeOf<CtxOf<typeof deployCmd>['args']>().toEqualTypeOf<{
-  env: 'staging' | 'prod';
-  verbose: boolean;
-}>();
-expectTypeOf<CtxOf<typeof deployCmd>['args']>().not.toHaveProperty('workspace');
-// biome-ignore lint/complexity/noBannedTypes: asserting the exact empty-object type
-expectTypeOf<CtxOf<typeof deployCmd>['params']>().toEqualTypeOf<{}>();
-
-const usersCreateCmd = defineCommand('users create', {
-  args: { email: z.string() },
-  handler: (ctx) => {
-    ctx.log.info(`create ${ctx.args.email} in ${ctx.args.workspace}`);
-  },
-});
-expectTypeOf<CtxOf<typeof usersCreateCmd>['args']>().toEqualTypeOf<{
-  email: string;
-  workspace: string;
-  verbose: boolean;
-}>();
 
 defineCommand('users', {
   args: { workspace: z.string() },
   handler: (ctx) => {
-    ctx.log.info(ctx.args.workspace);
-    // @ts-expect-error — reading an arg that belongs to a child is not allowed
-    ctx.args.email;
+    expectTypeOf(ctx.args).toEqualTypeOf<{ workspace: string }>();
+    expectTypeOf<keyof typeof ctx.parents>().toBeNever();
   },
 });
 
-// positive
+defineCommand('users create', {
+  args: { email: z.string() },
+  handler: (ctx) => {
+    expectTypeOf(ctx.args).toEqualTypeOf<{ email: string }>();
+    expectTypeOf(ctx.parents.users.args).toEqualTypeOf<{ workspace: string }>();
+    expectTypeOf<keyof (typeof ctx.parents)['users']['params']>().toBeNever();
+    expectTypeOf(ctx.root.args.verbose).toEqualTypeOf<boolean>();
+  },
+});
+
 defineCommand('items [sku]', {
   params: { sku: z.string() },
   args: { force: z.boolean() },
   handler: (ctx) => {
-    ctx.log.info(`${ctx.params.sku} ${ctx.args.force}`);
+    expectTypeOf(ctx.params).toEqualTypeOf<{ sku: string }>();
+    expectTypeOf(ctx.args).toEqualTypeOf<{ force: boolean }>();
   },
 });
 
-// wrong key
 defineCommand('items [sku]', {
   // @ts-expect-error — `wrongName` is not the param the path declares
   params: { wrongName: z.string() },
@@ -101,7 +71,6 @@ defineCommand('items [sku]', {
   handler: () => {},
 });
 
-// missing key
 defineCommand('items [sku]', {
   // @ts-expect-error — path declares `[sku]` but params object is empty
   params: {},
@@ -109,43 +78,18 @@ defineCommand('items [sku]', {
   handler: () => {},
 });
 
-// extra key
-defineCommand('items [sku]', {
-  // @ts-expect-error — `extra` is not declared in the path
-  params: { sku: z.string(), extra: z.string() },
-  args: { force: z.boolean() },
-  handler: () => {},
-});
-
-const itemsEditCmd = defineCommand('items [sku] edit', {
+defineCommand('items [sku] edit', {
   args: { mode: z.enum(['basic', 'full']) },
-  handler: (ctx) => ctx.log.info(`${ctx.params.sku}/${ctx.args.mode}`),
+  handler: (ctx) => {
+    expectTypeOf(ctx.args).toEqualTypeOf<{ mode: 'basic' | 'full' }>();
+    expectTypeOf(ctx.params).toEqualTypeOf<Record<string, never>>();
+    expectTypeOf(ctx.parents['items [sku]'].args).toEqualTypeOf<{ force: boolean }>();
+    expectTypeOf(ctx.parents['items [sku]'].params).toEqualTypeOf<{ sku: string }>();
+  },
 });
-expectTypeOf<CtxOf<typeof itemsEditCmd>['params']>().toEqualTypeOf<{ sku: string }>();
-expectTypeOf<CtxOf<typeof itemsEditCmd>['args']>().toEqualTypeOf<{
-  mode: 'basic' | 'full';
-  force: boolean;
-  verbose: boolean;
-}>();
 
 // @ts-expect-error — 'totally made up' is not a key in CommandRegistry
 defineCommand('totally made up', { args: {}, handler: () => {} });
 
 expectTypeOf<'totally made up path'>().not.toMatchTypeOf<keyof CommandRegistry>();
 expectTypeOf<'users create'>().toMatchTypeOf<keyof CommandRegistry>();
-
-defineCommand('deploy', {
-  args: { env: z.enum(['staging', 'prod']) },
-  handler: (ctx) => {
-    // @ts-expect-error — `madeUp` doesn't exist on ctx.args
-    ctx.args.madeUp;
-  },
-});
-
-defineCommand('items [sku] edit', {
-  args: { mode: z.enum(['basic', 'full']) },
-  handler: (ctx) => {
-    // @ts-expect-error — `madeUp` doesn't exist on ctx.params
-    ctx.params.madeUp;
-  },
-});

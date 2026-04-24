@@ -1,22 +1,21 @@
 /**
  * Shape every entry in `CommandRegistry` conforms to.
  *
- * The entry is populated by the generated `commandTree.gen.ts` emitted by
- * `@parsh/codegen`, with intersections precomputed (never via recursive
- * conditional types at use sites).
+ * Populated by the generated `commandTree.gen.ts` emitted by `@parsh/codegen`
+ * with precomputed ancestor intersections (never via recursive conditional
+ * types at use sites).
  *
- * - `own`            — args declared on this command.
- * - `inherited`      — args accumulated from every ancestor, flattened.
- * - `ctx`            — extension fields merged into handler ctx (reserved for future use).
- * - `params`         — positional params introduced by this level's bracket segment(s).
- * - `inheritedParams`— params accumulated from ancestors.
+ * - `parents` — map of ancestor path string → their own `{ args, params }`.
+ * - `root`    — args + params passed to `createCli({ args, ... })`.
+ *
+ * The command's OWN `args` / `params` are NOT carried here — they are inferred
+ * locally in `defineCommand`'s generics, which keeps the registry free of any
+ * back-reference to the current command and breaks what would otherwise be a
+ * circular inference between `typeof cmd.args` and `HandlerCtx<P>`.
  */
 export interface CommandEntry {
-  own: object;
-  inherited: object;
-  ctx: object;
-  params: object;
-  inheritedParams: object;
+  parents: Record<string, { args: object; params: object }>;
+  root: { args: object };
 }
 
 /**

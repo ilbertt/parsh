@@ -4,17 +4,14 @@ import { defineCommand } from '@repo/core';
 import { z } from 'zod';
 import { type GenerateOptions, generateCommandTree } from '#generate.ts';
 
-export const args = {
-  commands: z.string().default('./src/commands'),
-  out: z.string().default('./src/commandTree.gen.ts'),
-  'root-args': z.string().optional(),
-  'root-ctx': z.string().optional(),
-  'core-module': z.string().optional(),
-  watch: z.boolean().default(false),
-};
-
 export const command = defineCommand('generate', {
-  args,
+  args: {
+    commands: z.string().default('./src/commands'),
+    out: z.string().default('./src/commandTree.gen.ts'),
+    'root-args': z.string().optional(),
+    'core-module': z.string().optional(),
+    watch: z.boolean().default(false),
+  },
   handler: async (ctx) => {
     const commandsDir = resolve(ctx.args.commands);
     const outFile = resolve(ctx.args.out);
@@ -22,7 +19,6 @@ export const command = defineCommand('generate', {
       commandsDir,
       outFile,
       ...(ctx.args['root-args'] !== undefined ? { rootArgsTypeExpr: ctx.args['root-args'] } : {}),
-      ...(ctx.args['root-ctx'] !== undefined ? { rootCtxTypeExpr: ctx.args['root-ctx'] } : {}),
       ...(ctx.args['core-module'] !== undefined ? { coreModule: ctx.args['core-module'] } : {}),
     };
 

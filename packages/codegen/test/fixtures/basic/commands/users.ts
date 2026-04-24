@@ -1,10 +1,8 @@
 import { defineCommand } from '@repo/core';
 import { z } from 'zod';
 
-export const args = { workspace: z.string() };
-
 export const command = defineCommand('users', {
-  args,
+  args: { workspace: z.string() },
   handler: (ctx) => {
     console.log(`workspace=${ctx.args.workspace}`);
   },

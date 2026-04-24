@@ -40,13 +40,9 @@ function segmentsEqual(opts: { a: SourceSegment[]; b: SourceSegment[] }): boolea
 }
 
 /**
- * Extract the path string from `defineCommand('...', { ... })` and the `args` /
- * `params` keys from top-level `export const args = {...}` / `export const params = {...}`.
- *
- * Convention: command files MUST declare `args` (and `params`, when the path has
- * dynamic segments) as standalone named exports. This keeps `typeof args` resolvable
- * by tsc without routing through the command's own type — which would be circular,
- * because the generated `CommandRegistry` entry feeds back into `HandlerCtx`.
+ * Find the `defineCommand('...', { ... })` call in source and extract:
+ *  - the path string (first argument);
+ *  - the names of keys in inline `args: { ... }` / `params: { ... }` literals.
  */
 function extractFromSource(opts: { source: string; filePath: string }): {
   pathString: string;
@@ -54,22 +50,40 @@ function extractFromSource(opts: { source: string; filePath: string }): {
   paramNames: string[];
 } {
   const src = opts.source;
-  const callMatch = src.match(/defineCommand\s*\(\s*(['"])([^'"]+)\1\s*,/);
+  const callMatch = src.match(/defineCommand\s*\(\s*(['"])([^'"]+)\1\s*,\s*\{/);
   if (!callMatch) {
-    throw new Error(`parsh: ${opts.filePath} does not contain a defineCommand('...', ...) call`);
-  }
-  const pathString = callMatch[2]!;
-  const hasArgsExport = /export\s+const\s+args\s*=/.test(src);
-  if (!hasArgsExport) {
     throw new Error(
-      `parsh: ${opts.filePath} must export a top-level \`const args = {...}\` and pass it to defineCommand.`,
+      `parsh: ${opts.filePath} does not contain a defineCommand('...', { ... }) call`,
     );
   }
+  const pathString = callMatch[2]!;
+  const defBody = readBalancedBraceBody({
+    source: src,
+    start: callMatch.index! + callMatch[0].length,
+  });
   return {
     pathString,
-    argNames: extractKeysOfExport({ source: src, exportName: 'args' }),
-    paramNames: extractKeysOfExport({ source: src, exportName: 'params' }),
+    argNames: extractInlineObjectKeys({ body: defBody, prop: 'args' }),
+    paramNames: extractInlineObjectKeys({ body: defBody, prop: 'params' }),
   };
+}
+
+/**
+ * Extract top-level keys from a `<prop>: { key1: ..., key2: ..., ... }` literal
+ * inside `body`. Returns [] if the prop is absent or assigned an identifier
+ * rather than an inline object literal.
+ */
+function extractInlineObjectKeys(opts: { body: string; prop: string }): string[] {
+  const re = new RegExp(`(^|[\\s,;{])${opts.prop}\\s*:\\s*\\{`);
+  const m = opts.body.match(re);
+  if (!m) {
+    return [];
+  }
+  const inner = readBalancedBraceBody({
+    source: opts.body,
+    start: m.index! + m[0].length,
+  });
+  return topLevelObjectKeys(inner);
 }
 
 /**
@@ -116,23 +130,6 @@ function topLevelObjectKeys(body: string): string[] {
     km = keyRe.exec(topLevel);
   }
   return keys;
-}
-
-/**
- * Extract the top-level key names from `export const <exportName> = { key1: ..., ... }`.
- * Returns [] if the export is absent or the object is empty.
- */
-function extractKeysOfExport(opts: { source: string; exportName: string }): string[] {
-  const re = new RegExp(`export\\s+const\\s+${opts.exportName}\\s*=\\s*\\{`);
-  const m = opts.source.match(re);
-  if (!m) {
-    return [];
-  }
-  const body = readBalancedBraceBody({
-    source: opts.source,
-    start: m.index! + m[0].length,
-  });
-  return topLevelObjectKeys(body);
 }
 
 function stripBalanced(src: string): string {

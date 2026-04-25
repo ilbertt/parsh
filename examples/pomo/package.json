@@ -1,0 +1,22 @@
+{
+  "name": "@repo/examples-pomo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun src/main.ts",
+    "check:types": "bun run --bun tsc",
+    "generate": "parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts --core-module @repo/core"
+  },
+  "dependencies": {
+    "@repo/core": "workspace:*",
+    "ink": "^5.2.1",
+    "react": "^18.3.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/codegen": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/react": "^18.3.12",
+    "typescript": "catalog:"
+  }
+}

@@ -124,6 +124,9 @@ function emitOptionMeta(opts: ReadonlyArray<ExtractedOption>): string {
       if (o.description !== undefined) {
         parts.push(`description: ${JSON.stringify(o.description)}`);
       }
+      if (o.aliases.length > 0) {
+        parts.push(`aliases: [${o.aliases.map((a) => JSON.stringify(a)).join(', ')}]`);
+      }
       return `{ ${parts.join(', ')} }`;
     })
     .join(', ')}]`;

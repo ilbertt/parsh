@@ -13,6 +13,7 @@ export interface ExtractedOption {
   type: 'boolean' | 'string';
   forwardToChildren: boolean;
   description?: string;
+  aliases: string[];
 }
 
 export interface ExtractedCommand {

@@ -119,7 +119,7 @@ declare module '@repo/core' {
 
 export const commandTree: RuntimeNode = {
   segment: null,
-  command: { path: '', optionNames: [{ name: 'identity', type: 'string', forwardToChildren: true, description: "AWS account identity (required for every command)." }, { name: 'region', type: 'string', forwardToChildren: true, description: "AWS region. Defaults to eu-west-2." }], paramNames: [], description: "A fake AWS CLI.", load: () => import('./commands/_root.ts').then((m) => m.command) },
+  command: { path: '', optionNames: [{ name: 'identity', type: 'string', forwardToChildren: true, description: "AWS account identity (required for every command)." }, { name: 'region', type: 'string', forwardToChildren: true, description: "AWS region. Defaults to eu-west-2.", aliases: ["r"] }], paramNames: [], description: "A fake AWS CLI.", load: () => import('./commands/_root.ts').then((m) => m.command) },
   literalChildren: {
     'configure': {
       segment: { kind: 'literal', value: 'configure' },

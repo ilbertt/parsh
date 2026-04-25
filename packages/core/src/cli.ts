@@ -11,6 +11,7 @@ export interface OptionMeta {
   type: 'boolean' | 'string';
   forwardToChildren?: boolean;
   description?: string;
+  aliases?: ReadonlyArray<string>;
 }
 
 export interface LoadedCommand {
@@ -116,6 +117,122 @@ function collectParseOptions(tree: RuntimeNode): ParseArgsConfig['options'] {
   }
   walk(tree);
   return out;
+}
+
+function buildAliasMap(tree: RuntimeNode): Map<string, string> {
+  const out = new Map<string, string>();
+  function walk(node: RuntimeNode) {
+    if (node.command) {
+      for (const opt of node.command.optionNames) {
+        for (const alias of opt.aliases ?? []) {
+          out.set(alias, opt.name);
+        }
+      }
+    }
+    for (const child of Object.values(node.literalChildren)) {
+      walk(child);
+    }
+    if (node.paramChild) {
+      walk(node.paramChild);
+    }
+  }
+  walk(tree);
+  return out;
+}
+
+/**
+ * Rewrite alias tokens in argv to their canonical form before `parseArgs`.
+ * Single-char aliases match `-x`; longer aliases match `--xxx`. `--alias=v`
+ * and `--alias v` are both supported. Combined short forms (`-vfoo`) are
+ * left untouched.
+ */
+function rewriteArgvAliases({
+  argv,
+  aliasMap,
+}: {
+  argv: string[];
+  aliasMap: Map<string, string>;
+}): string[] {
+  if (aliasMap.size === 0) {
+    return argv;
+  }
+  return argv.map((tok) => {
+    if (tok.startsWith('--')) {
+      const eq = tok.indexOf('=');
+      const name = eq === -1 ? tok.slice(2) : tok.slice(2, eq);
+      const canonical = aliasMap.get(name);
+      if (!canonical) {
+        return tok;
+      }
+      return eq === -1 ? `--${canonical}` : `--${canonical}${tok.slice(eq)}`;
+    }
+    if (tok.length === 2 && tok.startsWith('-') && tok !== '--') {
+      const canonical = aliasMap.get(tok.slice(1));
+      if (canonical) {
+        return `--${canonical}`;
+      }
+    }
+    return tok;
+  });
+}
+
+interface VisibleOption {
+  source: string;
+  meta: OptionMeta;
+}
+
+function detectAliasCollisions(tree: RuntimeNode): string[] {
+  const issues: string[] = [];
+  function visibleAt({
+    node,
+    inherited,
+  }: {
+    node: RuntimeNode;
+    inherited: ReadonlyArray<VisibleOption>;
+  }) {
+    if (node.command) {
+      const own: VisibleOption[] = node.command.optionNames.map((meta) => ({
+        source: node.command!.path === '' ? '<root>' : node.command!.path,
+        meta,
+      }));
+      const visible = [...inherited, ...own];
+      const seen = new Map<string, VisibleOption>();
+      for (const v of visible) {
+        const ids = [v.meta.name, ...(v.meta.aliases ?? [])];
+        for (const id of ids) {
+          const prev = seen.get(id);
+          if (prev && (prev.source !== v.source || prev.meta.name !== v.meta.name)) {
+            issues.push(
+              `option identifier '${id}' on ${v.source} (option '${v.meta.name}') collides with ${prev.source} (option '${prev.meta.name}')`,
+            );
+          } else {
+            seen.set(id, v);
+          }
+        }
+      }
+    }
+    let nextInherited = inherited;
+    if (node.command) {
+      const fwd = node.command.optionNames.filter((o) => o.forwardToChildren === true);
+      if (fwd.length > 0) {
+        nextInherited = [
+          ...inherited,
+          ...fwd.map((meta) => ({
+            source: node.command!.path === '' ? '<root>' : node.command!.path,
+            meta,
+          })),
+        ];
+      }
+    }
+    for (const child of Object.values(node.literalChildren)) {
+      visibleAt({ node: child, inherited: nextInherited });
+    }
+    if (node.paramChild) {
+      visibleAt({ node: node.paramChild, inherited: nextInherited });
+    }
+  }
+  visibleAt({ node: tree, inherited: [] });
+  return issues;
 }
 
 interface Visited {
@@ -257,7 +374,7 @@ function renderRootUsage({
   if (rootOptions.length > 0) {
     lines.push('Options:');
     for (const line of formatTwoColumn(
-      rootOptions.map((o) => ({ label: `--${o.name}`, description: o.description })),
+      rootOptions.map((o) => ({ label: optionLabel(o), description: o.description })),
     )) {
       lines.push(`  ${line}`);
     }
@@ -302,6 +419,12 @@ function formatTwoColumn(
   return rows.map((r) => (r.description ? `${r.label.padEnd(width)}  ${r.description}` : r.label));
 }
 
+function optionLabel(meta: OptionMeta): string {
+  const flag = `--${meta.name}`;
+  const aliases = (meta.aliases ?? []).map((a) => (a.length === 1 ? `-${a}` : `--${a}`));
+  return [flag, ...aliases].join(', ');
+}
+
 function renderCommandUsage({
   programName,
   node,
@@ -322,7 +445,7 @@ function renderCommandUsage({
   if (cmd.optionNames.length > 0) {
     lines.push('Options:');
     for (const line of formatTwoColumn(
-      cmd.optionNames.map((o) => ({ label: `--${o.name}`, description: o.description })),
+      cmd.optionNames.map((o) => ({ label: optionLabel(o), description: o.description })),
     )) {
       lines.push(`  ${line}`);
     }
@@ -340,7 +463,7 @@ function renderCommandUsage({
         continue;
       }
       const descParts = [opt.description, `(inherited from ${from})`].filter(Boolean);
-      inheritedRows.push({ label: `--${opt.name}`, description: descParts.join(' ') });
+      inheritedRows.push({ label: optionLabel(opt), description: descParts.join(' ') });
     }
   }
   if (inheritedRows.length > 0) {
@@ -455,10 +578,11 @@ export class Cli<C extends object = Record<string, never>> {
   readonly #programName: string;
   readonly #programDescription: string | undefined;
   readonly #parseOptions: ParseArgsConfig['options'];
+  readonly #aliasMap: Map<string, string>;
   readonly #context: CliContextInput | undefined;
 
   constructor({ programName, programDescription, tree, context }: CreateCliOptions) {
-    const issues = detectSameLevelCollisions(tree);
+    const issues = [...detectSameLevelCollisions(tree), ...detectAliasCollisions(tree)];
     if (issues.length > 0) {
       throw new Error(
         `${programName}: command tree has ${issues.length} issue(s):\n${issues.map((i) => `  - ${i}`).join('\n')}`,
@@ -468,6 +592,7 @@ export class Cli<C extends object = Record<string, never>> {
     this.#programName = programName;
     this.#programDescription = programDescription;
     this.#parseOptions = collectParseOptions(tree);
+    this.#aliasMap = buildAliasMap(tree);
     this.#context = context;
   }
 
@@ -494,10 +619,11 @@ export class Cli<C extends object = Record<string, never>> {
   }
 
   async run(argv: string[]): Promise<number> {
+    const rewritten = rewriteArgvAliases({ argv, aliasMap: this.#aliasMap });
     let parsed: ReturnType<typeof parseArgs>;
     try {
       parsed = parseArgs({
-        args: argv,
+        args: rewritten,
         options: this.#parseOptions,
         strict: false,
         allowPositionals: true,
@@ -507,7 +633,7 @@ export class Cli<C extends object = Record<string, never>> {
       return 2;
     }
 
-    const wantsHelp = helpRequested(argv);
+    const wantsHelp = helpRequested(rewritten);
 
     if (parsed.positionals.length === 0 && wantsHelp && !this.#tree.command) {
       console.log(this.#renderRootUsage());

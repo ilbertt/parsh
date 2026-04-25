@@ -209,11 +209,30 @@ function extractOption({
   }
   const descProp = getProperty({ obj: initializer, key: 'description' });
   const description = descProp ? (readStringLiteral(descProp.initializer) ?? undefined) : undefined;
+  const aliasesProp = getProperty({ obj: initializer, key: 'aliases' });
+  const aliases: string[] = [];
+  if (aliasesProp) {
+    if (!ts.isArrayLiteralExpression(aliasesProp.initializer)) {
+      throw new Error(
+        `parsh: ${filePath} — option '${name}' \`aliases\` must be an inline array of string literals`,
+      );
+    }
+    for (const el of aliasesProp.initializer.elements) {
+      const s = readStringLiteral(el);
+      if (s === null) {
+        throw new Error(
+          `parsh: ${filePath} — option '${name}' \`aliases\` entries must be string literals`,
+        );
+      }
+      aliases.push(s);
+    }
+  }
   return {
     name,
     type,
     forwardToChildren,
     ...(description !== undefined ? { description } : {}),
+    aliases,
   };
 }
 

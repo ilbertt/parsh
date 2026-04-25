@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, type Mock, spyOn, test } from 'bun:test';
 import { z } from 'zod';
-import { createCli, type LoadedCommand, type RuntimeCommand, type RuntimeNode } from '#index.ts';
+import {
+  createCli,
+  type LoadedCommand,
+  type OptionMeta,
+  type RuntimeCommand,
+  type RuntimeNode,
+} from '#index.ts';
 
 let stderrSpy: Mock<typeof console.error>;
 
@@ -32,7 +38,7 @@ function lazyCommand({
   loaded,
 }: {
   path: string;
-  optionNames: ReadonlyArray<{ name: string; type: 'boolean' | 'string' }>;
+  optionNames: ReadonlyArray<OptionMeta>;
   paramNames: ReadonlyArray<string>;
   loaded: LoadedCommand;
 }): RuntimeCommand {
@@ -235,5 +241,131 @@ describe('param capture', () => {
     expect(code).toBe(2);
     expect(calls).toBeEmpty();
     expect(stderrText()).toContain('id');
+  });
+});
+
+describe('option aliases', () => {
+  function aliasTree({ calls }: { calls: Called[] }): RuntimeNode {
+    const record = (path: string) => (ctx: Ctx) => {
+      calls.push({ path, ctx });
+    };
+    return {
+      segment: null,
+      command: lazyCommand({
+        path: '',
+        optionNames: [
+          { name: 'verbose', type: 'boolean', forwardToChildren: true, aliases: ['v'] },
+        ],
+        paramNames: [],
+        loaded: {
+          options: {
+            verbose: {
+              schema: z.boolean().default(false),
+              forwardToChildren: true,
+              aliases: ['v'],
+            },
+          },
+        },
+      }),
+      paramChild: null,
+      literalChildren: {
+        deploy: {
+          segment: { kind: 'literal', value: 'deploy' },
+          command: lazyCommand({
+            path: 'deploy',
+            optionNames: [{ name: 'env', type: 'string', aliases: ['e', 'environment'] }],
+            paramNames: [],
+            loaded: {
+              options: {
+                env: { schema: z.enum(['staging', 'prod']), aliases: ['e', 'environment'] },
+              },
+              handler: record('deploy'),
+            },
+          }),
+          literalChildren: {},
+          paramChild: null,
+        },
+      },
+    };
+  }
+
+  test('short alias -e maps to canonical --env', async () => {
+    const calls: Called[] = [];
+    const code = await createCli({ programName: 't', tree: aliasTree({ calls }) }).run([
+      'deploy',
+      '-e',
+      'prod',
+    ]);
+    expect(code).toBe(0);
+    expect(calls[0]?.ctx.options).toEqual({ env: 'prod' });
+  });
+
+  test('long alias --environment=prod maps to canonical --env', async () => {
+    const calls: Called[] = [];
+    const code = await createCli({ programName: 't', tree: aliasTree({ calls }) }).run([
+      'deploy',
+      '--environment=prod',
+    ]);
+    expect(code).toBe(0);
+    expect(calls[0]?.ctx.options).toEqual({ env: 'prod' });
+  });
+
+  test('forwarded alias -v on root reaches descendant', async () => {
+    const calls: Called[] = [];
+    const code = await createCli({ programName: 't', tree: aliasTree({ calls }) }).run([
+      'deploy',
+      '--env',
+      'prod',
+      '-v',
+    ]);
+    expect(code).toBe(0);
+    expect(calls[0]?.ctx.root.options).toEqual({ verbose: true });
+  });
+
+  test('alias colliding with another option name throws at construction', () => {
+    const tree: RuntimeNode = {
+      segment: null,
+      command: lazyCommand({
+        path: '',
+        optionNames: [
+          { name: 'verbose', type: 'boolean', forwardToChildren: true },
+          { name: 'version', type: 'boolean', aliases: ['verbose'] },
+        ],
+        paramNames: [],
+        loaded: { options: {} },
+      }),
+      paramChild: null,
+      literalChildren: {},
+    };
+    expect(() => createCli({ programName: 't', tree })).toThrow(/collides/i);
+  });
+
+  test('alias colliding with forwarded ancestor option throws', () => {
+    const tree: RuntimeNode = {
+      segment: null,
+      command: lazyCommand({
+        path: '',
+        optionNames: [
+          { name: 'verbose', type: 'boolean', forwardToChildren: true, aliases: ['v'] },
+        ],
+        paramNames: [],
+        loaded: { options: {} },
+      }),
+      paramChild: null,
+      literalChildren: {
+        leaf: {
+          segment: { kind: 'literal', value: 'leaf' },
+          command: lazyCommand({
+            path: 'leaf',
+            optionNames: [{ name: 'volume', type: 'string', aliases: ['v'] }],
+            paramNames: [],
+            loaded: { options: {} },
+          }),
+          literalChildren: {},
+          paramChild: null,
+        },
+      },
+    };
+    expect(() => createCli({ programName: 't', tree })).toThrow(/collides/i);
   });
 });

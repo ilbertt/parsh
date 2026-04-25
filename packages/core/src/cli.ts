@@ -33,22 +33,21 @@ interface CreateCliOptions {
 }
 
 function probeBoolean(schema: AnySchema): boolean {
-  try {
-    const trueResult = schema['~standard'].validate(true);
-    if (trueResult instanceof Promise) {
+  const accepts = (value: unknown): boolean => {
+    try {
+      const r = schema['~standard'].validate(value);
+      if (r instanceof Promise) {
+        return false;
+      }
+      return !('issues' in r && r.issues);
+    } catch {
       return false;
     }
-    if ('issues' in trueResult && trueResult.issues) {
-      return false;
-    }
-    const stringResult = schema['~standard'].validate('not-a-boolean-xyzzy');
-    if (stringResult instanceof Promise) {
-      return true;
-    }
-    return 'issues' in stringResult && !!stringResult.issues;
-  } catch {
-    return false;
-  }
+  };
+  // A boolean-flag schema must accept both `true` and `false`, but reject
+  // numeric and string inputs — otherwise we misclassify coerce-style schemas
+  // (e.g., `z.coerce.number()` accepts `true`/`false` via numeric coercion).
+  return accepts(true) && accepts(false) && !accepts(0) && !accepts('not-a-boolean-xyzzy');
 }
 
 function collectAllOptionSchemas(tree: RuntimeNode): SchemaRecord {
@@ -83,13 +82,19 @@ interface WalkResult {
   unknownToken: string | null;
 }
 
-function walkTree(opts: { tree: RuntimeNode; positionals: string[] }): WalkResult {
-  let node = opts.tree;
+function walkTree({
+  tree,
+  positionals,
+}: {
+  tree: RuntimeNode;
+  positionals: string[];
+}): WalkResult {
+  let node = tree;
   const visitedCommands: Visited[] = [];
   if (node.command) {
     visitedCommands.push({ command: node.command, paramValue: null, paramName: null });
   }
-  for (const tok of opts.positionals) {
+  for (const tok of positionals) {
     const literal = node.literalChildren[tok];
     if (literal) {
       node = literal;
@@ -109,46 +114,103 @@ function walkTree(opts: { tree: RuntimeNode; positionals: string[] }): WalkResul
   return { node, visitedCommands, unknown: false, unknownToken: null };
 }
 
-async function validateRecord(opts: {
+type SchemaResult = { value: unknown; issues?: undefined } | { issues: ReadonlyArray<unknown> };
+
+async function settle({
+  schema,
+  value,
+}: {
+  schema: AnySchema;
+  value: unknown;
+}): Promise<SchemaResult> {
+  const r = schema['~standard'].validate(value);
+  return r instanceof Promise ? await r : r;
+}
+
+/**
+ * argv values arrive as strings. Try the raw string first, then a numeric
+ * coercion, then a boolean coercion — first success wins. Lets users write
+ * `z.number()` / `z.boolean()` without `z.coerce.*`. Schemas that accept the
+ * string as-is are unaffected.
+ */
+async function validateScalar({
+  schema,
+  raw,
+}: {
+  schema: AnySchema;
+  raw: unknown;
+}): Promise<SchemaResult> {
+  const first = await settle({ schema, value: raw });
+  if (!('issues' in first && first.issues)) {
+    return first;
+  }
+  if (typeof raw !== 'string' || raw.length === 0) {
+    return first;
+  }
+  if (raw.trim().length > 0) {
+    const n = Number(raw);
+    if (Number.isFinite(n)) {
+      const r = await settle({ schema, value: n });
+      if (!('issues' in r && r.issues)) {
+        return r;
+      }
+    }
+  }
+  if (raw === 'true' || raw === 'false') {
+    const r = await settle({ schema, value: raw === 'true' });
+    if (!('issues' in r && r.issues)) {
+      return r;
+    }
+  }
+  return first;
+}
+
+async function validateRecord({
+  schemas,
+  values,
+  kind,
+}: {
   schemas: SchemaRecord;
   values: Record<string, unknown>;
   kind: 'option' | 'param';
 }): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; error: string }> {
   const out: Record<string, unknown> = {};
-  for (const [name, schema] of Object.entries(opts.schemas)) {
-    const raw = opts.values[name];
+  for (const [name, schema] of Object.entries(schemas)) {
+    const raw = values[name];
     if (raw === undefined) {
-      const result = schema['~standard'].validate(undefined);
-      const settled = result instanceof Promise ? await result : result;
+      const settled = await settle({ schema, value: undefined });
       if ('issues' in settled && settled.issues) {
-        return { ok: false, error: `missing required ${opts.kind}: ${name}` };
+        return { ok: false, error: `missing required ${kind}: ${name}` };
       }
       out[name] = settled.value;
       continue;
     }
-    const result = schema['~standard'].validate(raw);
-    const settled = result instanceof Promise ? await result : result;
+    const settled = await validateScalar({ schema, raw });
     if ('issues' in settled && settled.issues) {
-      const msg = settled.issues.map((i) => i.message).join(', ');
-      return { ok: false, error: `invalid ${opts.kind} "${name}": ${msg}` };
+      const msg = settled.issues.map((i) => (i as { message: string }).message).join(', ');
+      return { ok: false, error: `invalid ${kind} "${name}": ${msg}` };
     }
     out[name] = settled.value;
   }
   return { ok: true, value: out };
 }
 
-function renderRootUsage(opts: {
+function renderRootUsage({
+  root,
+  programName,
+  programDescription,
+}: {
   root: RuntimeNode;
   programName: string;
   programDescription: string | undefined;
 }): string {
   const lines: string[] = [];
-  if (opts.programDescription) {
-    lines.push(opts.programDescription, '');
+  if (programDescription) {
+    lines.push(programDescription, '');
   }
-  lines.push(`Usage: ${opts.programName} <command> [options]`, '');
+  lines.push(`Usage: ${programName} <command> [options]`, '');
 
-  const rootOptions = opts.root.command ? Object.keys(opts.root.command.options) : [];
+  const rootOptions = root.command ? Object.keys(root.command.options) : [];
   if (rootOptions.length > 0) {
     lines.push('Options:');
     for (const name of rootOptions) {
@@ -158,37 +220,41 @@ function renderRootUsage(opts: {
   }
 
   lines.push('Commands:');
-  function walk(input: { node: RuntimeNode; prefix: string[] }) {
-    for (const [name, child] of Object.entries(input.node.literalChildren)) {
-      const pieces = [...input.prefix, name];
+  function walk({ node, prefix }: { node: RuntimeNode; prefix: string[] }) {
+    for (const [name, child] of Object.entries(node.literalChildren)) {
+      const pieces = [...prefix, name];
       if (child.command || Object.keys(child.literalChildren).length || child.paramChild) {
         lines.push(`  ${pieces.join(' ')}`);
       }
       walk({ node: child, prefix: pieces });
     }
-    if (input.node.paramChild) {
-      const pc = input.node.paramChild;
+    if (node.paramChild) {
+      const pc = node.paramChild;
       const segName = pc.segment?.kind === 'param' ? pc.segment.name : 'param';
-      const pieces = [...input.prefix, `<${segName}>`];
+      const pieces = [...prefix, `<${segName}>`];
       if (pc.command || Object.keys(pc.literalChildren).length || pc.paramChild) {
         lines.push(`  ${pieces.join(' ')}`);
       }
       walk({ node: pc, prefix: pieces });
     }
   }
-  walk({ node: opts.root, prefix: [] });
+  walk({ node: root, prefix: [] });
   return lines.join('\n');
 }
 
-function renderCommandUsage(opts: {
+function renderCommandUsage({
+  programName,
+  node,
+  visited,
+}: {
   programName: string;
   node: RuntimeNode;
   visited: ReadonlyArray<RuntimeCommand>;
 }): string {
-  const cmd = opts.node.command!;
+  const cmd = node.command!;
   const segments = cmd.path.split(' ').map((s) => (s.startsWith('[') ? `<${s.slice(1, -1)}>` : s));
   const lines: string[] = [];
-  lines.push(`Usage: ${opts.programName} ${segments.join(' ')} [options]`, '');
+  lines.push(`Usage: ${programName} ${segments.join(' ')} [options]`, '');
 
   const ownOptions = Object.keys(cmd.options);
   if (ownOptions.length > 0) {
@@ -200,7 +266,7 @@ function renderCommandUsage(opts: {
   }
 
   const inheritedOptions: string[] = [];
-  for (const v of opts.visited) {
+  for (const v of visited) {
     if (v.path === cmd.path) {
       continue;
     }
@@ -217,14 +283,14 @@ function renderCommandUsage(opts: {
     lines.push('');
   }
 
-  const subs = Object.keys(opts.node.literalChildren).sort();
-  if (subs.length > 0 || opts.node.paramChild) {
+  const subs = Object.keys(node.literalChildren).sort();
+  if (subs.length > 0 || node.paramChild) {
     lines.push('Subcommands:');
     for (const name of subs) {
       lines.push(`  ${name}`);
     }
-    if (opts.node.paramChild?.segment?.kind === 'param') {
-      lines.push(`  <${opts.node.paramChild.segment.name}>`);
+    if (node.paramChild?.segment?.kind === 'param') {
+      lines.push(`  <${node.paramChild.segment.name}>`);
     }
   }
 
@@ -241,22 +307,22 @@ function helpHint(enabled: boolean): string {
 
 function detectSameLevelCollisions(tree: RuntimeNode): string[] {
   const issues: string[] = [];
-  function walk(input: { node: RuntimeNode; path: string[] }) {
-    if (input.node.command) {
-      const paramName = input.node.segment?.kind === 'param' ? input.node.segment.name : null;
-      if (paramName !== null && paramName in input.node.command.options) {
+  function walk({ node, path }: { node: RuntimeNode; path: string[] }) {
+    if (node.command) {
+      const paramName = node.segment?.kind === 'param' ? node.segment.name : null;
+      if (paramName !== null && paramName in node.command.options) {
         issues.push(
-          `command ${input.path.join(' ') || '(root)'} declares option "${paramName}" that shadows its own param [${paramName}]`,
+          `command ${path.join(' ') || '(root)'} declares option "${paramName}" that shadows its own param [${paramName}]`,
         );
       }
     }
-    for (const [name, child] of Object.entries(input.node.literalChildren)) {
-      walk({ node: child, path: [...input.path, name] });
+    for (const [name, child] of Object.entries(node.literalChildren)) {
+      walk({ node: child, path: [...path, name] });
     }
-    if (input.node.paramChild) {
-      const seg = input.node.paramChild.segment;
+    if (node.paramChild) {
+      const seg = node.paramChild.segment;
       const label = seg?.kind === 'param' ? `[${seg.name}]` : '';
-      walk({ node: input.node.paramChild, path: [...input.path, label] });
+      walk({ node: node.paramChild, path: [...path, label] });
     }
   }
   walk({ node: tree, path: [] });
@@ -269,16 +335,16 @@ export class Cli {
   readonly #programDescription: string | undefined;
   readonly #parseOptions: ParseArgsConfig['options'];
 
-  constructor(options: CreateCliOptions) {
-    const issues = detectSameLevelCollisions(options.tree);
+  constructor({ programName, programDescription, tree }: CreateCliOptions) {
+    const issues = detectSameLevelCollisions(tree);
     if (issues.length > 0) {
       throw new Error(
-        `${options.programName}: command tree has ${issues.length} issue(s):\n${issues.map((i) => `  - ${i}`).join('\n')}`,
+        `${programName}: command tree has ${issues.length} issue(s):\n${issues.map((i) => `  - ${i}`).join('\n')}`,
       );
     }
-    this.#tree = options.tree;
-    this.#programName = options.programName;
-    this.#programDescription = options.programDescription;
+    this.#tree = tree;
+    this.#programName = programName;
+    this.#programDescription = programDescription;
 
     const allSchemas = collectAllOptionSchemas(this.#tree);
     const parseOptions: ParseArgsConfig['options'] = {};

@@ -1,8 +1,15 @@
+import { join } from 'node:path';
+import { createFilesContext, osHomeConfigDir } from '@repo/files';
 import { z } from 'zod';
 
-export const credentialsSchema = z.object({
+const credentialsSchema = z.object({
   accessKey: z.string().min(1),
   secretKey: z.string().min(1),
 });
 
-export type Credentials = z.infer<typeof credentialsSchema>;
+export const filesContext = createFilesContext({
+  basePath: join(osHomeConfigDir(), 'awslike'),
+  files: {
+    credentials: { filename: 'credentials.json', schema: credentialsSchema },
+  },
+});

@@ -74,7 +74,7 @@ describe('command hooks', () => {
     }).run(['run', '--name', 'x']);
     expect(code).toBe(1);
     expect(calls).toEqual([]);
-    expect(stderrText()).toContain('beforeHandler error: blocked');
+    expect(stderrText()).toContain('blocked');
   });
 
   test('handler throwing skips afterHandler, exits 1', async () => {
@@ -93,7 +93,7 @@ describe('command hooks', () => {
     }).run(['run', '--name', 'x']);
     expect(code).toBe(1);
     expect(calls).toEqual(['before']);
-    expect(stderrText()).toContain('handler error: boom');
+    expect(stderrText()).toContain('boom');
   });
 
   test('afterHandler throwing surfaces as afterHandler error, exits 1', async () => {
@@ -105,7 +105,7 @@ describe('command hooks', () => {
       },
     }).run(['run', '--name', 'x']);
     expect(code).toBe(1);
-    expect(stderrText()).toContain('afterHandler error: post-fail');
+    expect(stderrText()).toContain('post-fail');
   });
 
   test('hooks see the same ctx as the handler', async () => {

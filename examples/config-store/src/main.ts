@@ -5,7 +5,7 @@ import { createFilesContext, osHomeConfigDir } from '@repo/files';
 import { commandTree } from './commandTree.gen.ts';
 import { configSchema } from './files.ts';
 
-export const cli = createCli({
+const cli = createCli({
   programName: 'mycli',
   programDescription: 'A demo CLI with persistent JSON config.',
   tree: commandTree,

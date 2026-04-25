@@ -387,9 +387,7 @@ async function loadCommand(cmd: RuntimeCommand): Promise<LoadedCommand> {
   }
 }
 
-type HandlerPhase = 'beforeHandler' | 'handler' | 'afterHandler';
-
-type LifecycleResult = { ok: true } | { ok: false; phase: HandlerPhase; error: Error };
+type LifecycleResult = { ok: true } | { ok: false; error: Error };
 
 // biome-ignore lint/suspicious/noExplicitAny: ctx shape is enforced at the defineCommand call site (see LoadedCommand)
 type Hook = (ctx: any) => void | Promise<void>;
@@ -405,19 +403,15 @@ async function runHandlerLifecycle({
   afterHandler: Hook | undefined;
   ctx: unknown;
 }): Promise<LifecycleResult> {
-  const phases: ReadonlyArray<{ name: HandlerPhase; fn: Hook | undefined }> = [
-    { name: 'beforeHandler', fn: beforeHandler },
-    { name: 'handler', fn: handler },
-    { name: 'afterHandler', fn: afterHandler },
-  ];
-  for (const { name, fn } of phases) {
+  const steps: ReadonlyArray<Hook | undefined> = [beforeHandler, handler, afterHandler];
+  for (const fn of steps) {
     if (!fn) {
       continue;
     }
     try {
       await fn(ctx);
     } catch (error) {
-      return { ok: false, phase: name, error: error as Error };
+      return { ok: false, error: error as Error };
     }
   }
   return { ok: true };
@@ -483,7 +477,7 @@ export class Cli<C extends object = Record<string, never>> {
         allowPositionals: true,
       });
     } catch (err) {
-      console.error(`${this.#errorPrefix()}: failed to parse arguments: ${(err as Error).message}`);
+      console.error(`${this.#errorPrefix()}: ${(err as Error).message}`);
       return 2;
     }
 
@@ -640,7 +634,7 @@ export class Cli<C extends object = Record<string, never>> {
     if (result.ok) {
       return 0;
     }
-    console.error(`${this.#errorPrefix()}: ${result.phase} error: ${result.error.message}`);
+    console.error(`${this.#errorPrefix()}: ${result.error.message}`);
     return 1;
   }
 

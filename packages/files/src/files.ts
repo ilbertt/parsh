@@ -32,22 +32,26 @@ export interface FileSpec<Output = unknown> {
    * final path. Include the extension yourself (typically `.json`).
    */
   filename: string;
-  /**
-   * Returned by `read()` when the file does not exist. Supplying this also
-   * narrows `read()`'s return type from `T | null` to `T`.
-   */
-  defaults?: Output;
 }
 
-export interface FileHandle<T, R = T | null> {
+export interface FileHandle<T> {
   readonly path: string;
-  read(): Promise<R>;
+  /**
+   * Reads the file and returns `T`. Assumes existence was already validated
+   * upstream (typically by `ensureExists()` in a `beforeHandler`). Throws an
+   * internal `FileNotFoundError` if the file is missing — that error is a
+   * developer signal, not user-facing copy. Throws `FileValidationError` on
+   * bad JSON or schema mismatch.
+   */
+  read(): Promise<T>;
+  /** Like `read()`, but returns `null` instead of throwing when the file is missing. */
+  maybeRead(): Promise<T | null>;
   write(value: T): Promise<void>;
   /**
    * Throws `FileNotFoundError` if the file does not exist on disk. Pass
    * `message` to customize the error (e.g. `'Run \`mycli init\` first.'`) —
    * the message surfaces directly to the user when called from a
-   * `beforeHandler`. Resolves to `void` when the file is present.
+   * `beforeHandler`.
    */
   ensureExists(opts?: { message?: string }): Promise<void>;
 }
@@ -104,36 +108,16 @@ type CreateFilesContextInput<Files extends Record<string, FileSpec>> = {
    *
    * @example
    * ```ts
-   * basePath: join(osHomeConfigDir(), 'mycli')   // ~/Library/Application Support/mycli
+   * basePath: join(osHomeConfigDir(), 'mycli')   // ~/.config/mycli
    * basePath: join(osHomeDir(), '.mycli')        // ~/.mycli (dotfile layout)
    * ```
    */
   basePath: string;
-  /**
-   * For each key, `defaults` is type-checked against the schema's inferred
-   * output.
-   *
-   * @example
-   * ```ts
-   * files: {
-   *   creds: {
-   *     filename: 'creds.json',
-   *     schema: z.object({ accessKey: z.string() }),
-   *     // @ts-expect-error — `accessKey` must be a string
-   *     defaults: { accessKey: 1 },
-   *   },
-   * }
-   * ```
-   */
-  files: Files & { [K in keyof Files]: FileSpec<InferOutput<Files[K]['schema']>> };
+  files: Files;
 };
 
-type ReadType<S extends FileSpec> = S extends { defaults: object }
-  ? InferOutput<S['schema']>
-  : InferOutput<S['schema']> | null;
-
 export type CreateFilesContextResult<Files extends Record<string, FileSpec>> = {
-  [K in keyof Files]: FileHandle<InferOutput<Files[K]['schema']>, ReadType<Files[K]>>;
+  [K in keyof Files]: FileHandle<InferOutput<Files[K]['schema']>>;
 };
 
 /**
@@ -151,7 +135,6 @@ export type CreateFilesContextResult<Files extends Record<string, FileSpec>> = {
  *       config: {
  *         filename: 'config.json',
  *         schema: z.object({ region: z.string() }),
- *         defaults: { region: 'eu-west-2' },
  *       },
  *     },
  *   }),
@@ -162,13 +145,11 @@ export function createFilesContext<const Files extends Record<string, FileSpec>>
   basePath,
   files,
 }: CreateFilesContextInput<Files>): CreateFilesContextResult<Files> {
-  const handles = {} as Record<string, FileHandle<unknown, unknown>>;
+  const handles = {} as Record<string, FileHandle<unknown>>;
   for (const [name, spec] of Object.entries(files)) {
     handles[name] = makeHandle({
       path: join(basePath, spec.filename),
       schema: spec.schema,
-      defaults: 'defaults' in spec ? spec.defaults : undefined,
-      hasDefaults: 'defaults' in spec && spec.defaults !== undefined,
     });
   }
   return handles as CreateFilesContextResult<Files>;
@@ -222,77 +203,102 @@ async function settle<T>({
   return r instanceof Promise ? await r : r;
 }
 
-function makeHandle<T>({
+const ENOENT_MARKER = Symbol('enoent');
+
+async function checkExists({
+  path,
+  message,
+}: {
+  path: string;
+  message: string | undefined;
+}): Promise<void> {
+  try {
+    await access(path);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw err;
+    }
+    throw new FileNotFoundError({ path, ...(message ? { message } : {}) });
+  }
+}
+
+async function loadAndValidate<T>({
   path,
   schema,
-  defaults,
-  hasDefaults,
 }: {
   path: string;
   schema: StandardSchema<T>;
-  defaults: T | undefined;
-  hasDefaults: boolean;
-}): FileHandle<T, T | null> {
+}): Promise<T | typeof ENOENT_MARKER> {
+  let raw: string;
+  try {
+    raw = await readFile(path, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return ENOENT_MARKER;
+    }
+    throw err;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new FileValidationError({
+      path,
+      issues: [{ message: `not valid JSON: ${(err as Error).message}`, path: '' }],
+    });
+  }
+  const result = await settle({ schema, value: parsed });
+  if ('issues' in result && result.issues) {
+    throw new FileValidationError({ path, issues: normalizeIssues(result.issues) });
+  }
+  return result.value;
+}
+
+async function validateAndWriteAtomic<T>({
+  path,
+  schema,
+  value,
+}: {
+  path: string;
+  schema: StandardSchema<T>;
+  value: T;
+}): Promise<void> {
+  const result = await settle({ schema, value });
+  if ('issues' in result && result.issues) {
+    throw new FileValidationError({ path, issues: normalizeIssues(result.issues) });
+  }
+  await mkdir(dirname(path), { recursive: true });
+  const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tmp, `${JSON.stringify(result.value, null, 2)}\n`, 'utf8');
+  try {
+    await rename(tmp, path);
+  } catch (err) {
+    await unlink(tmp).catch(() => {});
+    throw err;
+  }
+}
+
+function makeHandle<T>({
+  path,
+  schema,
+}: {
+  path: string;
+  schema: StandardSchema<T>;
+}): FileHandle<T> {
   return {
     path,
-    async ensureExists(opts?: { message?: string }): Promise<void> {
-      try {
-        await access(path);
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-          throw new FileNotFoundError({
-            path,
-            ...(opts?.message ? { message: opts.message } : {}),
-          });
-        }
-        throw err;
+    ensureExists: (opts) => checkExists({ path, message: opts?.message }),
+    read: async () => {
+      const v = await loadAndValidate({ path, schema });
+      if (v === ENOENT_MARKER) {
+        throw new FileNotFoundError({ path });
       }
+      return v;
     },
-    async read(): Promise<T | null> {
-      let raw: string;
-      try {
-        raw = await readFile(path, 'utf8');
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-          return hasDefaults ? structuredClone(defaults as T) : null;
-        }
-        throw err;
-      }
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch (err) {
-        throw new FileValidationError({
-          path,
-          issues: [{ message: `not valid JSON: ${(err as Error).message}`, path: '' }],
-        });
-      }
-      const result = await settle({ schema, value: parsed });
-      if ('issues' in result && result.issues) {
-        throw new FileValidationError({
-          path,
-          issues: normalizeIssues(result.issues),
-        });
-      }
-      return result.value;
+    maybeRead: async () => {
+      const v = await loadAndValidate({ path, schema });
+      return v === ENOENT_MARKER ? null : v;
     },
-    async write(value: T): Promise<void> {
-      const result = await settle({ schema, value });
-      if ('issues' in result && result.issues) {
-        throw new FileValidationError({
-          path,
-          issues: normalizeIssues(result.issues),
-        });
-      }
-      await mkdir(dirname(path), { recursive: true });
-      const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
-      await writeFile(tmp, `${JSON.stringify(result.value, null, 2)}\n`, 'utf8');
-      try {
-        await rename(tmp, path);
-      } catch (err) {
-        await unlink(tmp).catch(() => {});
-        throw err;
-      }
-    },
+    write: (value) => validateAndWriteAtomic({ path, schema, value }),
   };
 }

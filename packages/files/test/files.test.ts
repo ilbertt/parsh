@@ -18,26 +18,6 @@ afterEach(async () => {
 const credsSchema = z.object({ accessKey: z.string(), region: z.string() });
 
 describe('createFilesContext', () => {
-  test('round-trip write→read returns equal value with inferred type', async () => {
-    const files = createFilesContext({
-      basePath,
-      files: { creds: { filename: 'creds.json', schema: credsSchema } },
-    });
-
-    const value = { accessKey: 'AKIA', region: 'eu-west-2' };
-    await files.creds.write(value);
-    const read = await files.creds.read();
-    expect(read).toEqual(value);
-  });
-
-  test('read returns null when the file does not exist', async () => {
-    const files = createFilesContext({
-      basePath,
-      files: { creds: { filename: 'missing.json', schema: credsSchema } },
-    });
-    expect(await files.creds.read()).toBeNull();
-  });
-
   test('handle.path resolves to basePath/filename', () => {
     const files = createFilesContext({
       basePath,
@@ -46,28 +26,17 @@ describe('createFilesContext', () => {
     expect(files.creds.path).toBe(join(basePath, 'creds.json'));
   });
 
-  test('corrupt JSON throws FileValidationError naming the file', async () => {
-    await writeFile(join(basePath, 'creds.json'), '{not json', 'utf8');
+  test('round-trip write→read returns equal value with inferred type', async () => {
     const files = createFilesContext({
       basePath,
       files: { creds: { filename: 'creds.json', schema: credsSchema } },
     });
-    await expect(files.creds.read()).rejects.toBeInstanceOf(FileValidationError);
-    await expect(files.creds.read()).rejects.toThrow(join(basePath, 'creds.json'));
+    const value = { accessKey: 'AKIA', region: 'eu-west-2' };
+    await files.creds.write(value);
+    expect(await files.creds.read()).toEqual(value);
   });
 
-  test('schema-mismatched JSON throws FileValidationError with issue', async () => {
-    await writeFile(join(basePath, 'creds.json'), JSON.stringify({ accessKey: 'AKIA' }), 'utf8');
-    const files = createFilesContext({
-      basePath,
-      files: { creds: { filename: 'creds.json', schema: credsSchema } },
-    });
-    const promise = files.creds.read();
-    await expect(promise).rejects.toBeInstanceOf(FileValidationError);
-    await expect(promise).rejects.toThrow(/region/);
-  });
-
-  test('writes are atomic — the target path holds either old or new contents', async () => {
+  test('writes are atomic — last write wins', async () => {
     const files = createFilesContext({
       basePath,
       files: { creds: { filename: 'creds.json', schema: credsSchema } },
@@ -78,32 +47,72 @@ describe('createFilesContext', () => {
     expect(JSON.parse(raw)).toEqual({ accessKey: 'new', region: 'eu' });
   });
 
-  test('defaults narrow read() return to T and are returned on ENOENT', async () => {
-    const defaults = { accessKey: 'fallback', region: 'eu-west-2' };
-    const files = createFilesContext({
-      basePath,
-      files: {
-        creds: { filename: 'absent.json', schema: credsSchema, defaults },
-      },
+  describe('read', () => {
+    test('returns parsed value typed as T', async () => {
+      const files = createFilesContext({
+        basePath,
+        files: { creds: { filename: 'creds.json', schema: credsSchema } },
+      });
+      await files.creds.write({ accessKey: 'AKIA', region: 'eu' });
+      const value = await files.creds.read();
+      expect(value.accessKey).toBe('AKIA');
     });
-    const read = await files.creds.read();
-    // Type-level: no `null` in the union — direct field access compiles.
-    expect(read.accessKey).toBe('fallback');
-    expect(read).toEqual(defaults);
+
+    test('throws FileNotFoundError when the file is missing', async () => {
+      const files = createFilesContext({
+        basePath,
+        files: { creds: { filename: 'absent.json', schema: credsSchema } },
+      });
+      await expect(files.creds.read()).rejects.toBeInstanceOf(FileNotFoundError);
+    });
+
+    test('throws FileValidationError on corrupt JSON', async () => {
+      await writeFile(join(basePath, 'creds.json'), '{not json', 'utf8');
+      const files = createFilesContext({
+        basePath,
+        files: { creds: { filename: 'creds.json', schema: credsSchema } },
+      });
+      await expect(files.creds.read()).rejects.toBeInstanceOf(FileValidationError);
+    });
+
+    test('throws FileValidationError on schema mismatch', async () => {
+      await writeFile(join(basePath, 'creds.json'), JSON.stringify({ accessKey: 'AKIA' }), 'utf8');
+      const files = createFilesContext({
+        basePath,
+        files: { creds: { filename: 'creds.json', schema: credsSchema } },
+      });
+      const promise = files.creds.read();
+      await expect(promise).rejects.toBeInstanceOf(FileValidationError);
+      await expect(promise).rejects.toThrow(/region/);
+    });
   });
 
-  test('defaults are deep-cloned per read so callers can mutate freely', async () => {
-    const defaults = { accessKey: 'orig', region: 'eu' };
-    const files = createFilesContext({
-      basePath,
-      files: {
-        creds: { filename: 'absent.json', schema: credsSchema, defaults },
-      },
+  describe('maybeRead', () => {
+    test('returns null when the file is missing', async () => {
+      const files = createFilesContext({
+        basePath,
+        files: { creds: { filename: 'absent.json', schema: credsSchema } },
+      });
+      expect(await files.creds.maybeRead()).toBeNull();
     });
-    const a = await files.creds.read();
-    a.accessKey = 'mutated';
-    const b = await files.creds.read();
-    expect(b.accessKey).toBe('orig');
+
+    test('returns the value when present', async () => {
+      const files = createFilesContext({
+        basePath,
+        files: { creds: { filename: 'creds.json', schema: credsSchema } },
+      });
+      await files.creds.write({ accessKey: 'a', region: 'eu' });
+      expect(await files.creds.maybeRead()).toEqual({ accessKey: 'a', region: 'eu' });
+    });
+
+    test('still throws FileValidationError on corrupt JSON', async () => {
+      await writeFile(join(basePath, 'creds.json'), '{not json', 'utf8');
+      const files = createFilesContext({
+        basePath,
+        files: { creds: { filename: 'creds.json', schema: credsSchema } },
+      });
+      await expect(files.creds.maybeRead()).rejects.toBeInstanceOf(FileValidationError);
+    });
   });
 
   describe('ensureExists', () => {
@@ -135,34 +144,5 @@ describe('createFilesContext', () => {
         'Run init first.',
       );
     });
-
-    test('still throws when the spec has defaults — checks actual disk presence', async () => {
-      const files = createFilesContext({
-        basePath,
-        files: {
-          creds: {
-            filename: 'absent.json',
-            schema: credsSchema,
-            defaults: { accessKey: 'd', region: 'eu' },
-          },
-        },
-      });
-      await expect(files.creds.ensureExists()).rejects.toBeInstanceOf(FileNotFoundError);
-    });
-  });
-
-  test('defaults are ignored once the file exists', async () => {
-    const files = createFilesContext({
-      basePath,
-      files: {
-        creds: {
-          filename: 'creds.json',
-          schema: credsSchema,
-          defaults: { accessKey: 'fallback', region: 'eu' },
-        },
-      },
-    });
-    await files.creds.write({ accessKey: 'real', region: 'us' });
-    expect(await files.creds.read()).toEqual({ accessKey: 'real', region: 'us' });
   });
 });

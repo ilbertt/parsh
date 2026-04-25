@@ -21,6 +21,10 @@ export interface LoadedCommand {
   // enforced at the `defineCommand` call site.
   // biome-ignore lint/suspicious/noExplicitAny: see note above
   handler?: (ctx: any) => void | Promise<void>;
+  // biome-ignore lint/suspicious/noExplicitAny: see handler note above
+  beforeHandler?: (ctx: any) => void | Promise<void>;
+  // biome-ignore lint/suspicious/noExplicitAny: see handler note above
+  afterHandler?: (ctx: any) => void | Promise<void>;
 }
 
 /**
@@ -383,6 +387,42 @@ async function loadCommand(cmd: RuntimeCommand): Promise<LoadedCommand> {
   }
 }
 
+type HandlerPhase = 'beforeHandler' | 'handler' | 'afterHandler';
+
+type LifecycleResult = { ok: true } | { ok: false; phase: HandlerPhase; error: Error };
+
+// biome-ignore lint/suspicious/noExplicitAny: ctx shape is enforced at the defineCommand call site (see LoadedCommand)
+type Hook = (ctx: any) => void | Promise<void>;
+
+async function runHandlerLifecycle({
+  beforeHandler,
+  handler,
+  afterHandler,
+  ctx,
+}: {
+  beforeHandler: Hook | undefined;
+  handler: Hook;
+  afterHandler: Hook | undefined;
+  ctx: unknown;
+}): Promise<LifecycleResult> {
+  const phases: ReadonlyArray<{ name: HandlerPhase; fn: Hook | undefined }> = [
+    { name: 'beforeHandler', fn: beforeHandler },
+    { name: 'handler', fn: handler },
+    { name: 'afterHandler', fn: afterHandler },
+  ];
+  for (const { name, fn } of phases) {
+    if (!fn) {
+      continue;
+    }
+    try {
+      await fn(ctx);
+    } catch (error) {
+      return { ok: false, phase: name, error: error as Error };
+    }
+  }
+  return { ok: true };
+}
+
 export class Cli<C extends object = Record<string, never>> {
   /**
    * Phantom field carrying the resolved context type so user code can register
@@ -591,13 +631,17 @@ export class Cli<C extends object = Record<string, never>> {
       return 0;
     }
 
-    try {
-      await targetLoaded.handler(ctx);
+    const result = await runHandlerLifecycle({
+      handler: targetLoaded.handler,
+      beforeHandler: targetLoaded.beforeHandler,
+      afterHandler: targetLoaded.afterHandler,
+      ctx,
+    });
+    if (result.ok) {
       return 0;
-    } catch (err) {
-      console.error(`${this.#errorPrefix()}: handler error: ${(err as Error).message}`);
-      return 1;
     }
+    console.error(`${this.#errorPrefix()}: ${result.phase} error: ${result.error.message}`);
+    return 1;
   }
 
   async main(): Promise<never> {

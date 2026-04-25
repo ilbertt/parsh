@@ -51,6 +51,8 @@ type DefinedCommand<
   helpArg: HelpArgConfig;
   description?: string;
   handler?: (ctx: unknown) => void | Promise<void>;
+  beforeHandler?: (ctx: unknown) => void | Promise<void>;
+  afterHandler?: (ctx: unknown) => void | Promise<void>;
 };
 
 type DefinedRootCommand<Options extends Record<string, AnySchema>> = {
@@ -60,6 +62,8 @@ type DefinedRootCommand<Options extends Record<string, AnySchema>> = {
   helpArg: HelpArgConfig;
   description?: string;
   handler?: (ctx: unknown) => void | Promise<void>;
+  beforeHandler?: (ctx: unknown) => void | Promise<void>;
+  afterHandler?: (ctx: unknown) => void | Promise<void>;
 };
 
 export function defineRootCommand<const Options extends Record<string, AnySchema>>(def: {
@@ -68,6 +72,10 @@ export function defineRootCommand<const Options extends Record<string, AnySchema
   helpArg?: HelpArgConfig;
   description?: string;
   handler?: (ctx: RootHandlerCtx<Options>) => void | Promise<void>;
+  /** Runs before `handler`. Throwing aborts the handler and `afterHandler`. */
+  beforeHandler?: (ctx: RootHandlerCtx<Options>) => void | Promise<void>;
+  /** Runs after `handler` resolves. Skipped if `handler` or `beforeHandler` throws. */
+  afterHandler?: (ctx: RootHandlerCtx<Options>) => void | Promise<void>;
 }): DefinedRootCommand<Options> {
   return {
     params: {} as Record<string, never>,
@@ -90,6 +98,10 @@ export function defineCommand<
     helpArg?: HelpArgConfig;
     description?: string;
     handler?: (ctx: HandlerCtx<P, Options, Params>) => void | Promise<void>;
+    /** Runs before `handler`. Throwing aborts the handler and `afterHandler`. */
+    beforeHandler?: (ctx: HandlerCtx<P, Options, Params>) => void | Promise<void>;
+    /** Runs after `handler` resolves. Skipped if `handler` or `beforeHandler` throws. */
+    afterHandler?: (ctx: HandlerCtx<P, Options, Params>) => void | Promise<void>;
   } & ParamsConstraint<P & string> &
     (Params extends Record<string, never> ? unknown : { params: Params }),
 ): DefinedCommand<P, Options, Params> {

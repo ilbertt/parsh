@@ -9,11 +9,15 @@ export interface GenerateOptions extends EmitOptions {
   outFile: string;
 }
 
-export async function generateCommandTree(opts: GenerateOptions): Promise<void> {
-  const commandsDir = resolve(opts.commandsDir);
-  const outFile = resolve(opts.outFile);
+export async function generateCommandTree({
+  commandsDir,
+  outFile,
+  coreModule,
+}: GenerateOptions): Promise<void> {
+  const commandsDirAbs = resolve(commandsDir);
+  const outFileAbs = resolve(outFile);
 
-  const root = await walkCommandsDir({ commandsDir, outFile });
+  const root = await walkCommandsDir({ commandsDir: commandsDirAbs, outFile: outFileAbs });
   const issues = validateTree(root);
   if (issues.length > 0) {
     const msg = issues.map((i) => `  - ${i.message}`).join('\n');
@@ -23,8 +27,8 @@ export async function generateCommandTree(opts: GenerateOptions): Promise<void> 
   const output = emitGeneratedFile({
     root,
     emitOptions: {
-      ...(opts.coreModule !== undefined ? { coreModule: opts.coreModule } : {}),
+      ...(coreModule !== undefined ? { coreModule } : {}),
     },
   });
-  await writeFile(outFile, output, 'utf8');
+  await writeFile(outFileAbs, output, 'utf8');
 }

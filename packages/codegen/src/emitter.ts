@@ -23,31 +23,36 @@ interface FlatEntry {
   ancestorCmds: ExtractedCommand[];
 }
 
-function flattenTree(opts: { root: CommandNode; rootCmd: ExtractedCommand | null }): FlatEntry[] {
+function flattenTree({
+  root,
+}: {
+  root: CommandNode;
+  rootCmd: ExtractedCommand | null;
+}): FlatEntry[] {
   const out: FlatEntry[] = [];
-  function walk(input: { node: CommandNode; ancestorCmds: ExtractedCommand[] }) {
-    const cmd = input.node.command;
-    const isTreeRoot = input.node === opts.root;
-    let nextAncestorCmds = input.ancestorCmds;
+  function walk({ node, ancestorCmds }: { node: CommandNode; ancestorCmds: ExtractedCommand[] }) {
+    const cmd = node.command;
+    const isTreeRoot = node === root;
+    let nextAncestorCmds = ancestorCmds;
     if (cmd && !isTreeRoot) {
       out.push({
-        pathString: pathStringOf(input.node.path.map(parseSegKey)),
+        pathString: pathStringOf(node.path.map(parseSegKey)),
         cmd,
-        ancestorCmds: input.ancestorCmds,
+        ancestorCmds,
       });
-      nextAncestorCmds = [...input.ancestorCmds, cmd];
+      nextAncestorCmds = [...ancestorCmds, cmd];
     }
-    for (const name of [...input.node.literalChildren.keys()].sort()) {
-      const child = input.node.literalChildren.get(name);
+    for (const name of [...node.literalChildren.keys()].sort()) {
+      const child = node.literalChildren.get(name);
       if (child) {
         walk({ node: child, ancestorCmds: nextAncestorCmds });
       }
     }
-    if (input.node.paramChild) {
-      walk({ node: input.node.paramChild, ancestorCmds: nextAncestorCmds });
+    if (node.paramChild) {
+      walk({ node: node.paramChild, ancestorCmds: nextAncestorCmds });
     }
   }
-  walk({ node: opts.root, ancestorCmds: [] });
+  walk({ node: root, ancestorCmds: [] });
   return out;
 }
 
@@ -85,50 +90,61 @@ function emitRootBlock(rootCmd: ExtractedCommand | null): string {
   return `{ options: ${optionsType} }`;
 }
 
-function emitRegistryEntry(opts: { entry: FlatEntry; rootCmd: ExtractedCommand | null }): string {
-  const p = opts.entry.pathString;
+function emitRegistryEntry({
+  entry,
+  rootCmd,
+}: {
+  entry: FlatEntry;
+  rootCmd: ExtractedCommand | null;
+}): string {
+  const p = entry.pathString;
   return `    '${p}': {
-      parents: ${emitParentsMap(opts.entry)};
-      root: ${emitRootBlock(opts.rootCmd)};
+      parents: ${emitParentsMap(entry)};
+      root: ${emitRootBlock(rootCmd)};
     };`;
 }
 
-function emitRuntimeNode(opts: { node: CommandNode; indent: string }): string {
-  const ind = opts.indent;
-  const inner = `${ind}  `;
-  const seg = opts.node.segment;
+function emitRuntimeNode({ node, indent }: { node: CommandNode; indent: string }): string {
+  const inner = `${indent}  `;
+  const seg = node.segment;
   const segExpr =
     seg === null
       ? 'null'
       : seg.kind === 'literal'
         ? `{ kind: 'literal', value: '${seg.value}' }`
         : `{ kind: 'param', name: '${seg.name}' }`;
-  const cmdExpr = opts.node.command ? opts.node.command.importName : 'null';
-  const literalKeys = [...opts.node.literalChildren.keys()].sort();
+  const cmdExpr = node.command ? node.command.importName : 'null';
+  const literalKeys = [...node.literalChildren.keys()].sort();
   let lcExpr: string;
   if (literalKeys.length === 0) {
     lcExpr = '{}';
   } else {
     const parts = literalKeys.map((name) => {
-      const child = opts.node.literalChildren.get(name)!;
+      const child = node.literalChildren.get(name)!;
       return `${inner}  '${name}': ${emitRuntimeNode({ node: child, indent: `${inner}  ` })}`;
     });
     lcExpr = `{\n${parts.join(',\n')},\n${inner}}`;
   }
-  const pcExpr = opts.node.paramChild
-    ? emitRuntimeNode({ node: opts.node.paramChild, indent: inner })
+  const pcExpr = node.paramChild
+    ? emitRuntimeNode({ node: node.paramChild, indent: inner })
     : 'null';
   return `{
 ${inner}segment: ${segExpr},
 ${inner}command: ${cmdExpr},
 ${inner}literalChildren: ${lcExpr},
 ${inner}paramChild: ${pcExpr},
-${ind}}`;
+${indent}}`;
 }
 
-export function emitGeneratedFile(opts: { root: CommandNode; emitOptions: EmitOptions }): string {
-  const rootCmd = opts.root.command;
-  const entries = flattenTree({ root: opts.root, rootCmd });
+export function emitGeneratedFile({
+  root,
+  emitOptions,
+}: {
+  root: CommandNode;
+  emitOptions: EmitOptions;
+}): string {
+  const rootCmd = root.command;
+  const entries = flattenTree({ root, rootCmd });
   const importCmds: ExtractedCommand[] = [...entries.map((e) => e.cmd)];
   if (rootCmd) {
     importCmds.push(rootCmd);
@@ -137,7 +153,7 @@ export function emitGeneratedFile(opts: { root: CommandNode; emitOptions: EmitOp
     // biome-ignore lint/complexity/useMaxParams: Array.sort comparator is inherently (a, b)
     .sort((a, b) => a.importName.localeCompare(b.importName));
 
-  const coreModule = opts.emitOptions.coreModule ?? '@parsh/core';
+  const coreModule = emitOptions.coreModule ?? '@parsh/core';
 
   const lines: string[] = [];
   lines.push(
@@ -159,7 +175,7 @@ export function emitGeneratedFile(opts: { root: CommandNode; emitOptions: EmitOp
   lines.push('');
   lines.push(`import type { RuntimeNode } from '${coreModule}';`);
   lines.push(
-    `export const commandTree: RuntimeNode = ${emitRuntimeNode({ node: opts.root, indent: '' })};`,
+    `export const commandTree: RuntimeNode = ${emitRuntimeNode({ node: root, indent: '' })};`,
   );
   lines.push('');
   return lines.join('\n');

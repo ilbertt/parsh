@@ -36,47 +36,51 @@ function parseSegmentKey(key: string): SourceSegment {
   return { kind: 'literal', value: key };
 }
 
-function emptyNode(opts: { segment: SourceSegment | null; path: string[] }): CommandNode {
+function emptyNode({
+  segment,
+  path,
+}: {
+  segment: SourceSegment | null;
+  path: string[];
+}): CommandNode {
   return {
-    segment: opts.segment,
+    segment,
     command: null,
     literalChildren: new Map(),
     paramChild: null,
-    path: opts.path,
+    path,
   };
 }
 
-function attachToNode(opts: { parent: CommandNode; segment: SourceSegment }): CommandNode {
-  const key = segmentKey(opts.segment);
-  if (opts.segment.kind === 'param') {
-    if (opts.parent.paramChild) {
+function attachToNode({
+  parent,
+  segment,
+}: {
+  parent: CommandNode;
+  segment: SourceSegment;
+}): CommandNode {
+  const key = segmentKey(segment);
+  if (segment.kind === 'param') {
+    if (parent.paramChild) {
       const existingName =
-        opts.parent.paramChild.segment?.kind === 'param'
-          ? opts.parent.paramChild.segment.name
-          : null;
-      if (existingName !== opts.segment.name) {
+        parent.paramChild.segment?.kind === 'param' ? parent.paramChild.segment.name : null;
+      if (existingName !== segment.name) {
         throw new Error(
-          `parsh: two param siblings in the same directory — '[${existingName}]' and '[${opts.segment.name}]' under ${opts.parent.path.join('/') || '<root>'}`,
+          `parsh: two param siblings in the same directory — '[${existingName}]' and '[${segment.name}]' under ${parent.path.join('/') || '<root>'}`,
         );
       }
-      return opts.parent.paramChild;
+      return parent.paramChild;
     }
-    const node = emptyNode({
-      segment: opts.segment,
-      path: [...opts.parent.path, key],
-    });
-    opts.parent.paramChild = node;
+    const node = emptyNode({ segment, path: [...parent.path, key] });
+    parent.paramChild = node;
     return node;
   }
-  const existing = opts.parent.literalChildren.get(key);
+  const existing = parent.literalChildren.get(key);
   if (existing) {
     return existing;
   }
-  const node = emptyNode({
-    segment: opts.segment,
-    path: [...opts.parent.path, key],
-  });
-  opts.parent.literalChildren.set(key, node);
+  const node = emptyNode({ segment, path: [...parent.path, key] });
+  parent.literalChildren.set(key, node);
   return node;
 }
 
@@ -110,20 +114,25 @@ async function readDirContents(dirAbs: string): Promise<DirContents | null> {
   return { subdirs, commandFiles };
 }
 
-async function attachCommandFile(opts: {
+async function attachCommandFile({
+  dirAbs,
+  filename,
+  node,
+  outDir,
+}: {
   dirAbs: string;
   filename: string;
   node: CommandNode;
   outDir: string;
 }): Promise<void> {
-  const basename = opts.filename.replace(/\.ts$/, '');
+  const basename = filename.replace(/\.ts$/, '');
   const fileSegment = dirNameToSegment(basename);
   const extracted = await extractCommand({
-    filePath: join(opts.dirAbs, opts.filename),
-    expectedSegments: [...opts.node.path.map(parseSegmentKey), fileSegment],
-    outDir: opts.outDir,
+    filePath: join(dirAbs, filename),
+    expectedSegments: [...node.path.map(parseSegmentKey), fileSegment],
+    outDir,
   });
-  const target = attachToNode({ parent: opts.node, segment: fileSegment });
+  const target = attachToNode({ parent: node, segment: fileSegment });
   if (target.command) {
     throw new Error(
       `parsh: duplicate command at path '${target.path.join(' ')}' — both ${target.command.filePath} and ${extracted.filePath}`,
@@ -132,37 +141,35 @@ async function attachCommandFile(opts: {
   target.command = extracted;
 }
 
-export async function walkCommandsDir(opts: {
+export async function walkCommandsDir({
+  commandsDir,
+  outFile,
+}: {
   commandsDir: string;
   outFile: string;
 }): Promise<CommandNode> {
   const root = emptyNode({ segment: null, path: [] });
-  const outDir = opts.outFile.replace(/[^/]+$/, '');
+  const outDir = outFile.replace(/[^/]+$/, '');
 
-  async function visit(input: { dirAbs: string; node: CommandNode }): Promise<void> {
-    const contents = await readDirContents(input.dirAbs);
+  async function visit({ dirAbs, node }: { dirAbs: string; node: CommandNode }): Promise<void> {
+    const contents = await readDirContents(dirAbs);
     if (!contents) {
       return;
     }
 
     for (const filename of contents.commandFiles) {
-      await attachCommandFile({
-        dirAbs: input.dirAbs,
-        filename,
-        node: input.node,
-        outDir,
-      });
+      await attachCommandFile({ dirAbs, filename, node, outDir });
     }
 
     for (const dirname of contents.subdirs) {
-      const child = attachToNode({ parent: input.node, segment: dirNameToSegment(dirname) });
-      await visit({ dirAbs: join(input.dirAbs, dirname), node: child });
+      const child = attachToNode({ parent: node, segment: dirNameToSegment(dirname) });
+      await visit({ dirAbs: join(dirAbs, dirname), node: child });
     }
   }
 
-  await visit({ dirAbs: opts.commandsDir, node: root });
+  await visit({ dirAbs: commandsDir, node: root });
 
-  const rootFilePath = join(opts.commandsDir, ROOT_FILE);
+  const rootFilePath = join(commandsDir, ROOT_FILE);
   try {
     const st = await stat(rootFilePath);
     if (st.isFile()) {

@@ -82,13 +82,7 @@ interface WalkResult {
   unknownToken: string | null;
 }
 
-function walkTree({
-  tree,
-  positionals,
-}: {
-  tree: RuntimeNode;
-  positionals: string[];
-}): WalkResult {
+function walkTree({ tree, positionals }: { tree: RuntimeNode; positionals: string[] }): WalkResult {
   let node = tree;
   const visitedCommands: Visited[] = [];
   if (node.command) {

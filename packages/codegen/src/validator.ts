@@ -19,73 +19,87 @@ function formatPath(path: string[]): string {
   return path.join(' ') || '<root>';
 }
 
-function checkParamParamShadow(input: {
+function checkParamParamShadow({
+  ancestors,
+  segment,
+  nodePath,
+}: {
   ancestors: Ancestors;
   segment: ParamSegment;
   nodePath: string[];
 }): ValidationIssue | null {
-  const existing = input.ancestors.params.get(input.segment.name);
+  const existing = ancestors.params.get(segment.name);
   if (!existing) {
     return null;
   }
   return {
-    message: `param [${input.segment.name}] at '${formatPath(input.nodePath)}' shadows an ancestor param [${input.segment.name}] (first declared in ${existing}). Rename to avoid ambiguity.`,
+    message: `param [${segment.name}] at '${formatPath(nodePath)}' shadows an ancestor param [${segment.name}] (first declared in ${existing}). Rename to avoid ambiguity.`,
   };
 }
 
-function checkParamOptionShadow(input: {
+function checkParamOptionShadow({
+  cmd,
+  segment,
+  nodePath,
+}: {
   cmd: ExtractedCommand;
   segment: ParamSegment;
   nodePath: string[];
 }): ValidationIssue | null {
-  if (!input.cmd.optionNames.includes(input.segment.name)) {
+  if (!cmd.optionNames.includes(segment.name)) {
     return null;
   }
   return {
-    message: `command '${formatPath(input.nodePath)}' (${input.cmd.filePath}) declares option '${input.segment.name}' that shadows its own param [${input.segment.name}]. Rename one.`,
+    message: `command '${formatPath(nodePath)}' (${cmd.filePath}) declares option '${segment.name}' that shadows its own param [${segment.name}]. Rename one.`,
   };
 }
 
-function checkOptionCollisions(input: {
+function checkOptionCollisions({
+  cmd,
+  ancestors,
+}: {
   cmd: ExtractedCommand;
   ancestors: Ancestors;
 }): ValidationIssue[] {
   const out: ValidationIssue[] = [];
-  for (const opt of input.cmd.optionNames) {
-    const prev = input.ancestors.options.get(opt);
+  for (const opt of cmd.optionNames) {
+    const prev = ancestors.options.get(opt);
     if (prev) {
       out.push({
-        message: `option '${opt}' in ${input.cmd.filePath} collides with ancestor option '${opt}' in ${prev}. v0.1 rejects same-name options across ancestry; rename one.`,
+        message: `option '${opt}' in ${cmd.filePath} collides with ancestor option '${opt}' in ${prev}. v0.1 rejects same-name options across ancestry; rename one.`,
       });
     }
   }
   return out;
 }
 
-function checkParamSegmentAgreement(input: {
+function checkParamSegmentAgreement({
+  cmd,
+  segment,
+  nodePath,
+}: {
   cmd: ExtractedCommand;
   segment: SourceSegment | null;
   nodePath: string[];
 }): ValidationIssue[] {
   const out: ValidationIssue[] = [];
-  const cmd = input.cmd;
-  if (segmentIsParam(input.segment)) {
-    const segName = input.segment.name;
+  if (segmentIsParam(segment)) {
+    const segName = segment.name;
     if (!cmd.paramNames.includes(segName)) {
       out.push({
-        message: `command '${formatPath(input.nodePath)}' (${cmd.filePath}) has path segment [${segName}] but its params object does not declare '${segName}'.`,
+        message: `command '${formatPath(nodePath)}' (${cmd.filePath}) has path segment [${segName}] but its params object does not declare '${segName}'.`,
       });
     }
     for (const p of cmd.paramNames) {
       if (p !== segName) {
         out.push({
-          message: `command '${formatPath(input.nodePath)}' (${cmd.filePath}) declares param '${p}' which is not in its path string.`,
+          message: `command '${formatPath(nodePath)}' (${cmd.filePath}) declares param '${p}' which is not in its path string.`,
         });
       }
     }
   } else if (cmd.paramNames.length > 0) {
     out.push({
-      message: `command '${formatPath(input.nodePath)}' (${cmd.filePath}) declares params but its path has no [bracket] segment.`,
+      message: `command '${formatPath(nodePath)}' (${cmd.filePath}) declares params but its path has no [bracket] segment.`,
     });
   }
   return out;
@@ -109,20 +123,16 @@ function checkParamSegmentAgreement(input: {
 export function validateTree(root: CommandNode): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
-  function descend(input: { node: CommandNode; ancestors: Ancestors }) {
-    const cmd = input.node.command;
-    const segment = input.node.segment;
-    const nodePath = input.node.path;
+  function descend({ node, ancestors }: { node: CommandNode; ancestors: Ancestors }) {
+    const cmd = node.command;
+    const segment = node.segment;
+    const nodePath = node.path;
 
-    const nextOptions = new Map(input.ancestors.options);
-    const nextParams = new Map(input.ancestors.params);
+    const nextOptions = new Map(ancestors.options);
+    const nextParams = new Map(ancestors.params);
 
     if (segmentIsParam(segment)) {
-      const shadow = checkParamParamShadow({
-        ancestors: input.ancestors,
-        segment,
-        nodePath,
-      });
+      const shadow = checkParamParamShadow({ ancestors, segment, nodePath });
       if (shadow) {
         issues.push(shadow);
       }
@@ -136,7 +146,7 @@ export function validateTree(root: CommandNode): ValidationIssue[] {
           issues.push(shadow);
         }
       }
-      issues.push(...checkOptionCollisions({ cmd, ancestors: input.ancestors }));
+      issues.push(...checkOptionCollisions({ cmd, ancestors }));
       issues.push(...checkParamSegmentAgreement({ cmd, segment, nodePath }));
 
       for (const opt of cmd.optionNames) {
@@ -144,12 +154,12 @@ export function validateTree(root: CommandNode): ValidationIssue[] {
       }
     }
 
-    for (const child of input.node.literalChildren.values()) {
+    for (const child of node.literalChildren.values()) {
       descend({ node: child, ancestors: { options: nextOptions, params: nextParams } });
     }
-    if (input.node.paramChild) {
+    if (node.paramChild) {
       descend({
-        node: input.node.paramChild,
+        node: node.paramChild,
         ancestors: { options: nextOptions, params: nextParams },
       });
     }

@@ -15,13 +15,13 @@ function parsePathString(pathString: string): SourceSegment[] {
   return segments;
 }
 
-function segmentsEqual(opts: { a: SourceSegment[]; b: SourceSegment[] }): boolean {
-  if (opts.a.length !== opts.b.length) {
+function segmentsEqual({ a, b }: { a: SourceSegment[]; b: SourceSegment[] }): boolean {
+  if (a.length !== b.length) {
     return false;
   }
-  for (let i = 0; i < opts.a.length; i++) {
-    const x = opts.a[i]!;
-    const y = opts.b[i]!;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i]!;
+    const y = b[i]!;
     if (x.kind !== y.kind) {
       return false;
     }
@@ -35,21 +35,18 @@ function segmentsEqual(opts: { a: SourceSegment[]; b: SourceSegment[] }): boolea
   return true;
 }
 
-function extractFromSource(opts: { source: string; filePath: string }): {
+function extractFromSource({ source, filePath }: { source: string; filePath: string }): {
   pathString: string;
   optionNames: string[];
   paramNames: string[];
 } {
-  const src = opts.source;
-  const callMatch = src.match(/defineCommand\s*\(\s*(['"])([^'"]+)\1\s*,\s*\{/);
+  const callMatch = source.match(/defineCommand\s*\(\s*(['"])([^'"]+)\1\s*,\s*\{/);
   if (!callMatch) {
-    throw new Error(
-      `parsh: ${opts.filePath} does not contain a defineCommand('...', { ... }) call`,
-    );
+    throw new Error(`parsh: ${filePath} does not contain a defineCommand('...', { ... }) call`);
   }
   const pathString = callMatch[2]!;
   const defBody = readBalancedBraceBody({
-    source: src,
+    source,
     start: callMatch.index! + callMatch[0].length,
   });
   return {
@@ -59,26 +56,26 @@ function extractFromSource(opts: { source: string; filePath: string }): {
   };
 }
 
-function extractInlineObjectKeys(opts: { body: string; prop: string }): string[] {
-  const re = new RegExp(`(^|[\\s,;{])${opts.prop}\\s*:\\s*\\{`);
-  const m = opts.body.match(re);
+function extractInlineObjectKeys({ body, prop }: { body: string; prop: string }): string[] {
+  const re = new RegExp(`(^|[\\s,;{])${prop}\\s*:\\s*\\{`);
+  const m = body.match(re);
   if (!m) {
     return [];
   }
   const inner = readBalancedBraceBody({
-    source: opts.body,
+    source: body,
     start: m.index! + m[0].length,
   });
   return topLevelObjectKeys(inner);
 }
 
-function readBalancedBraceBody(opts: { source: string; start: number }): string {
+function readBalancedBraceBody({ source, start }: { source: string; start: number }): string {
   let depth = 1;
-  let i = opts.start;
-  const len = opts.source.length;
+  let i = start;
+  const len = source.length;
   const body: string[] = [];
   while (i < len && depth > 0) {
-    const ch = opts.source[i]!;
+    const ch = source[i]!;
     if (ch === '{') {
       depth++;
       body.push(ch);
@@ -148,8 +145,8 @@ function stripBalanced(src: string): string {
   return out.join('');
 }
 
-function importNameFor(opts: { filePath: string }): string {
-  const noExt = opts.filePath.replace(/\.ts$/, '');
+function importNameFor({ filePath }: { filePath: string }): string {
+  const noExt = filePath.replace(/\.ts$/, '');
   const parts = noExt.split('/');
   const ix = parts.lastIndexOf('commands');
   const subpath = ix >= 0 ? parts.slice(ix + 1) : [basename(noExt)];
@@ -164,26 +161,29 @@ function importNameFor(opts: { filePath: string }): string {
   return `${camel}Cmd`;
 }
 
-export async function extractRootCommand(opts: {
+export async function extractRootCommand({
+  filePath,
+  outDir,
+}: {
   filePath: string;
   outDir: string;
 }): Promise<ExtractedCommand> {
-  const source = await readFile(opts.filePath, 'utf8');
+  const source = await readFile(filePath, 'utf8');
   const callMatch = source.match(/defineRootCommand\s*\(\s*\{/);
   if (!callMatch) {
-    throw new Error(`parsh: ${opts.filePath} does not contain a defineRootCommand({ ... }) call`);
+    throw new Error(`parsh: ${filePath} does not contain a defineRootCommand({ ... }) call`);
   }
   const defBody = readBalancedBraceBody({
     source,
     start: callMatch.index! + callMatch[0].length,
   });
   const optionNames = extractInlineObjectKeys({ body: defBody, prop: 'options' });
-  let spec = relative(opts.outDir, opts.filePath);
+  let spec = relative(outDir, filePath);
   if (!spec.startsWith('.')) {
     spec = `./${spec}`;
   }
   return {
-    filePath: opts.filePath,
+    filePath,
     pathString: '',
     segments: [],
     optionNames,
@@ -193,37 +193,37 @@ export async function extractRootCommand(opts: {
   };
 }
 
-export async function extractCommand(opts: {
+export async function extractCommand({
+  filePath,
+  expectedSegments,
+  outDir,
+}: {
   filePath: string;
   expectedSegments: SourceSegment[];
   outDir: string;
 }): Promise<ExtractedCommand> {
-  const source = await readFile(opts.filePath, 'utf8');
-  const { pathString, optionNames, paramNames } = extractFromSource({
-    source,
-    filePath: opts.filePath,
-  });
+  const source = await readFile(filePath, 'utf8');
+  const { pathString, optionNames, paramNames } = extractFromSource({ source, filePath });
   const segments = parsePathString(pathString);
-  if (!segmentsEqual({ a: segments, b: opts.expectedSegments })) {
-    const got = pathString;
-    const want = opts.expectedSegments
+  if (!segmentsEqual({ a: segments, b: expectedSegments })) {
+    const want = expectedSegments
       .map((s) => (s.kind === 'literal' ? s.value : `[${s.name}]`))
       .join(' ');
     throw new Error(
-      `parsh: ${opts.filePath} — defineCommand path string '${got}' does not match its filesystem location '${want}'`,
+      `parsh: ${filePath} — defineCommand path string '${pathString}' does not match its filesystem location '${want}'`,
     );
   }
-  let spec = relative(opts.outDir, opts.filePath);
+  let spec = relative(outDir, filePath);
   if (!spec.startsWith('.')) {
     spec = `./${spec}`;
   }
   return {
-    filePath: opts.filePath,
+    filePath,
     pathString,
     segments,
     optionNames,
     paramNames,
-    importName: importNameFor({ filePath: opts.filePath }),
+    importName: importNameFor({ filePath }),
     importSpecifier: spec,
   };
 }

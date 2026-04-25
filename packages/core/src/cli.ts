@@ -1,6 +1,6 @@
 import { type ParseArgsConfig, parseArgs } from 'node:util';
 import type { ResolveContext } from '#registry.ts';
-import type { AnyOption, AnySchema, OptionsRecord } from '#schema.ts';
+import type { AnyOption, AnyParam, AnySchema, OptionsRecord, ParamsRecord } from '#schema.ts';
 
 type TreeSegment =
   | { readonly kind: 'literal'; readonly value: string }
@@ -16,7 +16,7 @@ export interface OptionMeta {
 
 export interface LoadedCommand {
   options: OptionsRecord;
-  params?: Record<string, AnySchema>;
+  params?: ParamsRecord;
   /** @default { enabled: true } */
   helpArg?: { enabled: boolean };
   // `any` is required so hand-built commands can use specific `ctx` shapes —
@@ -81,21 +81,29 @@ export class CommandLoadError extends Error {
   }
 }
 
-type SchemaRecord = Record<string, AnySchema>;
+interface SchemaSpec {
+  schema: AnySchema;
+  required?: boolean;
+}
 
-function optionSchemasFor({
+type SpecRecord = Record<string, SchemaSpec>;
+
+function optionSpecsFor({
   options,
   includeSelfOnly,
 }: {
   options: OptionsRecord;
   includeSelfOnly: boolean;
-}): SchemaRecord {
-  const out: SchemaRecord = {};
+}): SpecRecord {
+  const out: SpecRecord = {};
   for (const [name, opt] of Object.entries(options) as Array<[string, AnyOption]>) {
     if (!includeSelfOnly && opt.forwardToChildren !== true) {
       continue;
     }
-    out[name] = opt.schema;
+    out[name] = {
+      schema: opt.schema,
+      ...(opt.required !== undefined && { required: opt.required }),
+    };
   }
   return out;
 }
@@ -326,26 +334,29 @@ async function validateScalar({
 }
 
 async function validateRecord({
-  schemas,
+  specs,
   values,
   kind,
 }: {
-  schemas: SchemaRecord;
+  specs: SpecRecord;
   values: Record<string, unknown>;
   kind: 'option' | 'param';
 }): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; error: string }> {
   const out: Record<string, unknown> = {};
-  for (const [name, schema] of Object.entries(schemas)) {
+  for (const [name, spec] of Object.entries(specs)) {
     const raw = values[name];
     if (raw === undefined) {
-      const settled = await settle({ schema, value: undefined });
+      if (spec.required === true) {
+        return { ok: false, error: `missing required ${kind}: ${name}` };
+      }
+      const settled = await settle({ schema: spec.schema, value: undefined });
       if ('issues' in settled && settled.issues) {
         return { ok: false, error: `missing required ${kind}: ${name}` };
       }
       out[name] = settled.value;
       continue;
     }
-    const settled = await validateScalar({ schema, raw });
+    const settled = await validateScalar({ schema: spec.schema, raw });
     if ('issues' in settled && settled.issues) {
       const msg = settled.issues.map((i) => (i as { message: string }).message).join(', ');
       return { ok: false, error: `invalid ${kind} "${name}": ${msg}` };
@@ -710,12 +721,12 @@ export class Cli<C extends object = Record<string, never>> {
       }
       const loadedCmd = loaded.get(v.command)!;
       const isTargetVisit = i === visitedCommands.length - 1;
-      const optionSchemas = optionSchemasFor({
+      const optionSpecs = optionSpecsFor({
         options: loadedCmd.options,
         includeSelfOnly: isTargetVisit,
       });
       const optionsResult = await validateRecord({
-        schemas: optionSchemas,
+        specs: optionSpecs,
         values: rawValues,
         kind: 'option',
       });
@@ -727,16 +738,19 @@ export class Cli<C extends object = Record<string, never>> {
       }
 
       const ownParamValues: Record<string, unknown> = {};
-      const ownParamSchemas: SchemaRecord = {};
+      const ownParamSpecs: SpecRecord = {};
       if (v.paramName) {
-        const schema = loadedCmd.params?.[v.paramName];
-        if (schema) {
-          ownParamSchemas[v.paramName] = schema;
+        const param: AnyParam | undefined = loadedCmd.params?.[v.paramName];
+        if (param) {
+          ownParamSpecs[v.paramName] = {
+            schema: param.schema,
+            ...(param.required !== undefined && { required: param.required }),
+          };
           ownParamValues[v.paramName] = v.paramValue;
         }
       }
       const paramsResult = await validateRecord({
-        schemas: ownParamSchemas,
+        specs: ownParamSpecs,
         values: ownParamValues,
         kind: 'param',
       });

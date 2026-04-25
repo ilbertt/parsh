@@ -2,7 +2,7 @@ import { defineCommand } from '@repo/core';
 import { z } from 'zod';
 
 export const command = defineCommand('users [id]', {
-  params: { id: z.string() },
+  params: { id: { schema: z.string() } },
   options: {},
   handler: ({ params }) => {
     console.log(`user ${params.id}`);

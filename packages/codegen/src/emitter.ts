@@ -75,7 +75,7 @@ function ancestorOptionsType(anc: ExtractedCommand): string {
 }
 
 function ancestorParamsType(anc: ExtractedCommand): string {
-  return anc.paramNames.length === 0 ? '{}' : `InferSchemas<typeof ${anc.importName}.params>`;
+  return anc.paramNames.length === 0 ? '{}' : `InferParams<typeof ${anc.importName}.params>`;
 }
 
 function emitParentsMap(entry: FlatEntry): string {
@@ -250,15 +250,15 @@ export function emitGeneratedFile({
   const usesForwardedOptions =
     (rootCmd ? hasForwardedOption(rootCmd) : false) ||
     entries.some((e) => e.ancestorCmds.some(hasForwardedOption));
-  const usesInferSchemas = entries.some((e) =>
+  const usesInferParams = entries.some((e) =>
     e.ancestorCmds.some((anc) => anc.paramNames.length > 0),
   );
   const typeImports: string[] = ['RuntimeNode'];
   if (usesForwardedOptions) {
     typeImports.push('InferForwardedOptions');
   }
-  if (usesInferSchemas) {
-    typeImports.push('InferSchemas');
+  if (usesInferParams) {
+    typeImports.push('InferParams');
   }
   typeImports.sort();
   lines.push(`import type { ${typeImports.join(', ')} } from '${coreModule}';`);

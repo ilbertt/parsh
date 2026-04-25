@@ -57,7 +57,7 @@ defineCommand('users create', {
 });
 
 defineCommand('items [sku]', {
-  params: { sku: z.string() },
+  params: { sku: { schema: z.string() } },
   options: { force: { schema: z.boolean(), forwardToChildren: true } },
   handler: ({ options, params }) => {
     expectTypeOf(params).toEqualTypeOf<{ sku: string }>();
@@ -67,7 +67,7 @@ defineCommand('items [sku]', {
 
 defineCommand('items [sku]', {
   // @ts-expect-error — `wrongName` is not the param the path declares
-  params: { wrongName: z.string() },
+  params: { wrongName: { schema: z.string() } },
   options: { force: { schema: z.boolean() } },
   handler: () => {},
 });

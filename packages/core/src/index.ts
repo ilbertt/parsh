@@ -12,9 +12,13 @@ export { defineCommand, defineRootCommand } from '#command.ts';
 export type { CommandRegistry, Register, RegisteredContext, ResolveContext } from '#registry.ts';
 export type {
   AnyOption,
+  AnyParam,
   CommandOption,
+  CommandParam,
   InferForwardedOptions,
   InferOptions,
+  InferParams,
   InferSchemas,
   OptionsRecord,
+  ParamsRecord,
 } from '#schema.ts';

@@ -121,7 +121,7 @@ function makeTree(opts: {
             paramNames: ['id'],
             loaded: {
               options: {},
-              params: { id: opts.idSchema() },
+              params: { id: { schema: opts.idSchema() } },
               handler: () => {},
             },
           }),

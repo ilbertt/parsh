@@ -60,6 +60,11 @@ export interface CommandOption<S extends AnySchema = AnySchema> {
   forwardToChildren?: boolean;
   description?: string;
   /**
+   * If `true`, a missing value errors before schema validation runs. The
+   * schema still drives the static type. Default: `false`.
+   */
+  required?: boolean;
+  /**
    * Alternate names for the flag. Single-char entries dispatch as `-x`;
    * longer entries dispatch as `--xxx`. Aliases must not collide with any
    * other visible option's name or alias on the same command (own +
@@ -74,6 +79,27 @@ export type OptionsRecord = Record<string, AnyOption>;
 
 export type InferOptions<O extends OptionsRecord> = {
   -readonly [K in keyof O]: InferOutput<O[K]['schema']>;
+};
+
+/**
+ * A param declaration. Mirrors `CommandOption` but without `forwardToChildren`
+ * or `aliases` — params are positional and their identity comes from the path
+ * string. `required` defaults to `false`; routing already guarantees presence
+ * when the command is reached, but the flag is honored if the schema admits
+ * undefined.
+ */
+export interface CommandParam<S extends AnySchema = AnySchema> {
+  schema: S;
+  description?: string;
+  required?: boolean;
+}
+
+export type AnyParam = CommandParam<AnySchema>;
+
+export type ParamsRecord = Record<string, AnyParam>;
+
+export type InferParams<P extends ParamsRecord> = {
+  -readonly [K in keyof P]: InferOutput<P[K]['schema']>;
 };
 
 type ForwardedKeys<O extends OptionsRecord> = {

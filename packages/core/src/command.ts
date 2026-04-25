@@ -43,6 +43,7 @@ type DefinedCommand<
   options: Options;
   params: Params;
   helpArg: HelpArgConfig;
+  description?: string;
   handler?: (ctx: unknown) => void | Promise<void>;
 };
 
@@ -51,6 +52,7 @@ type DefinedRootCommand<Options extends Record<string, AnySchema>> = {
   options: Options;
   params: Record<string, never>;
   helpArg: HelpArgConfig;
+  description?: string;
   handler?: (ctx: unknown) => void | Promise<void>;
 };
 
@@ -58,6 +60,7 @@ export function defineRootCommand<const Options extends Record<string, AnySchema
   options: Options;
   /** @default { enabled: true } */
   helpArg?: HelpArgConfig;
+  description?: string;
   handler?: (ctx: { options: Simplify<InferSchemas<Options>> }) => void | Promise<void>;
 }): DefinedRootCommand<Options> {
   return {
@@ -79,6 +82,7 @@ export function defineCommand<
     options: Options;
     /** @default { enabled: true } */
     helpArg?: HelpArgConfig;
+    description?: string;
     handler?: (ctx: HandlerCtx<P, Options, Params>) => void | Promise<void>;
   } & ParamsConstraint<P & string> &
     (Params extends Record<string, never> ? unknown : { params: Params }),

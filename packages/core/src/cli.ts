@@ -32,6 +32,7 @@ export interface RuntimeCommand {
   path: string;
   optionNames: ReadonlyArray<OptionMeta>;
   paramNames: ReadonlyArray<string>;
+  description?: string;
   load: () => Promise<LoadedCommand>;
 }
 
@@ -227,11 +228,12 @@ function renderRootUsage({
   }
 
   lines.push('Commands:');
+  const rows: Array<{ label: string; description: string | undefined }> = [];
   function walk({ node, prefix }: { node: RuntimeNode; prefix: string[] }) {
     for (const [name, child] of Object.entries(node.literalChildren)) {
       const pieces = [...prefix, name];
       if (child.command || Object.keys(child.literalChildren).length || child.paramChild) {
-        lines.push(`  ${pieces.join(' ')}`);
+        rows.push({ label: pieces.join(' '), description: child.command?.description });
       }
       walk({ node: child, prefix: pieces });
     }
@@ -240,13 +242,27 @@ function renderRootUsage({
       const segName = pc.segment?.kind === 'param' ? pc.segment.name : 'param';
       const pieces = [...prefix, `<${segName}>`];
       if (pc.command || Object.keys(pc.literalChildren).length || pc.paramChild) {
-        lines.push(`  ${pieces.join(' ')}`);
+        rows.push({ label: pieces.join(' '), description: pc.command?.description });
       }
       walk({ node: pc, prefix: pieces });
     }
   }
   walk({ node: root, prefix: [] });
+  for (const line of formatTwoColumn(rows)) {
+    lines.push(`  ${line}`);
+  }
   return lines.join('\n');
+}
+
+function formatTwoColumn(
+  rows: ReadonlyArray<{ label: string; description: string | undefined }>,
+): string[] {
+  const width = rows.reduce(
+    // biome-ignore lint/complexity/useMaxParams: Array.reduce callback is inherently (acc, item)
+    (w, r) => Math.max(w, r.label.length),
+    0,
+  );
+  return rows.map((r) => (r.description ? `${r.label.padEnd(width)}  ${r.description}` : r.label));
 }
 
 function renderCommandUsage({
@@ -261,6 +277,9 @@ function renderCommandUsage({
   const cmd = node.command!;
   const segments = cmd.path.split(' ').map((s) => (s.startsWith('[') ? `<${s.slice(1, -1)}>` : s));
   const lines: string[] = [];
+  if (cmd.description) {
+    lines.push(cmd.description, '');
+  }
   lines.push(`Usage: ${programName} ${segments.join(' ')} [options]`, '');
 
   const ownOptions = cmd.optionNames.map((o) => o.name);
@@ -293,11 +312,19 @@ function renderCommandUsage({
   const subs = Object.keys(node.literalChildren).sort();
   if (subs.length > 0 || node.paramChild) {
     lines.push('Subcommands:');
+    const rows: Array<{ label: string; description: string | undefined }> = [];
     for (const name of subs) {
-      lines.push(`  ${name}`);
+      const child = node.literalChildren[name]!;
+      rows.push({ label: name, description: child.command?.description });
     }
     if (node.paramChild?.segment?.kind === 'param') {
-      lines.push(`  <${node.paramChild.segment.name}>`);
+      rows.push({
+        label: `<${node.paramChild.segment.name}>`,
+        description: node.paramChild.command?.description,
+      });
+    }
+    for (const line of formatTwoColumn(rows)) {
+      lines.push(`  ${line}`);
     }
   }
 

@@ -39,6 +39,7 @@ function extractFromSource({ source, filePath }: { source: string; filePath: str
   pathString: string;
   options: ExtractedOption[];
   paramNames: string[];
+  description: string | undefined;
 } {
   const callMatch = source.match(/defineCommand\s*\(\s*(['"])([^'"]+)\1\s*,\s*\{/);
   if (!callMatch) {
@@ -53,6 +54,7 @@ function extractFromSource({ source, filePath }: { source: string; filePath: str
     pathString,
     options: extractOptions(defBody),
     paramNames: extractInlineObjectKeys({ body: defBody, prop: 'params' }).map((e) => e.key),
+    description: extractDescription(defBody),
   };
 }
 
@@ -61,6 +63,37 @@ function extractOptions(body: string): ExtractedOption[] {
     name: key,
     type: /\bboolean\s*\(/.test(value) ? 'boolean' : 'string',
   }));
+}
+
+/**
+ * Pull a `description: '...'` string literal from a definition body. Only
+ * inline string/template literals are recognised; computed or interpolated
+ * values are ignored.
+ */
+function extractDescription(body: string): string | undefined {
+  for (const e of topLevelObjectEntries(body)) {
+    if (e.key !== 'description') {
+      continue;
+    }
+    const v = e.value.trim();
+    if (v.length < 2) {
+      return undefined;
+    }
+    const q = v[0];
+    if ((q === '"' || q === "'" || q === '`') && v.endsWith(q)) {
+      const inner = v.slice(1, -1);
+      if (q === '"') {
+        try {
+          return JSON.parse(v) as string;
+        } catch {
+          return inner;
+        }
+      }
+      return inner;
+    }
+    return undefined;
+  }
+  return undefined;
 }
 
 interface ObjectEntry {
@@ -217,6 +250,7 @@ export async function extractRootCommand({
     start: callMatch.index! + callMatch[0].length,
   });
   const options = extractOptions(defBody);
+  const description = extractDescription(defBody);
   let spec = relative(outDir, filePath);
   if (!spec.startsWith('.')) {
     spec = `./${spec}`;
@@ -229,6 +263,7 @@ export async function extractRootCommand({
     paramNames: [],
     importName: 'rootCmd',
     importSpecifier: spec,
+    ...(description !== undefined ? { description } : {}),
   };
 }
 
@@ -242,7 +277,10 @@ export async function extractCommand({
   outDir: string;
 }): Promise<ExtractedCommand> {
   const source = await readFile(filePath, 'utf8');
-  const { pathString, options, paramNames } = extractFromSource({ source, filePath });
+  const { pathString, options, paramNames, description } = extractFromSource({
+    source,
+    filePath,
+  });
   const segments = parsePathString(pathString);
   if (!segmentsEqual({ a: segments, b: expectedSegments })) {
     const want = expectedSegments
@@ -264,5 +302,6 @@ export async function extractCommand({
     paramNames,
     importName: importNameFor({ filePath }),
     importSpecifier: spec,
+    ...(description !== undefined ? { description } : {}),
   };
 }

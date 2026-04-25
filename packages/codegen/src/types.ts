@@ -21,6 +21,7 @@ export interface ExtractedCommand {
   paramNames: string[];
   importName: string;
   importSpecifier: string;
+  description?: string;
 }
 
 export interface CommandNode {

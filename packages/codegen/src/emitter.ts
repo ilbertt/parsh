@@ -137,7 +137,9 @@ function emitRuntimeCommand({
   pathString: string;
   eager: boolean;
 }): string {
-  return `{ path: '${pathString}', optionNames: ${emitOptionMeta(cmd.options)}, paramNames: ${emitParamNames(cmd.paramNames)}, load: ${emitLoadFn({ cmd, eager })} }`;
+  const desc =
+    cmd.description !== undefined ? `, description: ${JSON.stringify(cmd.description)}` : '';
+  return `{ path: '${pathString}', optionNames: ${emitOptionMeta(cmd.options)}, paramNames: ${emitParamNames(cmd.paramNames)}${desc}, load: ${emitLoadFn({ cmd, eager })} }`;
 }
 
 function emitRuntimeNode({

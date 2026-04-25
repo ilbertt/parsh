@@ -10,6 +10,10 @@ import type { command as s3Cmd } from './commands/s3.ts';
 
 declare module '@repo/core' {
   interface CommandRegistry {
+    'configure': {
+      parents: {};
+      root: { options: InferSchemas<typeof rootCmd.options> };
+    };
     'ec2': {
       parents: {};
       root: { options: InferSchemas<typeof rootCmd.options> };
@@ -106,6 +110,10 @@ declare module '@repo/core' {
       };
       root: { options: InferSchemas<typeof rootCmd.options> };
     };
+    'status': {
+      parents: {};
+      root: { options: InferSchemas<typeof rootCmd.options> };
+    };
   }
 }
 
@@ -113,6 +121,12 @@ export const commandTree: RuntimeNode = {
   segment: null,
   command: { path: '', optionNames: [{ name: 'identity', type: 'string' }, { name: 'region', type: 'string' }], paramNames: [], description: "A fake AWS CLI.", load: () => import('./commands/_root.ts').then((m) => m.command) },
   literalChildren: {
+    'configure': {
+      segment: { kind: 'literal', value: 'configure' },
+      command: { path: 'configure', optionNames: [{ name: 'access-key', type: 'string' }, { name: 'secret-key', type: 'string' }], paramNames: [], description: "Persist access/secret keys to disk for later use.", load: () => import('./commands/configure.ts').then((m) => m.command) },
+      literalChildren: {},
+      paramChild: null,
+    },
     'ec2': {
       segment: { kind: 'literal', value: 'ec2' },
       command: { path: 'ec2', optionNames: [{ name: 'askConfirmation', type: 'boolean' }], paramNames: [], description: "Manage EC2 instances.", load: () => import('./commands/ec2.ts').then((m) => m.command) },
@@ -231,6 +245,12 @@ export const commandTree: RuntimeNode = {
           },
         },
       },
+      paramChild: null,
+    },
+    'status': {
+      segment: { kind: 'literal', value: 'status' },
+      command: { path: 'status', optionNames: [], paramNames: [], description: "Show resolved configuration: env vars and on-disk credentials.", load: () => import('./commands/status.ts').then((m) => m.command) },
+      literalChildren: {},
       paramChild: null,
     },
   },

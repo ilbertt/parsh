@@ -19,6 +19,8 @@
       "name": "@repo/examples-awslike",
       "dependencies": {
         "@repo/core": "workspace:*",
+        "@repo/env": "workspace:*",
+        "@repo/files": "workspace:*",
         "zod": "catalog:",
       },
       "devDependencies": {

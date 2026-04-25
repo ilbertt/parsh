@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, type Mock, spyOn, test } from 'bun:test';
 import { z } from 'zod';
-import { createCli, type RuntimeCommand, type RuntimeNode } from '#index.ts';
+import { createCli, type LoadedCommand, type RuntimeCommand, type RuntimeNode } from '#index.ts';
 
 let stderrSpy: Mock<typeof console.error>;
 
@@ -25,6 +25,25 @@ type Ctx = {
 
 type Called = { path: string; ctx: Ctx };
 
+function lazyCommand({
+  path,
+  optionNames,
+  paramNames,
+  loaded,
+}: {
+  path: string;
+  optionNames: ReadonlyArray<{ name: string; type: 'boolean' | 'string' }>;
+  paramNames: ReadonlyArray<string>;
+  loaded: LoadedCommand;
+}): RuntimeCommand {
+  return {
+    path,
+    optionNames,
+    paramNames,
+    load: async () => loaded,
+  };
+}
+
 function makeTree(opts: {
   calls: Called[];
   idSchema: () => z.ZodType<string | number>;
@@ -35,57 +54,76 @@ function makeTree(opts: {
 
   return {
     segment: null,
-    command: {
+    command: lazyCommand({
       path: '',
-      options: { verbose: z.boolean().default(false) },
-    } satisfies RuntimeCommand,
+      optionNames: [{ name: 'verbose', type: 'boolean' }],
+      paramNames: [],
+      loaded: { options: { verbose: z.boolean().default(false) } },
+    }),
     paramChild: null,
     literalChildren: {
       deploy: {
         segment: { kind: 'literal', value: 'deploy' },
-        command: {
+        command: lazyCommand({
           path: 'deploy',
-          options: { env: z.enum(['staging', 'prod']) },
-          handler: record('deploy'),
-        } satisfies RuntimeCommand,
+          optionNames: [{ name: 'env', type: 'string' }],
+          paramNames: [],
+          loaded: {
+            options: { env: z.enum(['staging', 'prod']) },
+            handler: record('deploy'),
+          },
+        }),
         literalChildren: {},
         paramChild: null,
       },
       users: {
         segment: { kind: 'literal', value: 'users' },
-        command: {
+        command: lazyCommand({
           path: 'users',
-          options: { workspace: z.string() },
-          handler: record('users'),
-        } satisfies RuntimeCommand,
+          optionNames: [{ name: 'workspace', type: 'string' }],
+          paramNames: [],
+          loaded: {
+            options: { workspace: z.string() },
+            handler: record('users'),
+          },
+        }),
         literalChildren: {
           create: {
             segment: { kind: 'literal', value: 'create' },
-            command: {
+            command: lazyCommand({
               path: 'users create',
-              options: { email: z.string() },
-              handler: record('users create'),
-            } satisfies RuntimeCommand,
+              optionNames: [{ name: 'email', type: 'string' }],
+              paramNames: [],
+              loaded: {
+                options: { email: z.string() },
+                handler: record('users create'),
+              },
+            }),
             literalChildren: {},
             paramChild: null,
           },
         },
         paramChild: {
           segment: { kind: 'param', name: 'id' },
-          command: {
+          command: lazyCommand({
             path: 'users [id]',
-            options: {},
-            params: { id: opts.idSchema() },
-            handler: () => {},
-          } satisfies RuntimeCommand,
+            optionNames: [],
+            paramNames: ['id'],
+            loaded: {
+              options: {},
+              params: { id: opts.idSchema() },
+              handler: () => {},
+            },
+          }),
           literalChildren: {
             edit: {
               segment: { kind: 'literal', value: 'edit' },
-              command: {
+              command: lazyCommand({
                 path: 'users [id] edit',
-                options: {},
-                handler: record('users [id] edit'),
-              } satisfies RuntimeCommand,
+                optionNames: [],
+                paramNames: [],
+                loaded: { options: {}, handler: record('users [id] edit') },
+              }),
               literalChildren: {},
               paramChild: null,
             },
@@ -193,23 +231,5 @@ describe('param capture', () => {
     expect(code).toBe(2);
     expect(calls).toBeEmpty();
     expect(stderrText()).toContain('id');
-  });
-});
-
-describe('direct handler invocation', () => {
-  test('handler is callable with a hand-built ctx (no router)', async () => {
-    const calls: Called[] = [];
-    const tree = makeTree({ calls, idSchema: () => z.string() });
-    const deployCmd = tree.literalChildren.deploy!.command!;
-
-    await deployCmd.handler!({
-      options: { env: 'prod' },
-      params: {},
-      parents: {},
-      root: { options: { verbose: false } },
-    });
-
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.ctx.options).toEqual({ env: 'prod' });
   });
 });

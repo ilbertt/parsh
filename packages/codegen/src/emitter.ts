@@ -1,12 +1,20 @@
-import type { CommandNode, ExtractedCommand, SourceSegment } from '#types.ts';
+import type { CommandNode, ExtractedCommand, ExtractedOption, SourceSegment } from '#types.ts';
 
 export interface EmitOptions {
   /**
-   * Module specifier augmented by the generated `declare module` block and imported
-   * for `InferSchemas` / `RuntimeNode`. Defaults to `'@parsh/core'`.
-   * Override for in-repo dogfooding (e.g., `'@repo/core'`).
+   * Module specifier augmented by the generated `declare module` block and
+   * imported for `InferSchemas` / `RuntimeNode`. Override for in-repo
+   * dogfooding (e.g., `'@repo/core'`).
+   * @default '@parsh/core'
    */
   coreModule?: string;
+  /**
+   * If `true`, emit static `import` statements for every command module so they
+   * load at startup. The default emits dynamic `import()` thunks so handler
+   * modules load only on dispatch.
+   * @default false
+   */
+  eager?: boolean;
 }
 
 function segmentKey(seg: SourceSegment): string {
@@ -23,12 +31,7 @@ interface FlatEntry {
   ancestorCmds: ExtractedCommand[];
 }
 
-function flattenTree({
-  root,
-}: {
-  root: CommandNode;
-  rootCmd: ExtractedCommand | null;
-}): FlatEntry[] {
+function flattenTree({ root }: { root: CommandNode }): FlatEntry[] {
   const out: FlatEntry[] = [];
   function walk({ node, ancestorCmds }: { node: CommandNode; ancestorCmds: ExtractedCommand[] }) {
     const cmd = node.command;
@@ -64,7 +67,7 @@ function parseSegKey(key: string): SourceSegment {
 }
 
 function ancestorOptionsType(anc: ExtractedCommand): string {
-  return anc.optionNames.length === 0 ? '{}' : `InferSchemas<typeof ${anc.importName}.options>`;
+  return anc.options.length === 0 ? '{}' : `InferSchemas<typeof ${anc.importName}.options>`;
 }
 
 function ancestorParamsType(anc: ExtractedCommand): string {
@@ -84,7 +87,7 @@ function emitParentsMap(entry: FlatEntry): string {
 
 function emitRootBlock(rootCmd: ExtractedCommand | null): string {
   const optionsType =
-    rootCmd && rootCmd.optionNames.length > 0
+    rootCmd && rootCmd.options.length > 0
       ? `InferSchemas<typeof ${rootCmd.importName}.options>`
       : '{}';
   return `{ options: ${optionsType} }`;
@@ -104,7 +107,48 @@ function emitRegistryEntry({
     };`;
 }
 
-function emitRuntimeNode({ node, indent }: { node: CommandNode; indent: string }): string {
+function emitOptionMeta(opts: ReadonlyArray<ExtractedOption>): string {
+  if (opts.length === 0) {
+    return '[]';
+  }
+  return `[${opts.map((o) => `{ name: '${o.name}', type: '${o.type}' }`).join(', ')}]`;
+}
+
+function emitParamNames(names: ReadonlyArray<string>): string {
+  if (names.length === 0) {
+    return '[]';
+  }
+  return `[${names.map((n) => `'${n}'`).join(', ')}]`;
+}
+
+function emitLoadFn({ cmd, eager }: { cmd: ExtractedCommand; eager: boolean }): string {
+  if (eager) {
+    return `() => Promise.resolve(${cmd.importName})`;
+  }
+  return `() => import('${cmd.importSpecifier}').then((m) => m.command)`;
+}
+
+function emitRuntimeCommand({
+  cmd,
+  pathString,
+  eager,
+}: {
+  cmd: ExtractedCommand;
+  pathString: string;
+  eager: boolean;
+}): string {
+  return `{ path: '${pathString}', optionNames: ${emitOptionMeta(cmd.options)}, paramNames: ${emitParamNames(cmd.paramNames)}, load: ${emitLoadFn({ cmd, eager })} }`;
+}
+
+function emitRuntimeNode({
+  node,
+  indent,
+  eager,
+}: {
+  node: CommandNode;
+  indent: string;
+  eager: boolean;
+}): string {
   const inner = `${indent}  `;
   const seg = node.segment;
   const segExpr =
@@ -113,7 +157,13 @@ function emitRuntimeNode({ node, indent }: { node: CommandNode; indent: string }
       : seg.kind === 'literal'
         ? `{ kind: 'literal', value: '${seg.value}' }`
         : `{ kind: 'param', name: '${seg.name}' }`;
-  const cmdExpr = node.command ? node.command.importName : 'null';
+  const cmdExpr = node.command
+    ? emitRuntimeCommand({
+        cmd: node.command,
+        pathString: pathStringOf(node.path.map(parseSegKey)),
+        eager,
+      })
+    : 'null';
   const literalKeys = [...node.literalChildren.keys()].sort();
   let lcExpr: string;
   if (literalKeys.length === 0) {
@@ -121,12 +171,12 @@ function emitRuntimeNode({ node, indent }: { node: CommandNode; indent: string }
   } else {
     const parts = literalKeys.map((name) => {
       const child = node.literalChildren.get(name)!;
-      return `${inner}  '${name}': ${emitRuntimeNode({ node: child, indent: `${inner}  ` })}`;
+      return `${inner}  '${name}': ${emitRuntimeNode({ node: child, indent: `${inner}  `, eager })}`;
     });
     lcExpr = `{\n${parts.join(',\n')},\n${inner}}`;
   }
   const pcExpr = node.paramChild
-    ? emitRuntimeNode({ node: node.paramChild, indent: inner })
+    ? emitRuntimeNode({ node: node.paramChild, indent: inner, eager })
     : 'null';
   return `{
 ${inner}segment: ${segExpr},
@@ -144,25 +194,31 @@ export function emitGeneratedFile({
   emitOptions: EmitOptions;
 }): string {
   const rootCmd = root.command;
-  const entries = flattenTree({ root, rootCmd });
-  const importCmds: ExtractedCommand[] = [...entries.map((e) => e.cmd)];
+  const entries = flattenTree({ root });
+  const allCmds: ExtractedCommand[] = [...entries.map((e) => e.cmd)];
   if (rootCmd) {
-    importCmds.push(rootCmd);
+    allCmds.push(rootCmd);
   }
-  const imports = importCmds
+  const sortedCmds = [...allCmds].sort(
     // biome-ignore lint/complexity/useMaxParams: Array.sort comparator is inherently (a, b)
-    .sort((a, b) => a.importName.localeCompare(b.importName));
+    (a, b) => a.importName.localeCompare(b.importName),
+  );
 
   const coreModule = emitOptions.coreModule ?? '@parsh/core';
+  const eager = emitOptions.eager === true;
 
   const lines: string[] = [];
   lines.push(
     '/** biome-ignore-all lint/complexity/noBannedTypes: empty-object shapes are deliberate */',
   );
   lines.push('// AUTOGENERATED by @parsh/codegen — do not edit by hand.');
-  lines.push(`import type { InferSchemas } from '${coreModule}';`);
-  for (const cmd of imports) {
-    lines.push(`import { command as ${cmd.importName} } from '${cmd.importSpecifier}';`);
+  lines.push(`import type { InferSchemas, RuntimeNode } from '${coreModule}';`);
+  // Eager mode emits value imports (modules load at startup); lazy mode emits
+  // type-only imports — the runtime tree uses dynamic `import()` thunks so
+  // handler modules load only on dispatch.
+  const importKeyword = eager ? 'import' : 'import type';
+  for (const cmd of sortedCmds) {
+    lines.push(`${importKeyword} { command as ${cmd.importName} } from '${cmd.importSpecifier}';`);
   }
   lines.push('');
   lines.push(`declare module '${coreModule}' {`);
@@ -173,10 +229,10 @@ export function emitGeneratedFile({
   lines.push('  }');
   lines.push('}');
   lines.push('');
-  lines.push(`import type { RuntimeNode } from '${coreModule}';`);
   lines.push(
-    `export const commandTree: RuntimeNode = ${emitRuntimeNode({ node: root, indent: '' })};`,
+    `export const commandTree: RuntimeNode = ${emitRuntimeNode({ node: root, indent: '', eager })};`,
   );
   lines.push('');
+
   return lines.join('\n');
 }

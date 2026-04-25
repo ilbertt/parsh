@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { basename, relative } from 'node:path';
-import type { ExtractedCommand, SourceSegment } from '#types.ts';
+import type { ExtractedCommand, ExtractedOption, SourceSegment } from '#types.ts';
 
 function parsePathString(pathString: string): SourceSegment[] {
   const tokens = pathString.trim().split(/\s+/).filter(Boolean);
@@ -37,7 +37,7 @@ function segmentsEqual({ a, b }: { a: SourceSegment[]; b: SourceSegment[] }): bo
 
 function extractFromSource({ source, filePath }: { source: string; filePath: string }): {
   pathString: string;
-  optionNames: string[];
+  options: ExtractedOption[];
   paramNames: string[];
 } {
   const callMatch = source.match(/defineCommand\s*\(\s*(['"])([^'"]+)\1\s*,\s*\{/);
@@ -51,12 +51,24 @@ function extractFromSource({ source, filePath }: { source: string; filePath: str
   });
   return {
     pathString,
-    optionNames: extractInlineObjectKeys({ body: defBody, prop: 'options' }),
-    paramNames: extractInlineObjectKeys({ body: defBody, prop: 'params' }),
+    options: extractOptions(defBody),
+    paramNames: extractInlineObjectKeys({ body: defBody, prop: 'params' }).map((e) => e.key),
   };
 }
 
-function extractInlineObjectKeys({ body, prop }: { body: string; prop: string }): string[] {
+function extractOptions(body: string): ExtractedOption[] {
+  return extractInlineObjectKeys({ body, prop: 'options' }).map(({ key, value }) => ({
+    name: key,
+    type: /\bboolean\s*\(/.test(value) ? 'boolean' : 'string',
+  }));
+}
+
+interface ObjectEntry {
+  key: string;
+  value: string;
+}
+
+function extractInlineObjectKeys({ body, prop }: { body: string; prop: string }): ObjectEntry[] {
   const re = new RegExp(`(^|[\\s,;{])${prop}\\s*:\\s*\\{`);
   const m = body.match(re);
   if (!m) {
@@ -66,7 +78,7 @@ function extractInlineObjectKeys({ body, prop }: { body: string; prop: string })
     source: body,
     start: m.index! + m[0].length,
   });
-  return topLevelObjectKeys(inner);
+  return topLevelObjectEntries(inner);
 }
 
 function readBalancedBraceBody({ source, start }: { source: string; start: number }): string {
@@ -92,57 +104,84 @@ function readBalancedBraceBody({ source, start }: { source: string; start: numbe
   return body.join('');
 }
 
-function topLevelObjectKeys(body: string): string[] {
-  const topLevel = stripBalanced(body);
-  const keyRe = /(^|[,{])\s*(?:(['"])([^'"]+)\2|([A-Za-z_$][\w$]*))\s*:/g;
-  const keys: string[] = [];
-  let km = keyRe.exec(topLevel);
-  while (km !== null) {
-    const key = km[3] ?? km[4];
-    if (key) {
-      keys.push(key);
-    }
-    km = keyRe.exec(topLevel);
-  }
-  return keys;
-}
-
-function stripBalanced(src: string): string {
-  const out: string[] = [];
+/**
+ * Return each top-level `key: value` pair inside an object literal body.
+ * Tracks nested brackets and string literals so commas inside values don't
+ * split a single entry.
+ */
+function topLevelObjectEntries(body: string): ObjectEntry[] {
+  const out: ObjectEntry[] = [];
+  const len = body.length;
+  let i = 0;
   let depth = 0;
   let inStr: string | null = null;
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i]!;
-    if (inStr) {
-      if (ch === '\\' && i + 1 < src.length) {
+
+  const skipWhitespace = (): void => {
+    while (i < len && /\s/.test(body[i]!)) {
+      i++;
+    }
+  };
+
+  while (i < len) {
+    skipWhitespace();
+    if (i >= len) {
+      break;
+    }
+
+    const keyMatch = /^(?:(['"])([^'"]+)\1|([A-Za-z_$][\w$]*))\s*:/.exec(body.slice(i));
+    if (!keyMatch) {
+      i++;
+      continue;
+    }
+    const key = keyMatch[2] ?? keyMatch[3]!;
+    i += keyMatch[0].length;
+
+    const valueStart = i;
+    depth = 0;
+    inStr = null;
+    while (i < len) {
+      const ch = body[i]!;
+      if (inStr) {
+        if (ch === '\\' && i + 1 < len) {
+          i += 2;
+          continue;
+        }
+        if (ch === inStr) {
+          inStr = null;
+        }
         i++;
         continue;
       }
-      if (ch === inStr) {
-        inStr = null;
+      if (ch === "'" || ch === '"' || ch === '`') {
+        inStr = ch;
+        i++;
+        continue;
       }
-      continue;
-    }
-    if (ch === "'" || ch === '"' || ch === '`') {
-      inStr = ch;
-      continue;
-    }
-    if (ch === '(' || ch === '[' || ch === '{') {
-      if (depth === 0) {
-        out.push(' ');
+      if (ch === '(' || ch === '[' || ch === '{') {
+        depth++;
+        i++;
+        continue;
       }
-      depth++;
-      continue;
+      if (ch === ')' || ch === ']' || ch === '}') {
+        if (depth === 0) {
+          break;
+        }
+        depth--;
+        i++;
+        continue;
+      }
+      if (ch === ',' && depth === 0) {
+        break;
+      }
+      i++;
     }
-    if (ch === ')' || ch === ']' || ch === '}') {
-      depth--;
-      continue;
-    }
-    if (depth === 0) {
-      out.push(ch);
+    out.push({ key, value: body.slice(valueStart, i).trim() });
+    if (body[i] === ',') {
+      i++;
     }
   }
-  return out.join('');
+
+  return out;
 }
 
 function importNameFor({ filePath }: { filePath: string }): string {
@@ -177,7 +216,7 @@ export async function extractRootCommand({
     source,
     start: callMatch.index! + callMatch[0].length,
   });
-  const optionNames = extractInlineObjectKeys({ body: defBody, prop: 'options' });
+  const options = extractOptions(defBody);
   let spec = relative(outDir, filePath);
   if (!spec.startsWith('.')) {
     spec = `./${spec}`;
@@ -186,7 +225,7 @@ export async function extractRootCommand({
     filePath,
     pathString: '',
     segments: [],
-    optionNames,
+    options,
     paramNames: [],
     importName: 'rootCmd',
     importSpecifier: spec,
@@ -203,7 +242,7 @@ export async function extractCommand({
   outDir: string;
 }): Promise<ExtractedCommand> {
   const source = await readFile(filePath, 'utf8');
-  const { pathString, optionNames, paramNames } = extractFromSource({ source, filePath });
+  const { pathString, options, paramNames } = extractFromSource({ source, filePath });
   const segments = parsePathString(pathString);
   if (!segmentsEqual({ a: segments, b: expectedSegments })) {
     const want = expectedSegments
@@ -221,7 +260,7 @@ export async function extractCommand({
     filePath,
     pathString,
     segments,
-    optionNames,
+    options,
     paramNames,
     importName: importNameFor({ filePath }),
     importSpecifier: spec,

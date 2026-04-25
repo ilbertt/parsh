@@ -56,6 +56,7 @@ type DefinedRootCommand<Options extends Record<string, AnySchema>> = {
 
 export function defineRootCommand<const Options extends Record<string, AnySchema>>(def: {
   options: Options;
+  /** @default { enabled: true } */
   helpArg?: HelpArgConfig;
   handler?: (ctx: { options: Simplify<InferSchemas<Options>> }) => void | Promise<void>;
 }): DefinedRootCommand<Options> {
@@ -76,6 +77,7 @@ export function defineCommand<
   path: P,
   def: {
     options: Options;
+    /** @default { enabled: true } */
     helpArg?: HelpArgConfig;
     handler?: (ctx: HandlerCtx<P, Options, Params>) => void | Promise<void>;
   } & ParamsConstraint<P & string> &

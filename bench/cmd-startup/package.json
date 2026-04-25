@@ -1,0 +1,19 @@
+{
+  "name": "@bench/cmd-startup",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen": "bun src/gen-fixture.ts",
+    "bench": "bun src/run-bench.ts",
+    "check:types": "bun run --bun tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/core": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/codegen": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

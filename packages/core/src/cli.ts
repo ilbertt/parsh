@@ -5,16 +5,34 @@ type TreeSegment =
   | { readonly kind: 'literal'; readonly value: string }
   | { readonly kind: 'param'; readonly name: string };
 
-export interface RuntimeCommand {
-  path: string;
+export interface OptionMeta {
+  name: string;
+  type: 'boolean' | 'string';
+}
+
+export interface LoadedCommand {
   options: Record<string, AnySchema>;
   params?: Record<string, AnySchema>;
+  /** @default { enabled: true } */
   helpArg?: { enabled: boolean };
-  // `any` is required so hand-built `RuntimeCommand`s can use specific `ctx`
-  // shapes — contravariance forbids the same with `unknown`. The real ctx
-  // type is enforced at the `defineCommand` call site.
+  // `any` is required so hand-built commands can use specific `ctx` shapes —
+  // contravariance forbids the same with `unknown`. The real ctx type is
+  // enforced at the `defineCommand` call site.
   // biome-ignore lint/suspicious/noExplicitAny: see note above
   handler?: (ctx: any) => void | Promise<void>;
+}
+
+/**
+ * What sits in `RuntimeNode.command`. Carries only the metadata needed to
+ * route, render help, and report unknown-command errors. The real schemas and
+ * handler live behind `load()` and are fetched on dispatch (lazy mode) or
+ * already in memory (eager mode).
+ */
+export interface RuntimeCommand {
+  path: string;
+  optionNames: ReadonlyArray<OptionMeta>;
+  paramNames: ReadonlyArray<string>;
+  load: () => Promise<LoadedCommand>;
 }
 
 export interface RuntimeNode {
@@ -24,38 +42,33 @@ export interface RuntimeNode {
   paramChild: RuntimeNode | null;
 }
 
-type SchemaRecord = Record<string, AnySchema>;
-
 interface CreateCliOptions {
   programName: string;
   programDescription?: string;
   tree: RuntimeNode;
 }
 
-function probeBoolean(schema: AnySchema): boolean {
-  const accepts = (value: unknown): boolean => {
-    try {
-      const r = schema['~standard'].validate(value);
-      if (r instanceof Promise) {
-        return false;
-      }
-      return !('issues' in r && r.issues);
-    } catch {
-      return false;
-    }
-  };
-  // A boolean-flag schema must accept both `true` and `false`, but reject
-  // numeric and string inputs — otherwise we misclassify coerce-style schemas
-  // (e.g., `z.coerce.number()` accepts `true`/`false` via numeric coercion).
-  return accepts(true) && accepts(false) && !accepts(0) && !accepts('not-a-boolean-xyzzy');
+export class CommandLoadError extends Error {
+  readonly path: string;
+  // biome-ignore lint/suspicious/noExplicitAny: error cause is unknown
+  override readonly cause: any;
+  constructor({ path, cause }: { path: string; cause: unknown }) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    super(`failed to load command '${path || '<root>'}': ${reason}`);
+    this.name = 'CommandLoadError';
+    this.path = path;
+    this.cause = cause;
+  }
 }
 
-function collectAllOptionSchemas(tree: RuntimeNode): SchemaRecord {
-  const all: SchemaRecord = {};
+type SchemaRecord = Record<string, AnySchema>;
+
+function collectParseOptions(tree: RuntimeNode): ParseArgsConfig['options'] {
+  const out: NonNullable<ParseArgsConfig['options']> = {};
   function walk(node: RuntimeNode) {
     if (node.command) {
-      for (const [name, schema] of Object.entries(node.command.options)) {
-        all[name] = schema;
+      for (const opt of node.command.optionNames) {
+        out[opt.name] = { type: opt.type };
       }
     }
     for (const child of Object.values(node.literalChildren)) {
@@ -66,7 +79,7 @@ function collectAllOptionSchemas(tree: RuntimeNode): SchemaRecord {
     }
   }
   walk(tree);
-  return all;
+  return out;
 }
 
 interface Visited {
@@ -204,7 +217,7 @@ function renderRootUsage({
   }
   lines.push(`Usage: ${programName} <command> [options]`, '');
 
-  const rootOptions = root.command ? Object.keys(root.command.options) : [];
+  const rootOptions = root.command ? root.command.optionNames.map((o) => o.name) : [];
   if (rootOptions.length > 0) {
     lines.push('Options:');
     for (const name of rootOptions) {
@@ -250,7 +263,7 @@ function renderCommandUsage({
   const lines: string[] = [];
   lines.push(`Usage: ${programName} ${segments.join(' ')} [options]`, '');
 
-  const ownOptions = Object.keys(cmd.options);
+  const ownOptions = cmd.optionNames.map((o) => o.name);
   if (ownOptions.length > 0) {
     lines.push('Options:');
     for (const name of ownOptions) {
@@ -265,8 +278,8 @@ function renderCommandUsage({
       continue;
     }
     const from = v.path === '' ? '<root>' : v.path;
-    for (const name of Object.keys(v.options)) {
-      inheritedOptions.push(`--${name}  (from ${from})`);
+    for (const opt of v.optionNames) {
+      inheritedOptions.push(`--${opt.name}  (from ${from})`);
     }
   }
   if (inheritedOptions.length > 0) {
@@ -304,7 +317,7 @@ function detectSameLevelCollisions(tree: RuntimeNode): string[] {
   function walk({ node, path }: { node: RuntimeNode; path: string[] }) {
     if (node.command) {
       const paramName = node.segment?.kind === 'param' ? node.segment.name : null;
-      if (paramName !== null && paramName in node.command.options) {
+      if (paramName !== null && node.command.optionNames.some((o) => o.name === paramName)) {
         issues.push(
           `command ${path.join(' ') || '(root)'} declares option "${paramName}" that shadows its own param [${paramName}]`,
         );
@@ -323,6 +336,14 @@ function detectSameLevelCollisions(tree: RuntimeNode): string[] {
   return issues;
 }
 
+async function loadCommand(cmd: RuntimeCommand): Promise<LoadedCommand> {
+  try {
+    return await cmd.load();
+  } catch (cause) {
+    throw new CommandLoadError({ path: cmd.path, cause });
+  }
+}
+
 export class Cli {
   readonly #tree: RuntimeNode;
   readonly #programName: string;
@@ -339,13 +360,7 @@ export class Cli {
     this.#tree = tree;
     this.#programName = programName;
     this.#programDescription = programDescription;
-
-    const allSchemas = collectAllOptionSchemas(this.#tree);
-    const parseOptions: ParseArgsConfig['options'] = {};
-    for (const [name, schema] of Object.entries(allSchemas)) {
-      parseOptions[name] = { type: probeBoolean(schema) ? 'boolean' : 'string' };
-    }
-    this.#parseOptions = parseOptions;
+    this.#parseOptions = collectParseOptions(tree);
   }
 
   #renderRootUsage(): string {
@@ -396,8 +411,7 @@ export class Cli {
       return 0;
     }
 
-    const targetHelpEnabled = node.command.helpArg?.enabled !== false;
-    if (wantsHelp && targetHelpEnabled) {
+    if (wantsHelp) {
       console.log(
         node === this.#tree
           ? this.#renderRootUsage()
@@ -411,6 +425,26 @@ export class Cli {
       );
       return 0;
     }
+
+    const visitedCmds = visitedCommands
+      .map((v) => v.command)
+      .filter((c): c is RuntimeCommand => c !== null);
+    let loaded: Map<RuntimeCommand, LoadedCommand>;
+    try {
+      const pairs = await Promise.all(
+        visitedCmds.map(async (c) => [c, await loadCommand(c)] as const),
+      );
+      loaded = new Map(pairs);
+    } catch (err) {
+      if (err instanceof CommandLoadError) {
+        console.error(`${this.#errorPrefix()}: ${err.message}`);
+        return 1;
+      }
+      throw err;
+    }
+
+    const targetLoaded = loaded.get(node.command)!;
+    const targetHelpEnabled = targetLoaded.helpArg?.enabled !== false;
 
     const rawValues = parsed.values as Record<string, unknown>;
     const rootCommand = this.#tree.command;
@@ -428,8 +462,9 @@ export class Cli {
       if (!v.command) {
         continue;
       }
+      const loadedCmd = loaded.get(v.command)!;
       const optionsResult = await validateRecord({
-        schemas: v.command.options,
+        schemas: loadedCmd.options,
         values: rawValues,
         kind: 'option',
       });
@@ -443,7 +478,7 @@ export class Cli {
       const ownParamValues: Record<string, unknown> = {};
       const ownParamSchemas: SchemaRecord = {};
       if (v.paramName) {
-        const schema = v.command.params?.[v.paramName];
+        const schema = loadedCmd.params?.[v.paramName];
         if (schema) {
           ownParamSchemas[v.paramName] = schema;
           ownParamValues[v.paramName] = v.paramValue;
@@ -481,23 +516,21 @@ export class Cli {
       root: { options: rootOptions },
     };
 
-    if (!node.command.handler) {
+    if (!targetLoaded.handler) {
       console.log(
         node === this.#tree
           ? this.#renderRootUsage()
           : renderCommandUsage({
               programName: this.#programName,
               node,
-              visited: visitedCommands
-                .map((v) => v.command)
-                .filter((c): c is RuntimeCommand => c !== null),
+              visited: visitedCmds,
             }),
       );
       return 0;
     }
 
     try {
-      await node.command.handler(ctx);
+      await targetLoaded.handler(ctx);
       return 0;
     } catch (err) {
       console.error(`${this.#errorPrefix()}: handler error: ${(err as Error).message}`);

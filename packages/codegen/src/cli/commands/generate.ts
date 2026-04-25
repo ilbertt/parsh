@@ -9,6 +9,7 @@ export const command = defineCommand('generate', {
     commands: z.string().default('./src/commands'),
     out: z.string().default('./src/commandTree.gen.ts'),
     'core-module': z.string().optional(),
+    eager: z.boolean().default(false),
     watch: z.boolean().default(false),
   },
   handler: async (ctx) => {
@@ -17,6 +18,7 @@ export const command = defineCommand('generate', {
     const opts: GenerateOptions = {
       commandsDir,
       outFile,
+      eager: ctx.options.eager,
       ...(ctx.options['core-module'] !== undefined
         ? { coreModule: ctx.options['core-module'] }
         : {}),

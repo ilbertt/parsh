@@ -14,7 +14,8 @@
       "!**/bun.lock",
       "!**/*.lock",
       "!**/*.gen.ts",
-      "!**/commandTree.expected.ts"
+      "!**/commandTree.expected.ts",
+      "!bench/cmd-startup/src/commands"
     ]
   },
   "formatter": {

@@ -46,7 +46,7 @@ function checkParamOptionShadow({
   segment: ParamSegment;
   nodePath: string[];
 }): ValidationIssue | null {
-  if (!cmd.optionNames.includes(segment.name)) {
+  if (!cmd.options.some((o) => o.name === segment.name)) {
     return null;
   }
   return {
@@ -62,11 +62,11 @@ function checkOptionCollisions({
   ancestors: Ancestors;
 }): ValidationIssue[] {
   const out: ValidationIssue[] = [];
-  for (const opt of cmd.optionNames) {
-    const prev = ancestors.options.get(opt);
+  for (const opt of cmd.options) {
+    const prev = ancestors.options.get(opt.name);
     if (prev) {
       out.push({
-        message: `option '${opt}' in ${cmd.filePath} collides with ancestor option '${opt}' in ${prev}. v0.1 rejects same-name options across ancestry; rename one.`,
+        message: `option '${opt.name}' in ${cmd.filePath} collides with ancestor option '${opt.name}' in ${prev}. v0.1 rejects same-name options across ancestry; rename one.`,
       });
     }
   }
@@ -149,8 +149,8 @@ export function validateTree(root: CommandNode): ValidationIssue[] {
       issues.push(...checkOptionCollisions({ cmd, ancestors }));
       issues.push(...checkParamSegmentAgreement({ cmd, segment, nodePath }));
 
-      for (const opt of cmd.optionNames) {
-        nextOptions.set(opt, cmd.filePath);
+      for (const opt of cmd.options) {
+        nextOptions.set(opt.name, cmd.filePath);
       }
     }
 

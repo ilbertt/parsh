@@ -13,6 +13,7 @@ export async function generateCommandTree({
   commandsDir,
   outFile,
   coreModule,
+  eager,
 }: GenerateOptions): Promise<void> {
   const commandsDirAbs = resolve(commandsDir);
   const outFileAbs = resolve(outFile);
@@ -28,6 +29,7 @@ export async function generateCommandTree({
     root,
     emitOptions: {
       ...(coreModule !== undefined ? { coreModule } : {}),
+      ...(eager !== undefined ? { eager } : {}),
     },
   });
   await writeFile(outFileAbs, output, 'utf8');

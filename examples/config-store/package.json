@@ -1,0 +1,20 @@
+{
+  "name": "@repo/examples-config-store",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun src/main.ts",
+    "check:types": "bun run --bun tsc",
+    "generate": "parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts --core-module @repo/core"
+  },
+  "dependencies": {
+    "@repo/core": "workspace:*",
+    "@repo/files": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/codegen": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

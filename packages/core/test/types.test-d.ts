@@ -94,3 +94,40 @@ defineCommand('totally made up', { options: {}, handler: () => {} });
 
 expectTypeOf<'totally made up path'>().not.toMatchTypeOf<keyof CommandRegistry>();
 expectTypeOf<'users create'>().toMatchTypeOf<keyof CommandRegistry>();
+
+// User-registered Cli context flows into every handler's ctx via intersection.
+import { createCli } from '#index.ts';
+
+declare module '#index.ts' {
+  interface CommandRegistry {
+    'ctxhost open': {
+      parents: {};
+      root: { options: {} };
+    };
+  }
+}
+
+const ctxCli = createCli({
+  programName: 'ctxhost',
+  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
+  context: {
+    files: { creds: { read: async () => null as { token: string } | null } },
+    tag: 'demo' as const,
+  },
+});
+
+declare module '#index.ts' {
+  interface Register {
+    cli: typeof ctxCli;
+  }
+}
+
+defineCommand('ctxhost open', {
+  options: { force: z.boolean() },
+  handler: async (ctx) => {
+    expectTypeOf(ctx.options).toEqualTypeOf<{ force: boolean }>();
+    expectTypeOf(ctx.tag).toEqualTypeOf<'demo'>();
+    const creds = await ctx.files.creds.read();
+    expectTypeOf(creds).toEqualTypeOf<{ token: string } | null>();
+  },
+});

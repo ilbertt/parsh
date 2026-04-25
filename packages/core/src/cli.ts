@@ -1,4 +1,5 @@
 import { type ParseArgsConfig, parseArgs } from 'node:util';
+import type { ResolveContext } from '#registry.ts';
 import type { AnySchema } from '#schema.ts';
 
 type TreeSegment =
@@ -43,10 +44,21 @@ export interface RuntimeNode {
   paramChild: RuntimeNode | null;
 }
 
-interface CreateCliOptions {
+type ContextValue = object;
+type ContextFactory<C extends ContextValue> = () => C | Promise<C>;
+export type CliContextInput<C extends ContextValue = ContextValue> = C | ContextFactory<C>;
+
+interface CreateCliOptions<C extends CliContextInput | undefined = CliContextInput | undefined> {
   programName: string;
   programDescription?: string;
   tree: RuntimeNode;
+  /**
+   * Object (or factory returning one) merged into every handler's `ctx`. The
+   * factory form runs once per `cli.run()` call so each invocation gets a
+   * fresh context. Register the resulting `Cli` instance via `Register` to
+   * make these fields visible to every handler's `ctx` type.
+   */
+  context?: C;
 }
 
 export class CommandLoadError extends Error {
@@ -371,13 +383,21 @@ async function loadCommand(cmd: RuntimeCommand): Promise<LoadedCommand> {
   }
 }
 
-export class Cli {
+export class Cli<C extends object = Record<string, never>> {
+  /**
+   * Phantom field carrying the resolved context type so user code can register
+   * the instance via `interface Register { cli: typeof cli }` and have every
+   * handler's `ctx` see the context fields. Never assigned at runtime.
+   */
+  declare readonly _context: C;
+
   readonly #tree: RuntimeNode;
   readonly #programName: string;
   readonly #programDescription: string | undefined;
   readonly #parseOptions: ParseArgsConfig['options'];
+  readonly #context: CliContextInput | undefined;
 
-  constructor({ programName, programDescription, tree }: CreateCliOptions) {
+  constructor({ programName, programDescription, tree, context }: CreateCliOptions) {
     const issues = detectSameLevelCollisions(tree);
     if (issues.length > 0) {
       throw new Error(
@@ -388,6 +408,17 @@ export class Cli {
     this.#programName = programName;
     this.#programDescription = programDescription;
     this.#parseOptions = collectParseOptions(tree);
+    this.#context = context;
+  }
+
+  async #resolveContext(): Promise<object> {
+    if (this.#context === undefined) {
+      return {};
+    }
+    if (typeof this.#context === 'function') {
+      return await this.#context();
+    }
+    return this.#context;
   }
 
   #renderRootUsage(): string {
@@ -429,7 +460,9 @@ export class Cli {
     });
 
     if (unknown) {
-      console.error(`${this.#errorPrefix()}: unknown command: ${unknownToken}`);
+      console.error(
+        `${this.#errorPrefix()}: unknown command: ${unknownToken} — run \`${this.#programName} --help\` to see available commands`,
+      );
       return 2;
     }
 
@@ -536,7 +569,9 @@ export class Cli {
       }
     }
 
+    const resolvedContext = await this.#resolveContext();
     const ctx = {
+      ...resolvedContext,
       options: targetOwnOptions,
       params: targetOwnParams,
       parents,
@@ -571,6 +606,8 @@ export class Cli {
   }
 }
 
-export function createCli(options: CreateCliOptions): Cli {
-  return new Cli(options);
+export function createCli<const C extends CliContextInput | undefined = undefined>(
+  options: CreateCliOptions<C>,
+): Cli<ResolveContext<C>> {
+  return new Cli(options) as Cli<ResolveContext<C>>;
 }

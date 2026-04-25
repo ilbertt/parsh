@@ -209,6 +209,21 @@ export function emitGeneratedFile({
   const coreModule = emitOptions.coreModule ?? '@parsh/core';
   const eager = emitOptions.eager === true;
 
+  // In lazy mode, only commands referenced by `InferSchemas<typeof X.options>`
+  // / `...X.params` in the registry block need to be imported. In eager mode,
+  // every command is also a value reference inside its `load` thunk.
+  const referencedTypeImports = new Set<string>();
+  for (const e of entries) {
+    for (const anc of e.ancestorCmds) {
+      if (anc.options.length > 0 || anc.paramNames.length > 0) {
+        referencedTypeImports.add(anc.importName);
+      }
+    }
+  }
+  if (rootCmd && rootCmd.options.length > 0) {
+    referencedTypeImports.add(rootCmd.importName);
+  }
+
   const lines: string[] = [];
   lines.push(
     '/** biome-ignore-all lint/complexity/noBannedTypes: empty-object shapes are deliberate */',
@@ -220,6 +235,9 @@ export function emitGeneratedFile({
   // handler modules load only on dispatch.
   const importKeyword = eager ? 'import' : 'import type';
   for (const cmd of sortedCmds) {
+    if (!eager && !referencedTypeImports.has(cmd.importName)) {
+      continue;
+    }
     lines.push(`${importKeyword} { command as ${cmd.importName} } from '${cmd.importSpecifier}';`);
   }
   lines.push('');

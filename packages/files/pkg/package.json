@@ -1,0 +1,20 @@
+{
+  "name": "@parsh/files",
+  "description": "Typed JSON file storage for parsh CLIs.",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ilbertt/parsh",
+    "directory": "packages/files"
+  },
+  "license": "Unlicense",
+  "type": "module",
+  "files": [
+    "dist/*",
+    "package.json",
+    "README.md"
+  ],
+  "dependencies": {
+    "env-paths": "^3.0.0"
+  }
+}

@@ -1,4 +1,4 @@
-import type { CommandEntry, CommandRegistry, Simplify } from '#registry.ts';
+import type { CommandEntry, CommandRegistry, RegisteredContext, Simplify } from '#registry.ts';
 import type { AnySchema, InferSchemas } from '#schema.ts';
 
 type LastSegment<P extends string> = P extends `${string} ${infer Rest}` ? LastSegment<Rest> : P;
@@ -24,13 +24,19 @@ type HandlerCtx<
   Options extends Record<string, AnySchema>,
   Params extends Record<string, AnySchema>,
 > = CommandRegistry[P] extends CommandEntry
-  ? Simplify<{
-      options: Simplify<InferSchemas<Options>>;
-      params: Simplify<OwnParamsOf<P & string, Params>>;
-      parents: CommandRegistry[P]['parents'];
-      root: CommandRegistry[P]['root'];
-    }>
+  ? Simplify<
+      {
+        options: Simplify<InferSchemas<Options>>;
+        params: Simplify<OwnParamsOf<P & string, Params>>;
+        parents: CommandRegistry[P]['parents'];
+        root: CommandRegistry[P]['root'];
+      } & RegisteredContext
+    >
   : never;
+
+type RootHandlerCtx<Options extends Record<string, AnySchema>> = Simplify<
+  { options: Simplify<InferSchemas<Options>> } & RegisteredContext
+>;
 
 type HelpArgConfig = { enabled: boolean };
 
@@ -61,7 +67,7 @@ export function defineRootCommand<const Options extends Record<string, AnySchema
   /** @default { enabled: true } */
   helpArg?: HelpArgConfig;
   description?: string;
-  handler?: (ctx: { options: Simplify<InferSchemas<Options>> }) => void | Promise<void>;
+  handler?: (ctx: RootHandlerCtx<Options>) => void | Promise<void>;
 }): DefinedRootCommand<Options> {
   return {
     params: {} as Record<string, never>,

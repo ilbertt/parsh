@@ -1,5 +1,6 @@
 export {
   Cli,
+  type CliContextInput,
   CommandLoadError,
   createCli,
   type LoadedCommand,
@@ -8,5 +9,5 @@ export {
   type RuntimeNode,
 } from '#cli.ts';
 export { defineCommand, defineRootCommand } from '#command.ts';
-export type { CommandRegistry } from '#registry.ts';
+export type { CommandRegistry, Register, RegisteredContext, ResolveContext } from '#registry.ts';
 export type { InferSchemas } from '#schema.ts';

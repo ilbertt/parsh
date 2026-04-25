@@ -5,7 +5,7 @@ import { loadState, newId, saveState, stateFile } from '../../state.ts';
 export const command = defineCommand('tasks add', {
   description: 'Add a new task.',
   options: {
-    title: z.string().min(1),
+    title: { schema: z.string().min(1) },
   },
   handler: ({ options, root }) => {
     const path = stateFile(root.options.stateFile);

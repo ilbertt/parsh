@@ -4,8 +4,8 @@ import { z } from 'zod';
 export const command = defineCommand('configure', {
   description: 'Persist access/secret keys to disk for later use.',
   options: {
-    'access-key': z.string().min(1),
-    'secret-key': z.string().min(1),
+    'access-key': { schema: z.string().min(1) },
+    'secret-key': { schema: z.string().min(1) },
   },
   handler: async ({ options, files }) => {
     await files.credentials.write({

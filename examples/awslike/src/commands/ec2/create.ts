@@ -7,8 +7,8 @@ const MAX_VCPU = 5;
 export const command = defineCommand('ec2 create', {
   description: 'Create a new EC2 instance.',
   options: {
-    name: z.string(),
-    cpuCount: z.number().min(MIN_VCPU).max(MAX_VCPU),
+    name: { schema: z.string() },
+    cpuCount: { schema: z.number().min(MIN_VCPU).max(MAX_VCPU) },
   },
   handler: ({ options, root, parents }) => {
     if (parents.ec2.options.askConfirmation) {

@@ -4,7 +4,11 @@ import { z } from 'zod';
 export const command = defineCommand('s3', {
   description: 'Manage S3 buckets and objects.',
   options: {
-    profile: z.string().default('default'),
+    profile: {
+      schema: z.string().default('default'),
+      forwardToChildren: true,
+      description: 'AWS profile to use for S3 calls.',
+    },
   },
   handler: ({ options, root }) => {
     console.log(`S3 — profile=${options.profile}, region=${root.options.region}`);

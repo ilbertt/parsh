@@ -10,9 +10,9 @@ const isTemplate = (s: string): s is TemplateName => (templateNames as string[])
 export const command = defineCommand('init', {
   description: 'Interactively scaffold a new project.',
   options: {
-    name: z.string().optional(),
-    template: z.string().optional(),
-    yes: z.boolean().optional(),
+    name: { schema: z.string().optional() },
+    template: { schema: z.string().optional() },
+    yes: { schema: z.boolean().optional() },
   },
   handler: async ({ options }) => {
     p.intro('scaffold');

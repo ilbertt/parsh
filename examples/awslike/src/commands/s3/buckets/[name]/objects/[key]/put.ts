@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const command = defineCommand('s3 buckets [name] objects [key] put', {
   description: 'Upload an object.',
   options: {
-    body: z.string(),
+    body: { schema: z.string() },
   },
   handler: ({ options, parents }) => {
     const bucket = parents['s3 buckets [name]'].params.name;

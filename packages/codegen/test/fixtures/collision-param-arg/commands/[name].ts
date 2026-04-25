@@ -3,6 +3,6 @@ import { z } from 'zod';
 
 export const command = defineCommand('[name]', {
   params: { name: z.string() },
-  options: { name: z.number() },
+  options: { name: { schema: z.number() } },
   handler: () => {},
 });

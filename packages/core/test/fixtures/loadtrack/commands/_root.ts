@@ -5,6 +5,6 @@ console.log('LOADED:_root');
 
 export const command = defineRootCommand({
   options: {
-    verbose: z.boolean().optional(),
+    verbose: { schema: z.boolean().optional() },
   },
 });

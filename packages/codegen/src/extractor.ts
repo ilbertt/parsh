@@ -161,7 +161,69 @@ function isBooleanSchema(expr: ts.Expression): boolean {
   return found;
 }
 
-function extractOptions(obj: ts.ObjectLiteralExpression | null): ExtractedOption[] {
+function readBooleanLiteral(expr: ts.Expression): boolean | null {
+  if (expr.kind === ts.SyntaxKind.TrueKeyword) {
+    return true;
+  }
+  if (expr.kind === ts.SyntaxKind.FalseKeyword) {
+    return false;
+  }
+  return null;
+}
+
+function readStringLiteral(expr: ts.Expression): string | null {
+  return ts.isStringLiteralLike(expr) ? expr.text : null;
+}
+
+function extractOption({
+  name,
+  initializer,
+  filePath,
+}: {
+  name: string;
+  initializer: ts.Expression;
+  filePath: string;
+}): ExtractedOption {
+  if (!ts.isObjectLiteralExpression(initializer)) {
+    throw new Error(
+      `parsh: ${filePath} — option '${name}' must be declared as { schema, forwardToChildren?, description? }, not a bare schema`,
+    );
+  }
+  const schemaProp = getProperty({ obj: initializer, key: 'schema' });
+  if (!schemaProp) {
+    throw new Error(
+      `parsh: ${filePath} — option '${name}' is missing required \`schema\` property`,
+    );
+  }
+  const type = isBooleanSchema(schemaProp.initializer) ? 'boolean' : 'string';
+  const forwardProp = getProperty({ obj: initializer, key: 'forwardToChildren' });
+  let forwardToChildren = false;
+  if (forwardProp) {
+    const v = readBooleanLiteral(forwardProp.initializer);
+    if (v === null) {
+      throw new Error(
+        `parsh: ${filePath} — option '${name}' \`forwardToChildren\` must be a boolean literal (true | false)`,
+      );
+    }
+    forwardToChildren = v;
+  }
+  const descProp = getProperty({ obj: initializer, key: 'description' });
+  const description = descProp ? (readStringLiteral(descProp.initializer) ?? undefined) : undefined;
+  return {
+    name,
+    type,
+    forwardToChildren,
+    ...(description !== undefined ? { description } : {}),
+  };
+}
+
+function extractOptions({
+  obj,
+  filePath,
+}: {
+  obj: ts.ObjectLiteralExpression | null;
+  filePath: string;
+}): ExtractedOption[] {
   if (!obj) {
     return [];
   }
@@ -174,7 +236,7 @@ function extractOptions(obj: ts.ObjectLiteralExpression | null): ExtractedOption
     if (name === null) {
       continue;
     }
-    out.push({ name, type: isBooleanSchema(p.initializer) ? 'boolean' : 'string' });
+    out.push(extractOption({ name, initializer: p.initializer, filePath }));
   }
   return out;
 }
@@ -230,7 +292,10 @@ export async function extractRootCommand({
       `parsh: ${filePath} — defineRootCommand argument must be an inline object literal`,
     );
   }
-  const options = extractOptions(objectInitializerOf({ obj: def, key: 'options' }));
+  const options = extractOptions({
+    obj: objectInitializerOf({ obj: def, key: 'options' }),
+    filePath,
+  });
   const description = extractDescription(def);
   return {
     filePath,
@@ -280,7 +345,10 @@ export async function extractCommand({
       `parsh: ${filePath} — defineCommand path string '${pathString}' does not match its filesystem location '${want}'`,
     );
   }
-  const options = extractOptions(objectInitializerOf({ obj: defArg, key: 'options' }));
+  const options = extractOptions({
+    obj: objectInitializerOf({ obj: defArg, key: 'options' }),
+    filePath,
+  });
   const paramNames = objectKeys(objectInitializerOf({ obj: defArg, key: 'params' }));
   const description = extractDescription(defArg);
   return {

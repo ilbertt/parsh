@@ -58,7 +58,11 @@ function makeTree(opts: {
       path: '',
       optionNames: [{ name: 'verbose', type: 'boolean' }],
       paramNames: [],
-      loaded: { options: { verbose: z.boolean().default(false) } },
+      loaded: {
+        options: {
+          verbose: { schema: z.boolean().default(false), forwardToChildren: true },
+        },
+      },
     }),
     paramChild: null,
     literalChildren: {
@@ -69,7 +73,7 @@ function makeTree(opts: {
           optionNames: [{ name: 'env', type: 'string' }],
           paramNames: [],
           loaded: {
-            options: { env: z.enum(['staging', 'prod']) },
+            options: { env: { schema: z.enum(['staging', 'prod']) } },
             handler: record('deploy'),
           },
         }),
@@ -83,7 +87,7 @@ function makeTree(opts: {
           optionNames: [{ name: 'workspace', type: 'string' }],
           paramNames: [],
           loaded: {
-            options: { workspace: z.string() },
+            options: { workspace: { schema: z.string(), forwardToChildren: true } },
             handler: record('users'),
           },
         }),
@@ -95,7 +99,7 @@ function makeTree(opts: {
               optionNames: [{ name: 'email', type: 'string' }],
               paramNames: [],
               loaded: {
-                options: { email: z.string() },
+                options: { email: { schema: z.string() } },
                 handler: record('users create'),
               },
             }),

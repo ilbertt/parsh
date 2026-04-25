@@ -5,7 +5,7 @@ console.log('LOADED:alpha/sub');
 
 export const command = defineCommand('alpha sub', {
   options: {
-    flag: z.boolean().optional(),
+    flag: { schema: z.boolean().optional() },
   },
   handler: ({ options, parents }) => {
     console.log(`alpha-sub:${parents.alpha.options.name}:flag=${options.flag ?? false}`);

@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const command = defineCommand('ec2 instances [id] stop', {
   description: 'Stop a running EC2 instance.',
   options: {
-    force: z.boolean().optional(),
+    force: { schema: z.boolean().optional() },
   },
   handler: ({ parents, options, root }) => {
     const id = parents['ec2 instances [id]'].params.id;

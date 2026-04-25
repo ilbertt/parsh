@@ -11,6 +11,8 @@ export interface ExtractedOption {
    * because we can't probe schemas at startup in lazy mode.
    */
   type: 'boolean' | 'string';
+  forwardToChildren: boolean;
+  description?: string;
 }
 
 export interface ExtractedCommand {

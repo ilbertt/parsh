@@ -5,7 +5,7 @@ console.log('LOADED:beta');
 
 export const command = defineCommand('beta', {
   options: {
-    n: z.number(),
+    n: { schema: z.number() },
   },
   handler: ({ options }) => {
     console.log(`beta:${options.n}`);

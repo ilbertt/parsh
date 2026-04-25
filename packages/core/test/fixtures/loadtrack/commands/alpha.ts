@@ -5,7 +5,7 @@ console.log('LOADED:alpha');
 
 export const command = defineCommand('alpha', {
   options: {
-    name: z.string(),
+    name: { schema: z.string(), forwardToChildren: true },
   },
   handler: ({ options }) => {
     console.log(`alpha:${options.name}`);

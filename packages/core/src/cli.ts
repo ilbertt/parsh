@@ -1,6 +1,6 @@
 import { type ParseArgsConfig, parseArgs } from 'node:util';
 import type { ResolveContext } from '#registry.ts';
-import type { AnySchema } from '#schema.ts';
+import type { AnyOption, AnySchema, OptionsRecord } from '#schema.ts';
 
 type TreeSegment =
   | { readonly kind: 'literal'; readonly value: string }
@@ -9,10 +9,12 @@ type TreeSegment =
 export interface OptionMeta {
   name: string;
   type: 'boolean' | 'string';
+  forwardToChildren?: boolean;
+  description?: string;
 }
 
 export interface LoadedCommand {
-  options: Record<string, AnySchema>;
+  options: OptionsRecord;
   params?: Record<string, AnySchema>;
   /** @default { enabled: true } */
   helpArg?: { enabled: boolean };
@@ -79,6 +81,23 @@ export class CommandLoadError extends Error {
 }
 
 type SchemaRecord = Record<string, AnySchema>;
+
+function optionSchemasFor({
+  options,
+  includeSelfOnly,
+}: {
+  options: OptionsRecord;
+  includeSelfOnly: boolean;
+}): SchemaRecord {
+  const out: SchemaRecord = {};
+  for (const [name, opt] of Object.entries(options) as Array<[string, AnyOption]>) {
+    if (!includeSelfOnly && opt.forwardToChildren !== true) {
+      continue;
+    }
+    out[name] = opt.schema;
+  }
+  return out;
+}
 
 function collectParseOptions(tree: RuntimeNode): ParseArgsConfig['options'] {
   const out: NonNullable<ParseArgsConfig['options']> = {};
@@ -234,11 +253,13 @@ function renderRootUsage({
   }
   lines.push(`Usage: ${programName} <command> [options]`, '');
 
-  const rootOptions = root.command ? root.command.optionNames.map((o) => o.name) : [];
+  const rootOptions = root.command?.optionNames ?? [];
   if (rootOptions.length > 0) {
     lines.push('Options:');
-    for (const name of rootOptions) {
-      lines.push(`  --${name}`);
+    for (const line of formatTwoColumn(
+      rootOptions.map((o) => ({ label: `--${o.name}`, description: o.description })),
+    )) {
+      lines.push(`  ${line}`);
     }
     lines.push('');
   }
@@ -298,28 +319,33 @@ function renderCommandUsage({
   }
   lines.push(`Usage: ${programName} ${segments.join(' ')} [options]`, '');
 
-  const ownOptions = cmd.optionNames.map((o) => o.name);
-  if (ownOptions.length > 0) {
+  if (cmd.optionNames.length > 0) {
     lines.push('Options:');
-    for (const name of ownOptions) {
-      lines.push(`  --${name}`);
+    for (const line of formatTwoColumn(
+      cmd.optionNames.map((o) => ({ label: `--${o.name}`, description: o.description })),
+    )) {
+      lines.push(`  ${line}`);
     }
     lines.push('');
   }
 
-  const inheritedOptions: string[] = [];
+  const inheritedRows: Array<{ label: string; description: string | undefined }> = [];
   for (const v of visited) {
     if (v.path === cmd.path) {
       continue;
     }
     const from = v.path === '' ? '<root>' : v.path;
     for (const opt of v.optionNames) {
-      inheritedOptions.push(`--${opt.name}  (from ${from})`);
+      if (opt.forwardToChildren !== true) {
+        continue;
+      }
+      const descParts = [opt.description, `(inherited from ${from})`].filter(Boolean);
+      inheritedRows.push({ label: `--${opt.name}`, description: descParts.join(' ') });
     }
   }
-  if (inheritedOptions.length > 0) {
+  if (inheritedRows.length > 0) {
     lines.push('Inherited options:');
-    for (const line of inheritedOptions) {
+    for (const line of formatTwoColumn(inheritedRows)) {
       lines.push(`  ${line}`);
     }
     lines.push('');
@@ -557,8 +583,13 @@ export class Cli<C extends object = Record<string, never>> {
         continue;
       }
       const loadedCmd = loaded.get(v.command)!;
+      const isTargetVisit = i === visitedCommands.length - 1;
+      const optionSchemas = optionSchemasFor({
+        options: loadedCmd.options,
+        includeSelfOnly: isTargetVisit,
+      });
       const optionsResult = await validateRecord({
-        schemas: loadedCmd.options,
+        schemas: optionSchemas,
         values: rawValues,
         kind: 'option',
       });

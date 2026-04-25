@@ -48,3 +48,36 @@ export type InferOutput<S> = S extends StandardSchema<unknown, infer O> ? O : ne
 export type InferSchemas<Schemas extends Record<string, AnySchema>> = {
   -readonly [K in keyof Schemas]: InferOutput<Schemas[K]>;
 };
+
+/**
+ * An option declaration. The `schema` validates the parsed value;
+ * `forwardToChildren` exposes the option (and its required-ness) to descendant
+ * commands' `ctx.parents` / `ctx.root`. Default is `false` — the option lives
+ * only on its declaring command.
+ */
+export interface CommandOption<S extends AnySchema = AnySchema> {
+  schema: S;
+  forwardToChildren?: boolean;
+  description?: string;
+}
+
+export type AnyOption = CommandOption<AnySchema>;
+
+export type OptionsRecord = Record<string, AnyOption>;
+
+export type InferOptions<O extends OptionsRecord> = {
+  -readonly [K in keyof O]: InferOutput<O[K]['schema']>;
+};
+
+type ForwardedKeys<O extends OptionsRecord> = {
+  [K in keyof O]: O[K] extends { forwardToChildren: true } ? K : never;
+}[keyof O];
+
+/**
+ * The descendant-visible projection of an ancestor's options. Includes only
+ * entries flagged `forwardToChildren: true`. Used by the generated registry
+ * to type `ctx.parents[path].options` and `ctx.root.options`.
+ */
+export type InferForwardedOptions<O extends OptionsRecord> = {
+  -readonly [K in ForwardedKeys<O>]: InferOutput<O[K]['schema']>;
+};

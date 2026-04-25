@@ -1,5 +1,5 @@
 import type { CommandEntry, CommandRegistry, RegisteredContext, Simplify } from '#registry.ts';
-import type { AnySchema, InferSchemas } from '#schema.ts';
+import type { AnySchema, InferOptions, InferSchemas, OptionsRecord } from '#schema.ts';
 
 type LastSegment<P extends string> = P extends `${string} ${infer Rest}` ? LastSegment<Rest> : P;
 
@@ -21,12 +21,12 @@ type OwnParamsOf<P extends string, Params extends Record<string, AnySchema>> = [
 
 type HandlerCtx<
   P extends keyof CommandRegistry,
-  Options extends Record<string, AnySchema>,
+  Options extends OptionsRecord,
   Params extends Record<string, AnySchema>,
 > = CommandRegistry[P] extends CommandEntry
   ? Simplify<
       {
-        options: Simplify<InferSchemas<Options>>;
+        options: Simplify<InferOptions<Options>>;
         params: Simplify<OwnParamsOf<P & string, Params>>;
         parents: CommandRegistry[P]['parents'];
         root: CommandRegistry[P]['root'];
@@ -34,15 +34,15 @@ type HandlerCtx<
     >
   : never;
 
-type RootHandlerCtx<Options extends Record<string, AnySchema>> = Simplify<
-  { options: Simplify<InferSchemas<Options>> } & RegisteredContext
+type RootHandlerCtx<Options extends OptionsRecord> = Simplify<
+  { options: Simplify<InferOptions<Options>> } & RegisteredContext
 >;
 
 type HelpArgConfig = { enabled: boolean };
 
 type DefinedCommand<
   P extends keyof CommandRegistry,
-  Options extends Record<string, AnySchema>,
+  Options extends OptionsRecord,
   Params extends Record<string, AnySchema>,
 > = {
   path: P;
@@ -55,7 +55,7 @@ type DefinedCommand<
   afterHandler?: (ctx: unknown) => void | Promise<void>;
 };
 
-type DefinedRootCommand<Options extends Record<string, AnySchema>> = {
+type DefinedRootCommand<Options extends OptionsRecord> = {
   path: '';
   options: Options;
   params: Record<string, never>;
@@ -66,7 +66,7 @@ type DefinedRootCommand<Options extends Record<string, AnySchema>> = {
   afterHandler?: (ctx: unknown) => void | Promise<void>;
 };
 
-export function defineRootCommand<const Options extends Record<string, AnySchema>>(def: {
+export function defineRootCommand<const Options extends OptionsRecord>(def: {
   options: Options;
   /** @default { enabled: true } */
   helpArg?: HelpArgConfig;
@@ -87,7 +87,7 @@ export function defineRootCommand<const Options extends Record<string, AnySchema
 
 export function defineCommand<
   P extends keyof CommandRegistry,
-  const Options extends Record<string, AnySchema>,
+  const Options extends OptionsRecord,
   const Params extends Record<string, AnySchema> = Record<string, never>,
   // biome-ignore lint/complexity/useMaxParams: DX — path-first call shape (path, def) is the declared API
 >(

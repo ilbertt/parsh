@@ -150,7 +150,9 @@ export function validateTree(root: CommandNode): ValidationIssue[] {
       issues.push(...checkParamSegmentAgreement({ cmd, segment, nodePath }));
 
       for (const opt of cmd.options) {
-        nextOptions.set(opt.name, cmd.filePath);
+        if (opt.forwardToChildren) {
+          nextOptions.set(opt.name, cmd.filePath);
+        }
       }
     }
 

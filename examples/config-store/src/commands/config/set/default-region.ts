@@ -4,7 +4,7 @@ import { ensureConfig } from '../../../hooks/ensure-config.ts';
 
 export const command = defineCommand('config set default-region', {
   description: 'Set the default AWS-style region.',
-  options: { value: z.string().min(1) },
+  options: { value: { schema: z.string().min(1) } },
   beforeHandler: ensureConfig,
   handler: async ({ options, files }) => {
     const current = await files.config.read();

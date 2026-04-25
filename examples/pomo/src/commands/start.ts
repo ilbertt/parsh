@@ -13,8 +13,10 @@ const SECONDS_PER_MINUTE = 60;
 export const command = defineCommand('start', {
   description: 'Start a pomodoro session with a live countdown.',
   options: {
-    duration: z.coerce.number().min(MIN_MINUTES).max(MAX_MINUTES).default(DEFAULT_MINUTES),
-    task: z.string().optional(),
+    duration: {
+      schema: z.coerce.number().min(MIN_MINUTES).max(MAX_MINUTES).default(DEFAULT_MINUTES),
+    },
+    task: { schema: z.string().optional() },
   },
   handler: async ({ options, root }) => {
     const path = stateFile(root.options.stateFile);

@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const command = defineCommand('s3 buckets [name] create', {
   description: 'Create a new S3 bucket.',
   options: {
-    public: z.boolean().optional(),
+    public: { schema: z.boolean().optional() },
   },
   handler: ({ parents, options, root }) => {
     const name = parents['s3 buckets [name]'].params.name;

@@ -8,11 +8,11 @@ const WATCH_DEBOUNCE_MS = 75;
 
 export const command = defineCommand('generate', {
   options: {
-    commands: z.string().default('./src/commands'),
-    out: z.string().default('./src/commandTree.gen.ts'),
-    'core-module': z.string().optional(),
-    eager: z.boolean().default(false),
-    watch: z.boolean().default(false),
+    commands: { schema: z.string().default('./src/commands') },
+    out: { schema: z.string().default('./src/commandTree.gen.ts') },
+    'core-module': { schema: z.string().optional() },
+    eager: { schema: z.boolean().default(false) },
+    watch: { schema: z.boolean().default(false) },
   },
   handler: async ({ options }) => {
     const commandsDir = resolve(options.commands);

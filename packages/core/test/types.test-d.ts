@@ -29,7 +29,7 @@ declare module '#index.ts' {
 }
 
 defineCommand('deploy', {
-  options: { env: z.enum(['staging', 'prod']) },
+  options: { env: { schema: z.enum(['staging', 'prod']) } },
   handler: ({ options, params, parents, root }) => {
     expectTypeOf(options).toEqualTypeOf<{ env: 'staging' | 'prod' }>();
     expectTypeOf(params).toEqualTypeOf<Record<string, never>>();
@@ -39,7 +39,7 @@ defineCommand('deploy', {
 });
 
 defineCommand('users', {
-  options: { workspace: z.string() },
+  options: { workspace: { schema: z.string(), forwardToChildren: true } },
   handler: ({ options, parents }) => {
     expectTypeOf(options).toEqualTypeOf<{ workspace: string }>();
     expectTypeOf<keyof typeof parents>().toBeNever();
@@ -47,7 +47,7 @@ defineCommand('users', {
 });
 
 defineCommand('users create', {
-  options: { email: z.string() },
+  options: { email: { schema: z.string() } },
   handler: ({ options, parents, root }) => {
     expectTypeOf(options).toEqualTypeOf<{ email: string }>();
     expectTypeOf(parents.users.options).toEqualTypeOf<{ workspace: string }>();
@@ -58,7 +58,7 @@ defineCommand('users create', {
 
 defineCommand('items [sku]', {
   params: { sku: z.string() },
-  options: { force: z.boolean() },
+  options: { force: { schema: z.boolean(), forwardToChildren: true } },
   handler: ({ options, params }) => {
     expectTypeOf(params).toEqualTypeOf<{ sku: string }>();
     expectTypeOf(options).toEqualTypeOf<{ force: boolean }>();
@@ -68,19 +68,19 @@ defineCommand('items [sku]', {
 defineCommand('items [sku]', {
   // @ts-expect-error — `wrongName` is not the param the path declares
   params: { wrongName: z.string() },
-  options: { force: z.boolean() },
+  options: { force: { schema: z.boolean() } },
   handler: () => {},
 });
 
 defineCommand('items [sku]', {
   // @ts-expect-error — path declares `[sku]` but params object is empty
   params: {},
-  options: { force: z.boolean() },
+  options: { force: { schema: z.boolean() } },
   handler: () => {},
 });
 
 defineCommand('items [sku] edit', {
-  options: { mode: z.enum(['basic', 'full']) },
+  options: { mode: { schema: z.enum(['basic', 'full']) } },
   handler: ({ options, params, parents }) => {
     expectTypeOf(options).toEqualTypeOf<{ mode: 'basic' | 'full' }>();
     expectTypeOf(params).toEqualTypeOf<Record<string, never>>();
@@ -91,6 +91,37 @@ defineCommand('items [sku] edit', {
 
 // @ts-expect-error — 'totally made up' is not a key in CommandRegistry
 defineCommand('totally made up', { options: {}, handler: () => {} });
+
+declare module '#index.ts' {
+  interface CommandRegistry {
+    forwardCheck: {
+      parents: {};
+      root: { options: {} };
+    };
+    'forwardCheck child': {
+      parents: { forwardCheck: { options: { shared: boolean }; params: {} } };
+      root: { options: {} };
+    };
+  }
+}
+
+defineCommand('forwardCheck', {
+  options: {
+    shared: { schema: z.boolean(), forwardToChildren: true },
+    selfOnly: { schema: z.string() },
+  },
+  handler: ({ options }) => {
+    expectTypeOf(options).toEqualTypeOf<{ shared: boolean; selfOnly: string }>();
+  },
+});
+
+defineCommand('forwardCheck child', {
+  options: {},
+  handler: ({ parents }) => {
+    // Only forwarded options leak into descendants — `selfOnly` is excluded.
+    expectTypeOf(parents.forwardCheck.options).toEqualTypeOf<{ shared: boolean }>();
+  },
+});
 
 expectTypeOf<'totally made up path'>().not.toMatchTypeOf<keyof CommandRegistry>();
 expectTypeOf<'users create'>().toMatchTypeOf<keyof CommandRegistry>();
@@ -123,7 +154,7 @@ declare module '#index.ts' {
 }
 
 defineCommand('ctxhost open', {
-  options: { force: z.boolean() },
+  options: { force: { schema: z.boolean() } },
   handler: async ({ options, tag, files }) => {
     expectTypeOf(options).toEqualTypeOf<{ force: boolean }>();
     expectTypeOf(tag).toEqualTypeOf<'demo'>();

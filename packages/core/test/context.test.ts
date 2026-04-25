@@ -32,7 +32,7 @@ function makeTree({
           optionNames: [{ name: 'name', type: 'string' }],
           paramNames: [],
           load: async () => ({
-            options: { name: z.string() },
+            options: { name: { schema: z.string() } },
             handler: (ctx) => capture(ctx as Record<string, unknown>),
           }),
         },

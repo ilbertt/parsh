@@ -43,7 +43,7 @@ describe('command hooks', () => {
   test('beforeHandler → handler → afterHandler run in order', async () => {
     const calls: string[] = [];
     const code = await makeCli({
-      options: { name: z.string() },
+      options: { name: { schema: z.string() } },
       beforeHandler: () => {
         calls.push('before');
       },
@@ -61,7 +61,7 @@ describe('command hooks', () => {
   test('beforeHandler throwing skips handler and afterHandler, exits 1', async () => {
     const calls: string[] = [];
     const code = await makeCli({
-      options: { name: z.string() },
+      options: { name: { schema: z.string() } },
       beforeHandler: () => {
         throw new Error('blocked');
       },
@@ -80,7 +80,7 @@ describe('command hooks', () => {
   test('handler throwing skips afterHandler, exits 1', async () => {
     const calls: string[] = [];
     const code = await makeCli({
-      options: { name: z.string() },
+      options: { name: { schema: z.string() } },
       beforeHandler: () => {
         calls.push('before');
       },
@@ -98,7 +98,7 @@ describe('command hooks', () => {
 
   test('afterHandler throwing surfaces as afterHandler error, exits 1', async () => {
     const code = await makeCli({
-      options: { name: z.string() },
+      options: { name: { schema: z.string() } },
       handler: () => {},
       afterHandler: () => {
         throw new Error('post-fail');
@@ -113,7 +113,7 @@ describe('command hooks', () => {
     let handlerCtx: unknown;
     let afterCtx: unknown;
     const code = await makeCli({
-      options: { name: z.string() },
+      options: { name: { schema: z.string() } },
       beforeHandler: (ctx) => {
         beforeCtx = ctx;
       },

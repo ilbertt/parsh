@@ -8,6 +8,7 @@ describe('createEnvContext', () => {
       source: { PORT: '3000' },
       vars: { PORT: { schema: z.number().int().positive() } },
     });
+    // biome-ignore lint/style/noMagicNumbers: asserting numbers is idiomatic
     expect(env.PORT).toBe(3000);
   });
 
@@ -19,6 +20,7 @@ describe('createEnvContext', () => {
         FLAG: { schema: z.boolean() },
       },
     });
+    // biome-ignore lint/style/noMagicNumbers: asserting numbers is idiomatic
     expect(env.COUNT).toBe(42);
     expect(env.FLAG).toBe(true);
   });
@@ -52,12 +54,14 @@ describe('createEnvContext', () => {
       source: {},
       vars: { PORT: { schema: z.number(), default: 8080 } },
     });
+    // biome-ignore lint/style/noMagicNumbers: asserts the literal default declared above
     expect(missing.PORT).toBe(8080);
 
     const empty = createEnvContext({
       source: { PORT: '' },
       vars: { PORT: { schema: z.number(), default: 8080 } },
     });
+    // biome-ignore lint/style/noMagicNumbers: asserts the literal default declared above
     expect(empty.PORT).toBe(8080);
   });
 
@@ -66,6 +70,7 @@ describe('createEnvContext', () => {
       source: { PORT: '9000' },
       vars: { PORT: { schema: z.number(), default: 8080 } },
     });
+    // biome-ignore lint/style/noMagicNumbers: asserting numbers is idiomatic
     expect(env.PORT).toBe(9000);
   });
 
@@ -77,6 +82,7 @@ describe('createEnvContext', () => {
         DATABASE_URL: { schema: z.string() },
       },
     });
+    // biome-ignore lint/style/noMagicNumbers: asserting numbers is idiomatic
     expect(env.PORT).toBe(3000);
     expect(() => env.DATABASE_URL).toThrow(EnvMissingError);
   });
@@ -101,6 +107,7 @@ describe('createEnvContext', () => {
       source: { MY_APP_PORT: '4000' },
       vars: { port: { schema: z.number(), name: 'MY_APP_PORT' } },
     });
+    // biome-ignore lint/style/noMagicNumbers: asserting numbers is idiomatic
     expect(env.port).toBe(4000);
   });
 
@@ -121,6 +128,7 @@ describe('createEnvContext', () => {
       const env = createEnvContext({
         vars: { value: { schema: z.number(), name: key } },
       });
+      // biome-ignore lint/style/noMagicNumbers: asserting numbers is idiomatic
       expect(env.value).toBe(42);
     } finally {
       delete process.env[key];

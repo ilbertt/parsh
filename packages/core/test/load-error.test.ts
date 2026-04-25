@@ -6,9 +6,7 @@ function badCommand(path: string): RuntimeCommand {
     path,
     optionNames: [],
     paramNames: [],
-    load: async () => {
-      throw new Error('synthetic import failure');
-    },
+    load: () => Promise.reject(new Error('synthetic import failure')),
   };
 }
 

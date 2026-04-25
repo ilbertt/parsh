@@ -73,6 +73,7 @@ describe('createCli context', () => {
     }).run(['run', '--name', 'x']);
     expect(code).toBe(0);
     expect((captured as unknown as { hello: string }).hello).toBe('world');
+    // biome-ignore lint/style/noMagicNumbers: asserting numbers is idiomatic
     expect((captured as unknown as { count: number }).count).toBe(7);
   });
 

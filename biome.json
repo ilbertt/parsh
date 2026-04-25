@@ -14,8 +14,7 @@
       "!**/bun.lock",
       "!**/*.lock",
       "!**/*.gen.ts",
-      "!**/commandTree.expected.ts",
-      "!bench/cmd-startup/src/commands"
+      "!**/commandTree.expected.ts"
     ]
   },
   "formatter": {
@@ -34,9 +33,17 @@
           }
         }
       },
+      "suspicious": {
+        "useAwait": "error"
+      },
+      "nursery": {
+        "useAwaitThenable": "error",
+        "noFloatingPromises": "error"
+      },
       "style": {
         "noNonNullAssertion": "off",
-        "useBlockStatements": "error"
+        "useBlockStatements": "error",
+        "noMagicNumbers": "error"
       }
     }
   },

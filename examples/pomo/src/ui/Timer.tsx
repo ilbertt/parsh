@@ -1,6 +1,8 @@
 import { Box, Text, useApp } from 'ink';
 import { useEffect, useState } from 'react';
 
+const TICK_MS = 1000;
+
 type Props = {
   totalSeconds: number;
   taskTitle: string | null;
@@ -25,7 +27,7 @@ export const Timer = ({ totalSeconds, taskTitle, onDone }: Props) => {
       exit();
       return;
     }
-    const t = setTimeout(() => setRemaining((r) => r - 1), 1000);
+    const t = setTimeout(() => setRemaining((r) => r - 1), TICK_MS);
     return () => clearTimeout(t);
   }, [remaining, onDone, exit]);
 

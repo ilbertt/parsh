@@ -445,14 +445,14 @@ export class Cli<C extends object = Record<string, never>> {
     this.#context = context;
   }
 
-  async #resolveContext(): Promise<object> {
+  #resolveContext(): Promise<object> {
     if (this.#context === undefined) {
-      return {};
+      return Promise.resolve({});
     }
     if (typeof this.#context === 'function') {
-      return await this.#context();
+      return Promise.resolve(this.#context());
     }
-    return this.#context;
+    return Promise.resolve(this.#context);
   }
 
   #renderRootUsage(): string {

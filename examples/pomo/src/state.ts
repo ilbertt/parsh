@@ -24,4 +24,8 @@ export const saveState = ({ path, state }: { path: string; state: State }) => {
   writeFileSync(path, `${JSON.stringify(state, null, 2)}\n`);
 };
 
-export const newId = () => Math.random().toString(36).slice(2, 8);
+const ID_RADIX = 36;
+const ID_START = 2;
+const ID_END = 8;
+
+export const newId = () => Math.random().toString(ID_RADIX).slice(ID_START, ID_END);

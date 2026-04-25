@@ -4,6 +4,8 @@ import { defineCommand } from '@repo/core';
 import { z } from 'zod';
 import { type GenerateOptions, generateCommandTree } from '#generate.ts';
 
+const WATCH_DEBOUNCE_MS = 75;
+
 export const command = defineCommand('generate', {
   options: {
     commands: z.string().default('./src/commands'),
@@ -47,7 +49,7 @@ export const command = defineCommand('generate', {
         }
         debounce = setTimeout(() => {
           void runOnce();
-        }, 75);
+        }, WATCH_DEBOUNCE_MS);
       });
     }
   },

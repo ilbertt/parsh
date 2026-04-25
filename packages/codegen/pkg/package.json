@@ -18,6 +18,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@biomejs/biome": "^2.4.10"
+    "@biomejs/biome": "^2.4.10",
+    "typescript": "catalog:"
   }
 }

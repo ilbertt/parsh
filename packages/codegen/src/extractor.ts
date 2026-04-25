@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { basename, relative } from 'node:path';
+import ts from 'typescript';
 import type { ExtractedCommand, ExtractedOption, SourceSegment } from '#types.ts';
 
 function parsePathString(pathString: string): SourceSegment[] {
@@ -35,186 +36,155 @@ function segmentsEqual({ a, b }: { a: SourceSegment[]; b: SourceSegment[] }): bo
   return true;
 }
 
-function extractFromSource({ source, filePath }: { source: string; filePath: string }): {
-  pathString: string;
-  options: ExtractedOption[];
-  paramNames: string[];
-  description: string | undefined;
-} {
-  const callMatch = source.match(/defineCommand\s*\(\s*(['"])([^'"]+)\1\s*,\s*\{/);
-  if (!callMatch) {
-    throw new Error(`parsh: ${filePath} does not contain a defineCommand('...', { ... }) call`);
+function parseSourceFile({
+  source,
+  filePath,
+}: {
+  source: string;
+  filePath: string;
+}): ts.SourceFile {
+  return ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, /* setParentNodes */ true);
+}
+
+function findDefineCall({
+  sourceFile,
+  name,
+}: {
+  sourceFile: ts.SourceFile;
+  name: 'defineCommand' | 'defineRootCommand';
+}): ts.CallExpression | null {
+  let found: ts.CallExpression | null = null;
+  function visit(node: ts.Node) {
+    if (found) {
+      return;
+    }
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === name
+    ) {
+      found = node;
+      return;
+    }
+    ts.forEachChild(node, visit);
   }
-  const pathString = callMatch[2]!;
-  const defBody = readBalancedBraceBody({
-    source,
-    start: callMatch.index! + callMatch[0].length,
-  });
-  return {
-    pathString,
-    options: extractOptions(defBody),
-    paramNames: extractInlineObjectKeys({ body: defBody, prop: 'params' }).map((e) => e.key),
-    description: extractDescription(defBody),
-  };
+  visit(sourceFile);
+  return found;
 }
 
-function extractOptions(body: string): ExtractedOption[] {
-  return extractInlineObjectKeys({ body, prop: 'options' }).map(({ key, value }) => ({
-    name: key,
-    type: /\bboolean\s*\(/.test(value) ? 'boolean' : 'string',
-  }));
-}
-
-/**
- * Pull a `description: '...'` string literal from a definition body. Only
- * inline string/template literals are recognised; computed or interpolated
- * values are ignored.
- */
-function extractDescription(body: string): string | undefined {
-  for (const e of topLevelObjectEntries(body)) {
-    if (e.key !== 'description') {
-      continue;
-    }
-    const v = e.value.trim();
-    if (v.length < 2) {
-      return undefined;
-    }
-    const q = v[0];
-    if ((q === '"' || q === "'" || q === '`') && v.endsWith(q)) {
-      const inner = v.slice(1, -1);
-      if (q === '"') {
-        try {
-          return JSON.parse(v) as string;
-        } catch {
-          return inner;
-        }
-      }
-      return inner;
-    }
-    return undefined;
+function propertyKey(prop: ts.ObjectLiteralElementLike): string | null {
+  if (!ts.isPropertyAssignment(prop) && !ts.isShorthandPropertyAssignment(prop)) {
+    return null;
   }
-  return undefined;
+  const name = prop.name;
+  if (!name) {
+    return null;
+  }
+  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) {
+    return name.text;
+  }
+  return null;
 }
 
-interface ObjectEntry {
+function getProperty({
+  obj,
+  key,
+}: {
+  obj: ts.ObjectLiteralExpression;
   key: string;
-  value: string;
+}): ts.PropertyAssignment | null {
+  for (const p of obj.properties) {
+    if (ts.isPropertyAssignment(p) && propertyKey(p) === key) {
+      return p;
+    }
+  }
+  return null;
 }
 
-function extractInlineObjectKeys({ body, prop }: { body: string; prop: string }): ObjectEntry[] {
-  const re = new RegExp(`(^|[\\s,;{])${prop}\\s*:\\s*\\{`);
-  const m = body.match(re);
-  if (!m) {
+function objectInitializerOf({
+  obj,
+  key,
+}: {
+  obj: ts.ObjectLiteralExpression;
+  key: string;
+}): ts.ObjectLiteralExpression | null {
+  const prop = getProperty({ obj, key });
+  if (!prop) {
+    return null;
+  }
+  return ts.isObjectLiteralExpression(prop.initializer) ? prop.initializer : null;
+}
+
+function objectKeys(obj: ts.ObjectLiteralExpression | null): string[] {
+  if (!obj) {
     return [];
   }
-  const inner = readBalancedBraceBody({
-    source: body,
-    start: m.index! + m[0].length,
-  });
-  return topLevelObjectEntries(inner);
-}
-
-function readBalancedBraceBody({ source, start }: { source: string; start: number }): string {
-  let depth = 1;
-  let i = start;
-  const len = source.length;
-  const body: string[] = [];
-  while (i < len && depth > 0) {
-    const ch = source[i]!;
-    if (ch === '{') {
-      depth++;
-      body.push(ch);
-    } else if (ch === '}') {
-      depth--;
-      if (depth > 0) {
-        body.push(ch);
-      }
-    } else {
-      body.push(ch);
+  const out: string[] = [];
+  for (const p of obj.properties) {
+    const k = propertyKey(p);
+    if (k !== null) {
+      out.push(k);
     }
-    i++;
   }
-  return body.join('');
+  return out;
 }
 
 /**
- * Return each top-level `key: value` pair inside an object literal body.
- * Tracks nested brackets and string literals so commas inside values don't
- * split a single entry.
+ * `true` if the expression contains a call whose callee resolves to an
+ * identifier named `boolean` — matches `z.boolean()`, `z.coerce.boolean()`,
+ * `boolean()`, etc. Conservative semantic equivalent of the previous regex.
  */
-function topLevelObjectEntries(body: string): ObjectEntry[] {
-  const out: ObjectEntry[] = [];
-  const len = body.length;
-  let i = 0;
-  let depth = 0;
-  let inStr: string | null = null;
-
-  const skipWhitespace = (): void => {
-    while (i < len && /\s/.test(body[i]!)) {
-      i++;
+function isBooleanSchema(expr: ts.Expression): boolean {
+  let found = false;
+  function visit(node: ts.Node) {
+    if (found) {
+      return;
     }
-  };
-
-  while (i < len) {
-    skipWhitespace();
-    if (i >= len) {
-      break;
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression;
+      if (ts.isIdentifier(callee) && callee.text === 'boolean') {
+        found = true;
+        return;
+      }
+      if (
+        ts.isPropertyAccessExpression(callee) &&
+        ts.isIdentifier(callee.name) &&
+        callee.name.text === 'boolean'
+      ) {
+        found = true;
+        return;
+      }
     }
+    ts.forEachChild(node, visit);
+  }
+  visit(expr);
+  return found;
+}
 
-    const keyMatch = /^(?:(['"])([^'"]+)\1|([A-Za-z_$][\w$]*))\s*:/.exec(body.slice(i));
-    if (!keyMatch) {
-      i++;
+function extractOptions(obj: ts.ObjectLiteralExpression | null): ExtractedOption[] {
+  if (!obj) {
+    return [];
+  }
+  const out: ExtractedOption[] = [];
+  for (const p of obj.properties) {
+    if (!ts.isPropertyAssignment(p)) {
       continue;
     }
-    const key = keyMatch[2] ?? keyMatch[3]!;
-    i += keyMatch[0].length;
-
-    const valueStart = i;
-    depth = 0;
-    inStr = null;
-    while (i < len) {
-      const ch = body[i]!;
-      if (inStr) {
-        if (ch === '\\' && i + 1 < len) {
-          i += 2;
-          continue;
-        }
-        if (ch === inStr) {
-          inStr = null;
-        }
-        i++;
-        continue;
-      }
-      if (ch === "'" || ch === '"' || ch === '`') {
-        inStr = ch;
-        i++;
-        continue;
-      }
-      if (ch === '(' || ch === '[' || ch === '{') {
-        depth++;
-        i++;
-        continue;
-      }
-      if (ch === ')' || ch === ']' || ch === '}') {
-        if (depth === 0) {
-          break;
-        }
-        depth--;
-        i++;
-        continue;
-      }
-      if (ch === ',' && depth === 0) {
-        break;
-      }
-      i++;
+    const name = propertyKey(p);
+    if (name === null) {
+      continue;
     }
-    out.push({ key, value: body.slice(valueStart, i).trim() });
-    if (body[i] === ',') {
-      i++;
-    }
+    out.push({ name, type: isBooleanSchema(p.initializer) ? 'boolean' : 'string' });
   }
-
   return out;
+}
+
+function extractDescription(obj: ts.ObjectLiteralExpression): string | undefined {
+  const prop = getProperty({ obj, key: 'description' });
+  if (!prop) {
+    return undefined;
+  }
+  return ts.isStringLiteralLike(prop.initializer) ? prop.initializer.text : undefined;
 }
 
 function importNameFor({ filePath }: { filePath: string }): string {
@@ -233,6 +203,14 @@ function importNameFor({ filePath }: { filePath: string }): string {
   return `${camel}Cmd`;
 }
 
+function importSpecifierFor({ outDir, filePath }: { outDir: string; filePath: string }): string {
+  let spec = relative(outDir, filePath);
+  if (!spec.startsWith('.')) {
+    spec = `./${spec}`;
+  }
+  return spec;
+}
+
 export async function extractRootCommand({
   filePath,
   outDir,
@@ -241,20 +219,19 @@ export async function extractRootCommand({
   outDir: string;
 }): Promise<ExtractedCommand> {
   const source = await readFile(filePath, 'utf8');
-  const callMatch = source.match(/defineRootCommand\s*\(\s*\{/);
-  if (!callMatch) {
+  const sourceFile = parseSourceFile({ source, filePath });
+  const call = findDefineCall({ sourceFile, name: 'defineRootCommand' });
+  if (!call || call.arguments.length < 1) {
     throw new Error(`parsh: ${filePath} does not contain a defineRootCommand({ ... }) call`);
   }
-  const defBody = readBalancedBraceBody({
-    source,
-    start: callMatch.index! + callMatch[0].length,
-  });
-  const options = extractOptions(defBody);
-  const description = extractDescription(defBody);
-  let spec = relative(outDir, filePath);
-  if (!spec.startsWith('.')) {
-    spec = `./${spec}`;
+  const def = call.arguments[0]!;
+  if (!ts.isObjectLiteralExpression(def)) {
+    throw new Error(
+      `parsh: ${filePath} — defineRootCommand argument must be an inline object literal`,
+    );
   }
+  const options = extractOptions(objectInitializerOf({ obj: def, key: 'options' }));
+  const description = extractDescription(def);
   return {
     filePath,
     pathString: '',
@@ -262,7 +239,7 @@ export async function extractRootCommand({
     options,
     paramNames: [],
     importName: 'rootCmd',
-    importSpecifier: spec,
+    importSpecifier: importSpecifierFor({ outDir, filePath }),
     ...(description !== undefined ? { description } : {}),
   };
 }
@@ -277,10 +254,23 @@ export async function extractCommand({
   outDir: string;
 }): Promise<ExtractedCommand> {
   const source = await readFile(filePath, 'utf8');
-  const { pathString, options, paramNames, description } = extractFromSource({
-    source,
-    filePath,
-  });
+  const sourceFile = parseSourceFile({ source, filePath });
+  const call = findDefineCall({ sourceFile, name: 'defineCommand' });
+  if (!call || call.arguments.length < 2) {
+    throw new Error(`parsh: ${filePath} does not contain a defineCommand('...', { ... }) call`);
+  }
+  const [pathArg, defArg] = call.arguments;
+  if (!pathArg || !ts.isStringLiteralLike(pathArg)) {
+    throw new Error(
+      `parsh: ${filePath} — defineCommand path (first argument) must be a string literal`,
+    );
+  }
+  if (!defArg || !ts.isObjectLiteralExpression(defArg)) {
+    throw new Error(
+      `parsh: ${filePath} — defineCommand definition (second argument) must be an inline object literal`,
+    );
+  }
+  const pathString = pathArg.text;
   const segments = parsePathString(pathString);
   if (!segmentsEqual({ a: segments, b: expectedSegments })) {
     const want = expectedSegments
@@ -290,10 +280,9 @@ export async function extractCommand({
       `parsh: ${filePath} — defineCommand path string '${pathString}' does not match its filesystem location '${want}'`,
     );
   }
-  let spec = relative(outDir, filePath);
-  if (!spec.startsWith('.')) {
-    spec = `./${spec}`;
-  }
+  const options = extractOptions(objectInitializerOf({ obj: defArg, key: 'options' }));
+  const paramNames = objectKeys(objectInitializerOf({ obj: defArg, key: 'params' }));
+  const description = extractDescription(defArg);
   return {
     filePath,
     pathString,
@@ -301,7 +290,7 @@ export async function extractCommand({
     options,
     paramNames,
     importName: importNameFor({ filePath }),
-    importSpecifier: spec,
+    importSpecifier: importSpecifierFor({ outDir, filePath }),
     ...(description !== undefined ? { description } : {}),
   };
 }

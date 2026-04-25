@@ -15,16 +15,42 @@
         "typescript": "catalog:",
       },
     },
+    "bench/cmd-startup": {
+      "name": "@bench/cmd-startup",
+      "dependencies": {
+        "@repo/core": "workspace:*",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@repo/codegen": "workspace:*",
+        "@repo/typescript-config": "workspace:*",
+        "typescript": "catalog:",
+      },
+    },
+    "examples/awslike": {
+      "name": "@repo/examples-awslike",
+      "dependencies": {
+        "@repo/core": "workspace:*",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@repo/codegen": "workspace:*",
+        "@repo/typescript-config": "workspace:*",
+        "typescript": "catalog:",
+      },
+    },
     "packages/codegen": {
       "name": "@repo/codegen",
       "bin": {
-        "parsh": "./src/bin.ts",
+        "parsh-codegen": "./src/cli/bin.ts",
+      },
+      "dependencies": {
+        "typescript": "catalog:",
       },
       "devDependencies": {
         "@repo/core": "workspace:*",
         "@repo/pack-utils": "workspace:*",
         "@repo/typescript-config": "workspace:*",
-        "typescript": "catalog:",
         "zod": "catalog:",
       },
     },
@@ -57,6 +83,8 @@
     "@babel/code-frame": ["@babel/code-frame@7.29.0", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.28.5", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw=="],
 
     "@babel/helper-validator-identifier": ["@babel/helper-validator-identifier@7.28.5", "", {}, "sha512-qSs4ifwzKJSV39ucNjsvc6WVHs6b7S03sOh2OcHF9UHfVPqWWALUsNUVzhSBiItjRZoLHx7nIarVjqKVusUZ1Q=="],
+
+    "@bench/cmd-startup": ["@bench/cmd-startup@workspace:bench/cmd-startup"],
 
     "@biomejs/biome": ["@biomejs/biome@2.4.10", "", { "optionalDependencies": { "@biomejs/cli-darwin-arm64": "2.4.10", "@biomejs/cli-darwin-x64": "2.4.10", "@biomejs/cli-linux-arm64": "2.4.10", "@biomejs/cli-linux-arm64-musl": "2.4.10", "@biomejs/cli-linux-x64": "2.4.10", "@biomejs/cli-linux-x64-musl": "2.4.10", "@biomejs/cli-win32-arm64": "2.4.10", "@biomejs/cli-win32-x64": "2.4.10" }, "bin": { "biome": "bin/biome" } }, "sha512-xxA3AphFQ1geij4JTHXv4EeSTda1IFn22ye9LdyVPoJU19fNVl0uzfEuhsfQ4Yue/0FaLs2/ccVi4UDiE7R30w=="],
 
@@ -115,6 +143,8 @@
     "@repo/codegen": ["@repo/codegen@workspace:packages/codegen"],
 
     "@repo/core": ["@repo/core@workspace:packages/core"],
+
+    "@repo/examples-awslike": ["@repo/examples-awslike@workspace:examples/awslike"],
 
     "@repo/pack-utils": ["@repo/pack-utils@workspace:packages/pack-utils"],
 

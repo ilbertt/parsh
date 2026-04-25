@@ -16,10 +16,11 @@
     "@repo/core": "workspace:*",
     "@repo/pack-utils": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "typescript": "catalog:",
     "zod": "catalog:"
   },
-  "dependencies": {},
+  "dependencies": {
+    "typescript": "catalog:"
+  },
   "imports": {
     "#*": "./src/*"
   }

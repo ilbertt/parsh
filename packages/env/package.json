@@ -1,0 +1,25 @@
+{
+  "name": "@repo/env",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run build.ts",
+    "check:types": "bun run --bun tsc",
+    "test:types": "bun run --bun tsc -p tsconfig.types.json --diagnostics",
+    "test": "bun test:types && bun test"
+  },
+  "devDependencies": {
+    "@repo/core": "workspace:*",
+    "@repo/pack-utils": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "catalog:",
+    "zod": "catalog:"
+  },
+  "dependencies": {},
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "imports": {
+    "#*": "./src/*"
+  }
+}

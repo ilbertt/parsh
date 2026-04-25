@@ -1,6 +1,7 @@
 import { type ParseArgsConfig, parseArgs } from 'node:util';
 import type { ResolveContext } from '#registry.ts';
 import type { AnyOption, AnyParam, AnySchema, OptionsRecord, ParamsRecord } from '#schema.ts';
+import { stderrBold, stderrDim, stderrRed, stdoutBold, stdoutCyan, stdoutDim } from '#style.ts';
 
 type TreeSegment =
   | { readonly kind: 'literal'; readonly value: string }
@@ -379,11 +380,11 @@ function renderRootUsage({
   if (programDescription) {
     lines.push(programDescription, '');
   }
-  lines.push(`Usage: ${programName} <command> [options]`, '');
+  lines.push(`${stdoutBold('Usage:')} ${programName} <command> [options]`, '');
 
   const rootOptions = root.command?.optionNames ?? [];
   if (rootOptions.length > 0) {
-    lines.push('Options:');
+    lines.push(stdoutBold('Options:'));
     for (const line of formatTwoColumn(
       rootOptions.map((o) => ({ label: optionLabel(o), description: o.description })),
     )) {
@@ -392,7 +393,7 @@ function renderRootUsage({
     lines.push('');
   }
 
-  lines.push('Commands:');
+  lines.push(stdoutBold('Commands:'));
   const rows: Array<{ label: string; description: string | undefined }> = [];
   function walk({ node, prefix }: { node: RuntimeNode; prefix: string[] }) {
     for (const [name, child] of Object.entries(node.literalChildren)) {
@@ -427,7 +428,11 @@ function formatTwoColumn(
     (w, r) => Math.max(w, r.label.length),
     0,
   );
-  return rows.map((r) => (r.description ? `${r.label.padEnd(width)}  ${r.description}` : r.label));
+  return rows.map((r) => {
+    const padded = r.label.padEnd(width);
+    const styled = stdoutCyan(padded);
+    return r.description ? `${styled}  ${stdoutDim(r.description)}` : stdoutCyan(r.label);
+  });
 }
 
 function optionLabel(meta: OptionMeta): string {
@@ -451,10 +456,10 @@ function renderCommandUsage({
   if (cmd.description) {
     lines.push(cmd.description, '');
   }
-  lines.push(`Usage: ${programName} ${segments.join(' ')} [options]`, '');
+  lines.push(`${stdoutBold('Usage:')} ${programName} ${segments.join(' ')} [options]`, '');
 
   if (cmd.optionNames.length > 0) {
-    lines.push('Options:');
+    lines.push(stdoutBold('Options:'));
     for (const line of formatTwoColumn(
       cmd.optionNames.map((o) => ({ label: optionLabel(o), description: o.description })),
     )) {
@@ -478,7 +483,7 @@ function renderCommandUsage({
     }
   }
   if (inheritedRows.length > 0) {
-    lines.push('Inherited options:');
+    lines.push(stdoutBold('Inherited options:'));
     for (const line of formatTwoColumn(inheritedRows)) {
       lines.push(`  ${line}`);
     }
@@ -487,7 +492,7 @@ function renderCommandUsage({
 
   const subs = Object.keys(node.literalChildren).sort();
   if (subs.length > 0 || node.paramChild) {
-    lines.push('Subcommands:');
+    lines.push(stdoutBold('Subcommands:'));
     const rows: Array<{ label: string; description: string | undefined }> = [];
     for (const name of subs) {
       const child = node.literalChildren[name]!;
@@ -512,7 +517,7 @@ function helpRequested(argv: string[]): boolean {
 }
 
 function helpHint(enabled: boolean): string {
-  return enabled ? ' — use --help or -h to see usage' : '';
+  return enabled ? stderrDim(' — use --help or -h to see usage') : '';
 }
 
 function detectSameLevelCollisions(tree: RuntimeNode): string[] {
@@ -626,7 +631,7 @@ export class Cli<C extends object = Record<string, never>> {
   }
 
   #errorPrefix(): string {
-    return this.#programName;
+    return stderrRed(stderrBold(this.#programName));
   }
 
   async run(argv: string[]): Promise<number> {

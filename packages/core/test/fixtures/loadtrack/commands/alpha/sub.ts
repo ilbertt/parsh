@@ -7,7 +7,7 @@ export const command = defineCommand('alpha sub', {
   options: {
     flag: z.boolean().optional(),
   },
-  handler: (ctx) => {
-    console.log(`alpha-sub:${ctx.parents.alpha.options.name}:flag=${ctx.options.flag ?? false}`);
+  handler: ({ options, parents }) => {
+    console.log(`alpha-sub:${parents.alpha.options.name}:flag=${options.flag ?? false}`);
   },
 });

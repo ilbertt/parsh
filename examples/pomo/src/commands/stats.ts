@@ -4,8 +4,8 @@ import { loadState, stateFile } from '../state.ts';
 export const command = defineCommand('stats', {
   description: 'Show total pomodoro time and session count.',
   options: {},
-  handler: (ctx) => {
-    const state = loadState(stateFile(ctx.root.options.stateFile));
+  handler: ({ root }) => {
+    const state = loadState(stateFile(root.options.stateFile));
     let total = 0;
     for (const s of state.sessions) {
       total += s.durationMinutes;

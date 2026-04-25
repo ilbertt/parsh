@@ -7,7 +7,7 @@ export const command = defineCommand('beta', {
   options: {
     n: z.number(),
   },
-  handler: (ctx) => {
-    console.log(`beta:${ctx.options.n}`);
+  handler: ({ options }) => {
+    console.log(`beta:${options.n}`);
   },
 });

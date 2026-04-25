@@ -30,38 +30,38 @@ declare module '#index.ts' {
 
 defineCommand('deploy', {
   options: { env: z.enum(['staging', 'prod']) },
-  handler: (ctx) => {
-    expectTypeOf(ctx.options).toEqualTypeOf<{ env: 'staging' | 'prod' }>();
-    expectTypeOf(ctx.params).toEqualTypeOf<Record<string, never>>();
-    expectTypeOf<keyof typeof ctx.parents>().toBeNever();
-    expectTypeOf(ctx.root.options).toEqualTypeOf<{ verbose: boolean }>();
+  handler: ({ options, params, parents, root }) => {
+    expectTypeOf(options).toEqualTypeOf<{ env: 'staging' | 'prod' }>();
+    expectTypeOf(params).toEqualTypeOf<Record<string, never>>();
+    expectTypeOf<keyof typeof parents>().toBeNever();
+    expectTypeOf(root.options).toEqualTypeOf<{ verbose: boolean }>();
   },
 });
 
 defineCommand('users', {
   options: { workspace: z.string() },
-  handler: (ctx) => {
-    expectTypeOf(ctx.options).toEqualTypeOf<{ workspace: string }>();
-    expectTypeOf<keyof typeof ctx.parents>().toBeNever();
+  handler: ({ options, parents }) => {
+    expectTypeOf(options).toEqualTypeOf<{ workspace: string }>();
+    expectTypeOf<keyof typeof parents>().toBeNever();
   },
 });
 
 defineCommand('users create', {
   options: { email: z.string() },
-  handler: (ctx) => {
-    expectTypeOf(ctx.options).toEqualTypeOf<{ email: string }>();
-    expectTypeOf(ctx.parents.users.options).toEqualTypeOf<{ workspace: string }>();
-    expectTypeOf<keyof (typeof ctx.parents)['users']['params']>().toBeNever();
-    expectTypeOf(ctx.root.options.verbose).toEqualTypeOf<boolean>();
+  handler: ({ options, parents, root }) => {
+    expectTypeOf(options).toEqualTypeOf<{ email: string }>();
+    expectTypeOf(parents.users.options).toEqualTypeOf<{ workspace: string }>();
+    expectTypeOf<keyof (typeof parents)['users']['params']>().toBeNever();
+    expectTypeOf(root.options.verbose).toEqualTypeOf<boolean>();
   },
 });
 
 defineCommand('items [sku]', {
   params: { sku: z.string() },
   options: { force: z.boolean() },
-  handler: (ctx) => {
-    expectTypeOf(ctx.params).toEqualTypeOf<{ sku: string }>();
-    expectTypeOf(ctx.options).toEqualTypeOf<{ force: boolean }>();
+  handler: ({ options, params }) => {
+    expectTypeOf(params).toEqualTypeOf<{ sku: string }>();
+    expectTypeOf(options).toEqualTypeOf<{ force: boolean }>();
   },
 });
 
@@ -81,11 +81,11 @@ defineCommand('items [sku]', {
 
 defineCommand('items [sku] edit', {
   options: { mode: z.enum(['basic', 'full']) },
-  handler: (ctx) => {
-    expectTypeOf(ctx.options).toEqualTypeOf<{ mode: 'basic' | 'full' }>();
-    expectTypeOf(ctx.params).toEqualTypeOf<Record<string, never>>();
-    expectTypeOf(ctx.parents['items [sku]'].options).toEqualTypeOf<{ force: boolean }>();
-    expectTypeOf(ctx.parents['items [sku]'].params).toEqualTypeOf<{ sku: string }>();
+  handler: ({ options, params, parents }) => {
+    expectTypeOf(options).toEqualTypeOf<{ mode: 'basic' | 'full' }>();
+    expectTypeOf(params).toEqualTypeOf<Record<string, never>>();
+    expectTypeOf(parents['items [sku]'].options).toEqualTypeOf<{ force: boolean }>();
+    expectTypeOf(parents['items [sku]'].params).toEqualTypeOf<{ sku: string }>();
   },
 });
 
@@ -124,10 +124,10 @@ declare module '#index.ts' {
 
 defineCommand('ctxhost open', {
   options: { force: z.boolean() },
-  handler: async (ctx) => {
-    expectTypeOf(ctx.options).toEqualTypeOf<{ force: boolean }>();
-    expectTypeOf(ctx.tag).toEqualTypeOf<'demo'>();
-    const creds = await ctx.files.creds.read();
+  handler: async ({ options, tag, files }) => {
+    expectTypeOf(options).toEqualTypeOf<{ force: boolean }>();
+    expectTypeOf(tag).toEqualTypeOf<'demo'>();
+    const creds = await files.creds.read();
     expectTypeOf(creds).toEqualTypeOf<{ token: string } | null>();
   },
 });

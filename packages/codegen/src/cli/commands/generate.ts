@@ -14,16 +14,14 @@ export const command = defineCommand('generate', {
     eager: z.boolean().default(false),
     watch: z.boolean().default(false),
   },
-  handler: async (ctx) => {
-    const commandsDir = resolve(ctx.options.commands);
-    const outFile = resolve(ctx.options.out);
+  handler: async ({ options }) => {
+    const commandsDir = resolve(options.commands);
+    const outFile = resolve(options.out);
     const opts: GenerateOptions = {
       commandsDir,
       outFile,
-      eager: ctx.options.eager,
-      ...(ctx.options['core-module'] !== undefined
-        ? { coreModule: ctx.options['core-module'] }
-        : {}),
+      eager: options.eager,
+      ...(options['core-module'] !== undefined ? { coreModule: options['core-module'] } : {}),
     };
 
     const runOnce = async (): Promise<void> => {
@@ -32,7 +30,7 @@ export const command = defineCommand('generate', {
         console.log(`parsh-codegen: wrote ${outFile}`);
       } catch (err) {
         console.error((err as Error).message);
-        if (!ctx.options.watch) {
+        if (!options.watch) {
           process.exit(1);
         }
       }
@@ -40,7 +38,7 @@ export const command = defineCommand('generate', {
 
     await runOnce();
 
-    if (ctx.options.watch) {
+    if (options.watch) {
       console.log(`parsh-codegen: watching ${commandsDir} for adds/removes/renames…`);
       let debounce: ReturnType<typeof setTimeout> | null = null;
       watch(commandsDir, { recursive: true }, () => {

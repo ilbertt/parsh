@@ -7,7 +7,7 @@ export const command = defineCommand('alpha', {
   options: {
     name: z.string(),
   },
-  handler: (ctx) => {
-    console.log(`alpha:${ctx.options.name}`);
+  handler: ({ options }) => {
+    console.log(`alpha:${options.name}`);
   },
 });

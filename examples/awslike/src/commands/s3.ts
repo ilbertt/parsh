@@ -6,7 +6,7 @@ export const command = defineCommand('s3', {
   options: {
     profile: z.string().default('default'),
   },
-  handler: (ctx) => {
-    console.log(`S3 — profile=${ctx.options.profile}, region=${ctx.root.options.region}`);
+  handler: ({ options, root }) => {
+    console.log(`S3 — profile=${options.profile}, region=${root.options.region}`);
   },
 });

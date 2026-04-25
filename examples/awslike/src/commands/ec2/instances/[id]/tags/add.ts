@@ -7,10 +7,8 @@ export const command = defineCommand('ec2 instances [id] tags add', {
     key: z.string(),
     value: z.string(),
   },
-  handler: (ctx) => {
-    const id = ctx.parents['ec2 instances [id]'].params.id;
-    console.log(
-      `Tagging ${id} with ${ctx.options.key}=${ctx.options.value} in ${ctx.root.options.region}`,
-    );
+  handler: ({ parents, options, root }) => {
+    const id = parents['ec2 instances [id]'].params.id;
+    console.log(`Tagging ${id} with ${options.key}=${options.value} in ${root.options.region}`);
   },
 });

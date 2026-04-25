@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const command = defineCommand('deploy', {
   options: { env: z.enum(['staging', 'prod']) },
-  handler: (ctx) => {
-    console.log(`deploying to ${ctx.options.env}`);
+  handler: ({ options }) => {
+    console.log(`deploying to ${options.env}`);
   },
 });

@@ -16,20 +16,20 @@ export const command = defineCommand('start', {
     duration: z.coerce.number().min(MIN_MINUTES).max(MAX_MINUTES).default(DEFAULT_MINUTES),
     task: z.string().optional(),
   },
-  handler: async (ctx) => {
-    const path = stateFile(ctx.root.options.stateFile);
+  handler: async ({ options, root }) => {
+    const path = stateFile(root.options.stateFile);
     const state = loadState(path);
-    const task = ctx.options.task ? state.tasks.find((t) => t.id === ctx.options.task) : null;
-    if (ctx.options.task && !task) {
-      console.error(`No task with id ${ctx.options.task}`);
+    const task = options.task ? state.tasks.find((t) => t.id === options.task) : null;
+    if (options.task && !task) {
+      console.error(`No task with id ${options.task}`);
       process.exit(1);
     }
 
-    const totalSeconds = ctx.options.duration * SECONDS_PER_MINUTE;
+    const totalSeconds = options.duration * SECONDS_PER_MINUTE;
     const onDone = () => {
       state.sessions.push({
         startedAt: new Date().toISOString(),
-        durationMinutes: ctx.options.duration,
+        durationMinutes: options.duration,
         taskId: task?.id ?? null,
       });
       saveState({ path, state });

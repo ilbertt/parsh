@@ -4,8 +4,8 @@ import { loadState, stateFile } from '../../state.ts';
 export const command = defineCommand('tasks list', {
   description: 'List all tasks.',
   options: {},
-  handler: (ctx) => {
-    const state = loadState(stateFile(ctx.root.options.stateFile));
+  handler: ({ root }) => {
+    const state = loadState(stateFile(root.options.stateFile));
     if (state.tasks.length === 0) {
       console.log('No tasks. Add one with `pomo tasks add --title "..."`.');
       return;

@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const command = defineCommand('users list', {
   options: { limit: z.coerce.number() },
-  handler: (ctx) => {
-    console.log(`list ${ctx.options.limit} from ${ctx.parents.users.options.workspace}`);
+  handler: ({ options, parents }) => {
+    console.log(`list ${options.limit} from ${parents.users.options.workspace}`);
   },
 });

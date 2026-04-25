@@ -14,11 +14,11 @@ export const command = defineCommand('init', {
     template: z.string().optional(),
     yes: z.boolean().optional(),
   },
-  handler: async (ctx) => {
+  handler: async ({ options }) => {
     p.intro('scaffold');
 
     const name =
-      ctx.options.name ??
+      options.name ??
       (await p.text({
         message: 'Project name',
         placeholder: 'my-app',
@@ -30,7 +30,7 @@ export const command = defineCommand('init', {
     }
 
     const rawTemplate =
-      ctx.options.template ??
+      options.template ??
       (await p.select({
         message: 'Template',
         options: templateNames.map((t) => ({ value: t, label: t, hint: templates[t].description })),
@@ -45,7 +45,7 @@ export const command = defineCommand('init', {
     }
 
     const confirmed =
-      ctx.options.yes ?? (await p.confirm({ message: `Create ./${name} from "${rawTemplate}"?` }));
+      options.yes ?? (await p.confirm({ message: `Create ./${name} from "${rawTemplate}"?` }));
     if (p.isCancel(confirmed) || confirmed === false) {
       p.cancel('Aborted.');
       return;

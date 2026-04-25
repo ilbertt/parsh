@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const command = defineCommand('users create', {
   options: { email: z.string() },
-  handler: (ctx) => {
-    console.log(`create ${ctx.options.email} in ${ctx.parents.users.options.workspace}`);
+  handler: ({ options, parents }) => {
+    console.log(`create ${options.email} in ${parents.users.options.workspace}`);
   },
 });

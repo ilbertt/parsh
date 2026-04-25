@@ -6,7 +6,7 @@ export const command = defineCommand('ec2', {
   options: {
     askConfirmation: z.boolean().optional(),
   },
-  handler: (ctx) => {
-    console.log(`Manage EC2 instances. Current identity: ${ctx.root.options.identity}`);
+  handler: ({ root }) => {
+    console.log(`Manage EC2 instances. Current identity: ${root.options.identity}`);
   },
 });

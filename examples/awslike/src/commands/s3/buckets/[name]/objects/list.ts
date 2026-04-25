@@ -6,9 +6,9 @@ export const command = defineCommand('s3 buckets [name] objects list', {
   options: {
     prefix: z.string().optional(),
   },
-  handler: (ctx) => {
-    const bucket = ctx.parents['s3 buckets [name]'].params.name;
-    const filter = ctx.options.prefix ? ` matching ${ctx.options.prefix}` : '';
-    console.log(`Objects in s3://${bucket}${filter} (profile=${ctx.parents.s3.options.profile})`);
+  handler: ({ options, parents }) => {
+    const bucket = parents['s3 buckets [name]'].params.name;
+    const filter = options.prefix ? ` matching ${options.prefix}` : '';
+    console.log(`Objects in s3://${bucket}${filter} (profile=${parents.s3.options.profile})`);
   },
 });

@@ -14,8 +14,7 @@
   "workspaces": {
     "packages": [
       "packages/*",
-      "examples/*",
-      "bench/*"
+      "examples/*"
     ],
     "catalog": {
       "typescript": "^5.9.3",

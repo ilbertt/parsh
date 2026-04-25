@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -43,6 +43,22 @@ export interface FileHandle<T, R = T | null> {
   readonly path: string;
   read(): Promise<R>;
   write(value: T): Promise<void>;
+  /**
+   * Throws `FileNotFoundError` if the file does not exist on disk. Pass
+   * `message` to customize the error (e.g. `'Run \`mycli init\` first.'`) —
+   * the message surfaces directly to the user when called from a
+   * `beforeHandler`. Resolves to `void` when the file is present.
+   */
+  ensureExists(opts?: { message?: string }): Promise<void>;
+}
+
+export class FileNotFoundError extends Error {
+  readonly path: string;
+  constructor({ path, message }: { path: string; message?: string }) {
+    super(message ?? `file not found at ${path}`);
+    this.name = 'FileNotFoundError';
+    this.path = path;
+  }
 }
 
 export class FileValidationError extends Error {
@@ -219,6 +235,19 @@ function makeHandle<T>({
 }): FileHandle<T, T | null> {
   return {
     path,
+    async ensureExists(opts?: { message?: string }): Promise<void> {
+      try {
+        await access(path);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new FileNotFoundError({
+            path,
+            ...(opts?.message ? { message: opts.message } : {}),
+          });
+        }
+        throw err;
+      }
+    },
     async read(): Promise<T | null> {
       let raw: string;
       try {

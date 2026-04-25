@@ -14,6 +14,12 @@ declare module '@repo/core' {
       };
       root: { options: {} };
     };
+    'config init': {
+      parents: {
+        'config': { options: {}; params: {} };
+      };
+      root: { options: {} };
+    };
     'config set': {
       parents: {
         'config': { options: {}; params: {} };
@@ -48,6 +54,12 @@ export const commandTree: RuntimeNode = {
         'get': {
           segment: { kind: 'literal', value: 'get' },
           command: { path: 'config get', optionNames: [], paramNames: [], description: "Print the current configuration.", load: () => import('./commands/config/get.ts').then((m) => m.command) },
+          literalChildren: {},
+          paramChild: null,
+        },
+        'init': {
+          segment: { kind: 'literal', value: 'init' },
+          command: { path: 'config init', optionNames: [], paramNames: [], description: "Create the config file with default values.", load: () => import('./commands/config/init.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },

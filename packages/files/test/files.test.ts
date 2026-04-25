@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { createFilesContext, FileValidationError } from '#index.ts';
+import { createFilesContext, FileNotFoundError, FileValidationError } from '#index.ts';
 
 let basePath: string;
 
@@ -104,6 +104,51 @@ describe('createFilesContext', () => {
     a.accessKey = 'mutated';
     const b = await files.creds.read();
     expect(b.accessKey).toBe('orig');
+  });
+
+  describe('ensureExists', () => {
+    test('throws FileNotFoundError when the file is missing', async () => {
+      const files = createFilesContext({
+        basePath,
+        files: { creds: { filename: 'absent.json', schema: credsSchema } },
+      });
+      const promise = files.creds.ensureExists();
+      await expect(promise).rejects.toBeInstanceOf(FileNotFoundError);
+      await expect(promise).rejects.toThrow(join(basePath, 'absent.json'));
+    });
+
+    test('resolves when the file exists', async () => {
+      const files = createFilesContext({
+        basePath,
+        files: { creds: { filename: 'creds.json', schema: credsSchema } },
+      });
+      await files.creds.write({ accessKey: 'a', region: 'eu' });
+      await expect(files.creds.ensureExists()).resolves.toBeUndefined();
+    });
+
+    test('custom message overrides the default error text', async () => {
+      const files = createFilesContext({
+        basePath,
+        files: { creds: { filename: 'absent.json', schema: credsSchema } },
+      });
+      await expect(files.creds.ensureExists({ message: 'Run init first.' })).rejects.toThrow(
+        'Run init first.',
+      );
+    });
+
+    test('still throws when the spec has defaults — checks actual disk presence', async () => {
+      const files = createFilesContext({
+        basePath,
+        files: {
+          creds: {
+            filename: 'absent.json',
+            schema: credsSchema,
+            defaults: { accessKey: 'd', region: 'eu' },
+          },
+        },
+      });
+      await expect(files.creds.ensureExists()).rejects.toBeInstanceOf(FileNotFoundError);
+    });
   });
 
   test('defaults are ignored once the file exists', async () => {

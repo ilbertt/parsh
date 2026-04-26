@@ -55,6 +55,21 @@ When editing a published package, decide which audience the change is for and up
 
 The root `README.md` is the project homepage: typically lists the public packages/apps and a quick-start. Keep it short — deep usage lives in each `pkg/README.md`.
 
+## Agent skills
+
+Each published package has a corresponding agent skill under [`skills/`](./skills/). These are how AI coding agents learn to use parsh — they are part of the public surface of the project, just like the npm READMEs, and must stay in sync with the code.
+
+**Whenever you change a package's public API, behavior, defaults, or recommended usage, update its skill in the same change.** That includes:
+
+- Adding / removing / renaming an export, option, flag, or method.
+- Changing a default value, a coercion rule, or a thrown error type.
+- Adding a new published package — create a `skills/parsh-<packageName>/SKILL.md` for it and register it in this table.
+- Anything that would make a code example in a skill stop working or stop reflecting best practice.
+
+Treat skills as documentation that *must compile*. If an example in a skill no longer matches the code, that's a bug at the same severity as a stale README. The PR that lands the code change should land the skill update too.
+
+Package-specific behavior goes in that package's skill (`parsh-env`, `parsh-files`, …); cross-cutting workflow (paths, codegen, `Register`, lifecycle) goes in [`skills/parsh/`](./skills/parsh/).
+
 ## Keeping this file up to date
 
 When a change affects code style, tooling, conventions, or project taste (new lint rules, formatter config, naming patterns, dependency choices, etc.), propose updating this file to reflect it.

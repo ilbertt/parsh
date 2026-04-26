@@ -9,17 +9,24 @@ import {
 } from '#index.ts';
 
 let stderrSpy: Mock<typeof process.stderr.write>;
+let stdoutSpy: Mock<typeof process.stdout.write>;
 
 beforeEach(() => {
   stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
+  stdoutSpy = spyOn(process.stdout, 'write').mockImplementation(() => true);
 });
 
 afterEach(() => {
   stderrSpy.mockRestore();
+  stdoutSpy.mockRestore();
 });
 
 function stderrText(): string {
   return stderrSpy.mock.calls.flat().map(String).join('\n').toLowerCase();
+}
+
+function stdoutText(): string {
+  return stdoutSpy.mock.calls.flat().map(String).join('\n');
 }
 
 type Ctx = {
@@ -367,5 +374,128 @@ describe('option aliases', () => {
       },
     };
     expect(() => createCli({ programName: 't', tree })).toThrow(/collides/i);
+  });
+});
+
+function routingTree(opts: { calls: Called[] }): RuntimeNode {
+  return {
+    segment: null,
+    command: null,
+    paramChild: null,
+    literalChildren: {
+      sub: {
+        segment: { kind: 'literal', value: 'sub' },
+        command: lazyCommand({
+          path: 'sub',
+          optionNames: [],
+          paramNames: [],
+          loaded: {
+            options: {},
+            handler: (ctx: Ctx) => {
+              opts.calls.push({ path: 'sub', ctx });
+            },
+          },
+        }),
+        literalChildren: {},
+        paramChild: null,
+      },
+    },
+  };
+}
+
+describe('--version', () => {
+  test('prints the version and exits 0 at the root', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: makeTree({ calls: [], idSchema: z.string }),
+      version: '1.2.3',
+    });
+    const code = await cli.run(['--version']);
+
+    expect(code).toBe(0);
+    expect(stdoutText()).toBe('1.2.3\n');
+  });
+
+  test('-V alias prints the version', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: makeTree({ calls: [], idSchema: z.string }),
+      version: '1.2.3',
+    });
+    const code = await cli.run(['-V']);
+
+    expect(code).toBe(0);
+    expect(stdoutText()).toBe('1.2.3\n');
+  });
+
+  test('falls through when --version comes after a subcommand', async () => {
+    const calls: Called[] = [];
+    const cli = createCli({
+      programName: 'test',
+      tree: makeTree({ calls, idSchema: z.string }),
+      version: '1.2.3',
+    });
+    const code = await cli.run(['deploy', '--env', 'prod', '--version']);
+
+    expect(code).toBe(0);
+    expect(stdoutText()).not.toContain('1.2.3');
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.path).toBe('deploy');
+  });
+
+  test('does not intercept --version when no version is configured', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: makeTree({ calls: [], idSchema: z.string }),
+    });
+    const code = await cli.run(['--version']);
+
+    expect(stdoutText()).not.toContain('1.2.3');
+    expect(code).toBe(0);
+  });
+});
+
+describe('root --help Options block', () => {
+  test('lists --help, -h', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: makeTree({ calls: [], idSchema: z.string }),
+    });
+    await cli.run(['--help']);
+
+    expect(stdoutText()).toContain('--help, -h');
+  });
+
+  test('lists --version, -V when version is set', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: makeTree({ calls: [], idSchema: z.string }),
+      version: '1.2.3',
+    });
+    await cli.run(['--help']);
+
+    expect(stdoutText()).toContain('--version, -V');
+  });
+
+  test('omits --version, -V when no version is configured', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: makeTree({ calls: [], idSchema: z.string }),
+    });
+    await cli.run(['--help']);
+
+    expect(stdoutText()).not.toContain('--version');
+  });
+
+  test('renders Options block even when the root has no user-defined options', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: routingTree({ calls: [] }),
+    });
+    await cli.run(['--help']);
+
+    const out = stdoutText();
+    expect(out).toContain('Options:');
+    expect(out).toContain('--help, -h');
   });
 });

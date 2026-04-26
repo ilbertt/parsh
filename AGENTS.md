@@ -42,6 +42,19 @@ After finishing an implementation, always run:
 
 When running a script, always check `package.json` scripts (root and per-app) for available commands first.
 
+## READMEs
+
+Packages fall in two buckets:
+
+- **Published packages** (have a `pkg/` directory) carry **two** READMEs:
+  - **`packages/<package>/pkg/README.md`** — public, user-facing. Ships to npm as part of `@parsh/<package>` (listed under `"files"` in `pkg/package.json`). This is what users see on the npm page. Covers install, usage, and public API. Must use the published name (`@parsh/...`), not the workspace name (`@repo/...`).
+  - **`packages/<package>/README.md`** — internal contributor doc. Covers source layout, dev scripts, and constraints. **Must link to `pkg/README.md`** and **must not duplicate install/usage** — when in doubt, the public README wins and the internal one points to it.
+- **Internal-only packages** (no `pkg/`) may not need a README at all. Add one only when there's contributor-relevant context that isn't obvious from the source.
+
+When editing a published package, decide which audience the change is for and update only that file. If something belongs to both (e.g. a renamed export), update them in lockstep.
+
+The root `README.md` is the project homepage: typically lists the public packages/apps and a quick-start. Keep it short — deep usage lives in each `pkg/README.md`.
+
 ## Keeping this file up to date
 
 When a change affects code style, tooling, conventions, or project taste (new lint rules, formatter config, naming patterns, dependency choices, etc.), propose updating this file to reflect it.

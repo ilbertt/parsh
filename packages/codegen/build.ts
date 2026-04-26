@@ -5,6 +5,7 @@ import {
   printBuildOutput,
   setPackageJsonDependencies,
 } from '@repo/pack-utils';
+import pkg from './pkg/package.json' with { type: 'json' };
 
 const CURRENT_DIR = import.meta.dir;
 
@@ -23,6 +24,7 @@ const buildResult = await Bun.build({
   root: './src',
   target: 'node',
   minify: true,
+  define: { __VERSION__: JSON.stringify(pkg.version) },
 });
 assertBuildSuccess({ buildResult });
 printBuildOutput({ buildResult });

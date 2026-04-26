@@ -62,6 +62,10 @@ interface CreateCliOptions<C extends CliContextInput | undefined = CliContextInp
   programDescription?: string;
   tree: RuntimeNode;
   /**
+   * Version string printed when the user passes `--version` or `-V`.
+   */
+  version?: string;
+  /**
    * Object (or factory returning one) exposed on every handler's `ctx.context`.
    * The factory form runs once per `cli.run()` call so each invocation gets a
    * fresh context. Register the resulting `Cli` instance via `Register` to
@@ -517,6 +521,10 @@ function helpRequested(argv: string[]): boolean {
   return argv.includes('--help') || argv.includes('-h');
 }
 
+function versionRequested(argv: string[]): boolean {
+  return argv.includes('--version') || argv.includes('-V');
+}
+
 function helpHint(enabled: boolean): string {
   return enabled ? stderrDim(' — use --help or -h to see usage') : '';
 }
@@ -594,11 +602,12 @@ export class Cli<C extends object = Record<string, never>> {
   readonly #tree: RuntimeNode;
   readonly #programName: string;
   readonly #programDescription: string | undefined;
+  readonly #version: string | undefined;
   readonly #parseOptions: ParseArgsConfig['options'];
   readonly #aliasMap: Map<string, string>;
   readonly #context: CliContextInput | undefined;
 
-  constructor({ programName, programDescription, tree, context }: CreateCliOptions) {
+  constructor({ programName, programDescription, tree, version, context }: CreateCliOptions) {
     const issues = [...detectSameLevelCollisions(tree), ...detectAliasCollisions(tree)];
     if (issues.length > 0) {
       throw new Error(
@@ -608,6 +617,7 @@ export class Cli<C extends object = Record<string, never>> {
     this.#tree = tree;
     this.#programName = programName;
     this.#programDescription = programDescription;
+    this.#version = version;
     this.#parseOptions = collectParseOptions(tree);
     this.#aliasMap = buildAliasMap(tree);
     this.#context = context;
@@ -637,6 +647,12 @@ export class Cli<C extends object = Record<string, never>> {
 
   async run(argv: string[]): Promise<number> {
     const rewritten = rewriteArgvAliases({ argv, aliasMap: this.#aliasMap });
+
+    if (this.#version !== undefined && versionRequested(rewritten)) {
+      process.stdout.write(`${this.#version}\n`);
+      return 0;
+    }
+
     let parsed: ReturnType<typeof parseArgs>;
     try {
       parsed = parseArgs({

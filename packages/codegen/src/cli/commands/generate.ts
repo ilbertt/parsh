@@ -1,10 +1,30 @@
 import { watch } from 'node:fs';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 import { defineCommand } from '@repo/core';
 import { z } from 'zod';
 import { type GenerateOptions, generateCommandTree } from '#generate.ts';
 
 const WATCH_DEBOUNCE_MS = 75;
+
+function shouldTriggerRegen(filename: string | null): boolean {
+  if (!filename) {
+    return true;
+  }
+  const name = basename(filename);
+  if (!name.includes('.')) {
+    return true;
+  }
+  if (!name.endsWith('.ts')) {
+    return false;
+  }
+  if (name.endsWith('.gen.ts') || name.endsWith('.test.ts')) {
+    return false;
+  }
+  if (name.startsWith('_') && name !== '_root.ts') {
+    return false;
+  }
+  return true;
+}
 
 export const command = defineCommand('generate', {
   options: {
@@ -41,7 +61,11 @@ export const command = defineCommand('generate', {
     if (options.watch) {
       console.log(`parsh-codegen: watching ${commandsDir} for adds/removes/renames…`);
       let debounce: ReturnType<typeof setTimeout> | null = null;
-      watch(commandsDir, { recursive: true }, () => {
+      // biome-ignore lint/complexity/useMaxParams: fs.watch callback signature is (event, filename)
+      watch(commandsDir, { recursive: true }, (_event, filename) => {
+        if (!shouldTriggerRegen(typeof filename === 'string' ? filename : null)) {
+          return;
+        }
         if (debounce) {
           clearTimeout(debounce);
         }

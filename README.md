@@ -2,13 +2,9 @@
 
 Type-safe router for TypeScript CLIs. Filesystem-driven command tree, [Standard Schema v1](https://standardschema.dev) for validation, fully typed options, params, and shared context — no generics at call sites.
 
-## Agents
+## For Agents
 
-This repo ships agent skills under [`skills/`](skills/), one per published package:
-
-- [`skills/parsh/`](skills/parsh/) — core workflow (`@parsh/core` + `@parsh/codegen`), with deeper topics under `references/`.
-- [`skills/parsh-env/`](skills/parsh-env/) — `@parsh/env` for typed, lazy env vars.
-- [`skills/parsh-files/`](skills/parsh-files/) — `@parsh/files` for typed JSON file storage.
+Guidelines and instructions on how to build amazing CLI applications are available in the [`skills/`](skills/) folder.
 
 ## Quick start
 

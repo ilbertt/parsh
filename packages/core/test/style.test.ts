@@ -1,35 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
+import { runFixtureCli } from './helpers/fixture-cli.ts';
 
 const FIXTURE = join(import.meta.dir, 'fixtures/loadtrack');
 const BIN = join(FIXTURE, 'bin.ts');
 const ESC = '\x1b';
 const ANSI = new RegExp(`${ESC}\\[\\d+m`);
 
-interface RunResult {
-  stdout: string;
-  stderr: string;
-}
-
-async function runCli({
-  args,
-  env,
-}: {
-  args: string[];
-  env: Record<string, string>;
-}): Promise<RunResult> {
-  const proc = Bun.spawn(['bun', BIN, ...args], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: { ...process.env, ...env },
-  });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  await proc.exited;
-  return { stdout, stderr };
-}
+const runCli = (opts: { args: string[]; env: Record<string, string> }) =>
+  runFixtureCli({ bin: BIN, ...opts });
 
 describe('help styling', () => {
   test('FORCE_COLOR=1 emits ANSI codes in --help output', async () => {

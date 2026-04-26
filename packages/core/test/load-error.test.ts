@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { CommandLoadError, createCli, type RuntimeCommand, type RuntimeNode } from '#index.ts';
+import { CommandLoadError, createCli, type RuntimeCommand } from '#index.ts';
+import { literal, root } from './helpers/runtime-tree.ts';
 
 function badCommand(path: string): RuntimeCommand {
   return {
@@ -12,19 +13,10 @@ function badCommand(path: string): RuntimeCommand {
 
 describe('CommandLoadError', () => {
   test('wraps import failures with the command path', async () => {
-    const tree: RuntimeNode = {
-      segment: null,
+    const tree = root({
       command: null,
-      paramChild: null,
-      literalChildren: {
-        broken: {
-          segment: { kind: 'literal', value: 'broken' },
-          command: badCommand('broken'),
-          literalChildren: {},
-          paramChild: null,
-        },
-      },
-    };
+      children: { broken: literal({ value: 'broken', command: badCommand('broken') }) },
+    });
 
     const errors: string[] = [];
     const origWrite = process.stderr.write.bind(process.stderr);

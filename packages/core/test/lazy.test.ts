@@ -1,32 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
+import { runFixtureCli } from './helpers/fixture-cli.ts';
 
 const FIXTURE = join(import.meta.dir, 'fixtures/loadtrack');
 const BIN = join(FIXTURE, 'bin.ts');
 
-interface RunResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-  loaded: ReadonlyArray<string>;
-}
-
-async function runCli(args: string[]): Promise<RunResult> {
-  const proc = Bun.spawn(['bun', BIN, ...args], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const exitCode = await proc.exited;
-  const loaded = stdout
-    .split('\n')
-    .filter((l) => l.startsWith('LOADED:'))
-    .map((l) => l.slice('LOADED:'.length));
-  return { exitCode, stdout, stderr, loaded };
-}
+const runCli = (args: string[]) => runFixtureCli({ bin: BIN, args });
 
 describe('lazy dispatch', () => {
   test('dispatches a leaf, loading only target + ancestors', async () => {

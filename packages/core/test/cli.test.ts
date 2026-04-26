@@ -1,130 +1,66 @@
-import { afterEach, beforeEach, describe, expect, type Mock, spyOn, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
-import {
-  createCli,
-  type LoadedCommand,
-  type OptionMeta,
-  type RuntimeCommand,
-  type RuntimeNode,
-} from '#index.ts';
+import { createCli, type RuntimeNode } from '#index.ts';
+import { type Called, lazyCommand, literal, param, record, root } from './helpers/runtime-tree.ts';
+import { captureStdio } from './helpers/stdio.ts';
 
-let stderrSpy: Mock<typeof process.stderr.write>;
-let stdoutSpy: Mock<typeof process.stdout.write>;
-
-beforeEach(() => {
-  stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
-  stdoutSpy = spyOn(process.stdout, 'write').mockImplementation(() => true);
-});
-
-afterEach(() => {
-  stderrSpy.mockRestore();
-  stdoutSpy.mockRestore();
-});
-
-function stderrText(): string {
-  return stderrSpy.mock.calls.flat().map(String).join('\n').toLowerCase();
-}
-
-function stdoutText(): string {
-  return stdoutSpy.mock.calls.flat().map(String).join('\n');
-}
-
-type Ctx = {
-  options: Record<string, unknown>;
-  params: Record<string, unknown>;
-  parents: Record<string, { options: Record<string, unknown>; params: Record<string, unknown> }>;
-  rootOptions: Record<string, unknown>;
-};
-
-type Called = { path: string; ctx: Ctx };
-
-function lazyCommand({
-  path,
-  optionNames,
-  paramNames,
-  loaded,
-}: {
-  path: string;
-  optionNames: ReadonlyArray<OptionMeta>;
-  paramNames: ReadonlyArray<string>;
-  loaded: LoadedCommand;
-}): RuntimeCommand {
-  return {
-    path,
-    optionNames,
-    paramNames,
-    load: async () => loaded,
-  };
-}
+const { stderrText, stdoutText } = captureStdio();
 
 function makeTree(opts: {
   calls: Called[];
   idSchema: () => z.ZodType<string | number>;
 }): RuntimeNode {
-  const record = (path: string) => (ctx: Ctx) => {
-    opts.calls.push({ path, ctx });
-  };
+  const rec = (path: string) => record({ calls: opts.calls, path });
 
-  return {
-    segment: null,
+  return root({
     command: lazyCommand({
       path: '',
       optionNames: [{ name: 'verbose', type: 'boolean' }],
-      paramNames: [],
       loaded: {
         options: {
           verbose: { schema: z.boolean().default(false), forwardToChildren: true },
         },
       },
     }),
-    paramChild: null,
-    literalChildren: {
-      deploy: {
-        segment: { kind: 'literal', value: 'deploy' },
+    children: {
+      deploy: literal({
+        value: 'deploy',
         command: lazyCommand({
           path: 'deploy',
           optionNames: [{ name: 'env', type: 'string' }],
-          paramNames: [],
           loaded: {
             options: { env: { schema: z.enum(['staging', 'prod']) } },
-            handler: record('deploy'),
+            handler: rec('deploy'),
           },
         }),
-        literalChildren: {},
-        paramChild: null,
-      },
-      users: {
-        segment: { kind: 'literal', value: 'users' },
+      }),
+      users: literal({
+        value: 'users',
         command: lazyCommand({
           path: 'users',
           optionNames: [{ name: 'workspace', type: 'string' }],
-          paramNames: [],
           loaded: {
             options: { workspace: { schema: z.string(), forwardToChildren: true } },
-            handler: record('users'),
+            handler: rec('users'),
           },
         }),
-        literalChildren: {
-          create: {
-            segment: { kind: 'literal', value: 'create' },
+        children: {
+          create: literal({
+            value: 'create',
             command: lazyCommand({
               path: 'users create',
               optionNames: [{ name: 'email', type: 'string' }],
-              paramNames: [],
               loaded: {
                 options: { email: { schema: z.string() } },
-                handler: record('users create'),
+                handler: rec('users create'),
               },
             }),
-            literalChildren: {},
-            paramChild: null,
-          },
+          }),
         },
-        paramChild: {
-          segment: { kind: 'param', name: 'id' },
+        paramChild: param({
+          name: 'id',
           command: lazyCommand({
             path: 'users [id]',
-            optionNames: [],
             paramNames: ['id'],
             loaded: {
               options: {},
@@ -132,24 +68,19 @@ function makeTree(opts: {
               handler: () => {},
             },
           }),
-          literalChildren: {
-            edit: {
-              segment: { kind: 'literal', value: 'edit' },
+          children: {
+            edit: literal({
+              value: 'edit',
               command: lazyCommand({
                 path: 'users [id] edit',
-                optionNames: [],
-                paramNames: [],
-                loaded: { options: {}, handler: record('users [id] edit') },
+                loaded: { options: {}, handler: rec('users [id] edit') },
               }),
-              literalChildren: {},
-              paramChild: null,
-            },
+            }),
           },
-          paramChild: null,
-        },
-      },
+        }),
+      }),
     },
-  };
+  });
 }
 
 function makeCli(opts: { calls: Called[]; idSchema?: () => z.ZodType<string | number> }) {
@@ -205,7 +136,7 @@ describe('validation failures', () => {
 
     expect(code).toBe(2);
     expect(calls).toBeEmpty();
-    expect(stderrText()).toContain('env');
+    expect(stderrText().toLowerCase()).toContain('env');
   });
 
   test('missing required ancestor option exits 2', async () => {
@@ -221,7 +152,7 @@ describe('validation failures', () => {
     const code = await makeCli({ calls }).run(['bogus']);
 
     expect(code).toBe(2);
-    expect(stderrText()).toContain('unknown command');
+    expect(stderrText().toLowerCase()).toContain('unknown command');
   });
 });
 
@@ -247,23 +178,18 @@ describe('param capture', () => {
 
     expect(code).toBe(2);
     expect(calls).toBeEmpty();
-    expect(stderrText()).toContain('id');
+    expect(stderrText().toLowerCase()).toContain('id');
   });
 });
 
 describe('option aliases', () => {
   function aliasTree({ calls }: { calls: Called[] }): RuntimeNode {
-    const record = (path: string) => (ctx: Ctx) => {
-      calls.push({ path, ctx });
-    };
-    return {
-      segment: null,
+    return root({
       command: lazyCommand({
         path: '',
         optionNames: [
           { name: 'verbose', type: 'boolean', forwardToChildren: true, aliases: ['v'] },
         ],
-        paramNames: [],
         loaded: {
           options: {
             verbose: {
@@ -274,26 +200,22 @@ describe('option aliases', () => {
           },
         },
       }),
-      paramChild: null,
-      literalChildren: {
-        deploy: {
-          segment: { kind: 'literal', value: 'deploy' },
+      children: {
+        deploy: literal({
+          value: 'deploy',
           command: lazyCommand({
             path: 'deploy',
             optionNames: [{ name: 'env', type: 'string', aliases: ['e', 'environment'] }],
-            paramNames: [],
             loaded: {
               options: {
                 env: { schema: z.enum(['staging', 'prod']), aliases: ['e', 'environment'] },
               },
-              handler: record('deploy'),
+              handler: record({ calls, path: 'deploy' }),
             },
           }),
-          literalChildren: {},
-          paramChild: null,
-        },
+        }),
       },
-    };
+    });
   }
 
   test('short alias -e maps to canonical --env', async () => {
@@ -330,77 +252,59 @@ describe('option aliases', () => {
   });
 
   test('alias colliding with another option name throws at construction', () => {
-    const tree: RuntimeNode = {
-      segment: null,
+    const tree = root({
       command: lazyCommand({
         path: '',
         optionNames: [
           { name: 'verbose', type: 'boolean', forwardToChildren: true },
           { name: 'version', type: 'boolean', aliases: ['verbose'] },
         ],
-        paramNames: [],
         loaded: { options: {} },
       }),
-      paramChild: null,
-      literalChildren: {},
-    };
+    });
     expect(() => createCli({ programName: 't', tree })).toThrow(/collides/i);
   });
 
   test('alias colliding with forwarded ancestor option throws', () => {
-    const tree: RuntimeNode = {
-      segment: null,
+    const tree = root({
       command: lazyCommand({
         path: '',
         optionNames: [
           { name: 'verbose', type: 'boolean', forwardToChildren: true, aliases: ['v'] },
         ],
-        paramNames: [],
         loaded: { options: {} },
       }),
-      paramChild: null,
-      literalChildren: {
-        leaf: {
-          segment: { kind: 'literal', value: 'leaf' },
+      children: {
+        leaf: literal({
+          value: 'leaf',
           command: lazyCommand({
             path: 'leaf',
             optionNames: [{ name: 'volume', type: 'string', aliases: ['v'] }],
-            paramNames: [],
             loaded: { options: {} },
           }),
-          literalChildren: {},
-          paramChild: null,
-        },
+        }),
       },
-    };
+    });
     expect(() => createCli({ programName: 't', tree })).toThrow(/collides/i);
   });
 });
 
 function routingTree(opts: { calls: Called[] }): RuntimeNode {
-  return {
-    segment: null,
+  return root({
     command: null,
-    paramChild: null,
-    literalChildren: {
-      sub: {
-        segment: { kind: 'literal', value: 'sub' },
+    children: {
+      sub: literal({
+        value: 'sub',
         command: lazyCommand({
           path: 'sub',
-          optionNames: [],
-          paramNames: [],
           loaded: {
             options: {},
-            handler: (ctx: Ctx) => {
-              opts.calls.push({ path: 'sub', ctx });
-            },
+            handler: record({ calls: opts.calls, path: 'sub' }),
           },
         }),
-        literalChildren: {},
-        paramChild: null,
-      },
+      }),
     },
-  };
+  });
 }
 
 describe('--version', () => {

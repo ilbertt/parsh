@@ -1,42 +1,28 @@
-import { afterEach, beforeEach, describe, expect, type Mock, spyOn, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
-import { createCli, type LoadedCommand, type RuntimeCommand, type RuntimeNode } from '#index.ts';
+import { createCli, type LoadedCommand } from '#index.ts';
+import { lazyCommand, literal, root } from './helpers/runtime-tree.ts';
+import { captureStdio } from './helpers/stdio.ts';
 
-let stderrSpy: Mock<typeof process.stderr.write>;
-
-beforeEach(() => {
-  stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
-});
-
-afterEach(() => {
-  stderrSpy.mockRestore();
-});
-
-function stderrText(): string {
-  return stderrSpy.mock.calls.flat().map(String).join('\n');
-}
+const { stderrText } = captureStdio();
 
 function makeCli(loaded: LoadedCommand) {
-  const command: RuntimeCommand = {
-    path: 'run',
-    optionNames: [{ name: 'name', type: 'string' }],
-    paramNames: [],
-    load: async () => loaded,
-  };
-  const tree: RuntimeNode = {
-    segment: null,
-    command: null,
-    paramChild: null,
-    literalChildren: {
-      run: {
-        segment: { kind: 'literal', value: 'run' },
-        command,
-        literalChildren: {},
-        paramChild: null,
+  return createCli({
+    programName: 't',
+    tree: root({
+      command: null,
+      children: {
+        run: literal({
+          value: 'run',
+          command: lazyCommand({
+            path: 'run',
+            optionNames: [{ name: 'name', type: 'string' }],
+            loaded,
+          }),
+        }),
       },
-    },
-  };
-  return createCli({ programName: 't', tree });
+    }),
+  });
 }
 
 describe('command hooks', () => {

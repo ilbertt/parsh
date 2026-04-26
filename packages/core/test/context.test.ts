@@ -1,10 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
-import { createCli, type LoadedCommand, type RuntimeCommand, type RuntimeNode } from '#index.ts';
-
-function lazyCommand({ path, loaded }: { path: string; loaded: LoadedCommand }): RuntimeCommand {
-  return { path, optionNames: [], paramNames: [], load: async () => loaded };
-}
+import { createCli, type RuntimeNode } from '#index.ts';
+import { lazyCommand, literal, root } from './helpers/runtime-tree.ts';
 
 type Capture = (ctx: Record<string, unknown>) => void;
 
@@ -15,32 +12,28 @@ function makeTree({
   capture: Capture;
   rootCapture?: Capture;
 }): RuntimeNode {
-  return {
-    segment: null,
-    command: rootCapture
-      ? lazyCommand({
-          path: '',
-          loaded: { options: {}, handler: (ctx) => rootCapture(ctx as Record<string, unknown>) },
-        })
-      : null,
-    paramChild: null,
-    literalChildren: {
-      run: {
-        segment: { kind: 'literal', value: 'run' },
-        command: {
+  const rootCommand = rootCapture
+    ? lazyCommand({
+        path: '',
+        loaded: { options: {}, handler: (ctx) => rootCapture(ctx as Record<string, unknown>) },
+      })
+    : null;
+  return root({
+    command: rootCommand,
+    children: {
+      run: literal({
+        value: 'run',
+        command: lazyCommand({
           path: 'run',
           optionNames: [{ name: 'name', type: 'string' }],
-          paramNames: [],
-          load: async () => ({
+          loaded: {
             options: { name: { schema: z.string() } },
             handler: (ctx) => capture(ctx as Record<string, unknown>),
-          }),
-        },
-        literalChildren: {},
-        paramChild: null,
-      },
+          },
+        }),
+      }),
     },
-  };
+  });
 }
 
 describe('createCli context', () => {

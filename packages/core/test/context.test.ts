@@ -59,7 +59,7 @@ describe('createCli context', () => {
     expect((captured as unknown as { options: { name: string } }).options.name).toBe('x');
   });
 
-  test('object context fields are merged into ctx', async () => {
+  test('object context is exposed under ctx.context', async () => {
     let captured: Record<string, unknown> | null = null;
     const sentinel = { hello: 'world', count: 7 };
     const code = await createCli({
@@ -72,9 +72,9 @@ describe('createCli context', () => {
       context: sentinel,
     }).run(['run', '--name', 'x']);
     expect(code).toBe(0);
-    expect((captured as unknown as { hello: string }).hello).toBe('world');
+    expect((captured as unknown as { context: { hello: string } }).context.hello).toBe('world');
     // biome-ignore lint/style/noMagicNumbers: asserting numbers is idiomatic
-    expect((captured as unknown as { count: number }).count).toBe(7);
+    expect((captured as unknown as { context: { count: number } }).context.count).toBe(7);
   });
 
   test('factory context produces fresh state per run', async () => {
@@ -90,9 +90,9 @@ describe('createCli context', () => {
       context: () => ({ instance: ++calls }),
     });
     await cli.run(['run', '--name', 'a']);
-    expect((captured as unknown as { instance: number }).instance).toBe(1);
+    expect((captured as unknown as { context: { instance: number } }).context.instance).toBe(1);
     await cli.run(['run', '--name', 'b']);
-    expect((captured as unknown as { instance: number }).instance).toBe(2);
+    expect((captured as unknown as { context: { instance: number } }).context.instance).toBe(2);
     expect(calls).toBe(2);
   });
 
@@ -108,10 +108,10 @@ describe('createCli context', () => {
       context: async () => ({ from: 'async' }),
     }).run(['run', '--name', 'x']);
     expect(code).toBe(0);
-    expect((captured as unknown as { from: string }).from).toBe('async');
+    expect((captured as unknown as { context: { from: string } }).context.from).toBe('async');
   });
 
-  test('context is merged into root command handler too', async () => {
+  test('context is exposed on the root command handler too', async () => {
     let captured: Record<string, unknown> | null = null;
     const code = await createCli({
       programName: 't',
@@ -124,6 +124,6 @@ describe('createCli context', () => {
       context: { tag: 'root' },
     }).run([]);
     expect(code).toBe(0);
-    expect((captured as unknown as { tag: string }).tag).toBe('root');
+    expect((captured as unknown as { context: { tag: string } }).context.tag).toBe('root');
   });
 });

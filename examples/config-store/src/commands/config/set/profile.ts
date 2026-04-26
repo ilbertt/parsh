@@ -6,9 +6,9 @@ export const command = defineCommand('config set profile', {
   description: 'Set the active profile name.',
   options: { value: { schema: z.string().min(1) } },
   beforeHandler: ensureConfig,
-  handler: async ({ options, files, print }) => {
-    const current = await files.config.read();
-    await files.config.write({ ...current, profile: options.value });
+  handler: async ({ options, context, print }) => {
+    const current = await context.files.config.read();
+    await context.files.config.write({ ...current, profile: options.value });
     print.success(`profile = ${options.value}`);
   },
 });

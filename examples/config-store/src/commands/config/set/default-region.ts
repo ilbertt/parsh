@@ -6,9 +6,9 @@ export const command = defineCommand('config set default-region', {
   description: 'Set the default AWS-style region.',
   options: { value: { schema: z.string().min(1) } },
   beforeHandler: ensureConfig,
-  handler: async ({ options, files, print }) => {
-    const current = await files.config.read();
-    await files.config.write({ ...current, defaultRegion: options.value });
+  handler: async ({ options, context, print }) => {
+    const current = await context.files.config.read();
+    await context.files.config.write({ ...current, defaultRegion: options.value });
     print.success(`defaultRegion = ${options.value}`);
   },
 });

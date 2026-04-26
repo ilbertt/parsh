@@ -62,10 +62,10 @@ interface CreateCliOptions<C extends CliContextInput | undefined = CliContextInp
   programDescription?: string;
   tree: RuntimeNode;
   /**
-   * Object (or factory returning one) merged into every handler's `ctx`. The
-   * factory form runs once per `cli.run()` call so each invocation gets a
+   * Object (or factory returning one) exposed on every handler's `ctx.context`.
+   * The factory form runs once per `cli.run()` call so each invocation gets a
    * fresh context. Register the resulting `Cli` instance via `Register` to
-   * make these fields visible to every handler's `ctx` type.
+   * make this type visible to every handler's `ctx.context`.
    */
   context?: C;
 }
@@ -782,12 +782,12 @@ export class Cli<C extends object = Record<string, never>> {
 
     const resolvedContext = await this.#resolveContext();
     const ctx = {
-      ...resolvedContext,
       options: targetOwnOptions,
       params: targetOwnParams,
       parents,
       root: { options: rootOptions },
       print,
+      context: resolvedContext,
     };
 
     if (!targetLoaded.handler) {

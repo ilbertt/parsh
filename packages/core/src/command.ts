@@ -25,20 +25,29 @@ type HandlerCtx<
   Options extends OptionsRecord,
   Params extends Record<string, AnyParam>,
 > = CommandRegistry[P] extends CommandEntry
-  ? Simplify<
-      {
-        options: Simplify<InferOptions<Options>>;
-        params: Simplify<OwnParamsOf<P & string, Params>>;
-        parents: CommandRegistry[P]['parents'];
-        root: CommandRegistry[P]['root'];
-        print: Print;
-      } & RegisteredContext
-    >
+  ? Simplify<{
+      options: Simplify<InferOptions<Options>>;
+      params: Simplify<OwnParamsOf<P & string, Params>>;
+      parents: CommandRegistry[P]['parents'];
+      root: CommandRegistry[P]['root'];
+      print: Print;
+      /**
+       * User-defined context passed to `createCli({ context })`. Resolves to
+       * `never` if the CLI was created without a `context`.
+       */
+      context: RegisteredContext;
+    }>
   : never;
 
-type RootHandlerCtx<Options extends OptionsRecord> = Simplify<
-  { options: Simplify<InferOptions<Options>>; print: Print } & RegisteredContext
->;
+type RootHandlerCtx<Options extends OptionsRecord> = Simplify<{
+  options: Simplify<InferOptions<Options>>;
+  print: Print;
+  /**
+   * User-defined context passed to `createCli({ context })`. Resolves to
+   * `never` if the CLI was created without a `context`.
+   */
+  context: RegisteredContext;
+}>;
 
 type HelpArgConfig = { enabled: boolean };
 

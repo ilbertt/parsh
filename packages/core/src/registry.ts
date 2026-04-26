@@ -34,23 +34,26 @@ export type Simplify<T> = { [K in keyof T]: T[K] } & {};
 
 /**
  * Resolves the runtime type of a `context` value passed to `createCli`. Strips
- * the factory wrapper and unwraps a Promise; non-object values collapse to `{}`
- * so the result is always safe to spread into a handler ctx.
+ * the factory wrapper and unwraps a Promise. Non-object or absent values
+ * collapse to `never` so handlers cannot read `ctx.context` when none was
+ * configured.
  */
 export type ResolveContext<C> = C extends (...args: never[]) => infer R
   ? Awaited<R> extends object
     ? Awaited<R>
-    : Record<string, never>
+    : never
   : C extends object
     ? C
-    : Record<string, never>;
+    : never;
 
 /**
  * Looks up the registered CLI's context type (already resolved by `createCli`).
- * Returns `{}` until the user augments `Register` with `cli: typeof cli`.
+ * Resolves to `never` until the user augments `Register` with `cli: typeof cli`,
+ * so handlers that try to read `ctx.context` without a configured context get a
+ * loud type error instead of silent `undefined` access.
  */
 export type RegisteredContext = Register extends { cli: { readonly _context: infer C } }
   ? C extends object
     ? C
-    : Record<string, never>
-  : Record<string, never>;
+    : never
+  : never;

@@ -126,7 +126,7 @@ defineCommand('forwardCheck child', {
 expectTypeOf<'totally made up path'>().not.toMatchTypeOf<keyof CommandRegistry>();
 expectTypeOf<'users create'>().toMatchTypeOf<keyof CommandRegistry>();
 
-// User-registered Cli context flows into every handler's ctx via intersection.
+// User-registered Cli context flows into every handler's ctx.context.
 import { createCli } from '#index.ts';
 
 declare module '#index.ts' {
@@ -155,10 +155,10 @@ declare module '#index.ts' {
 
 defineCommand('ctxhost open', {
   options: { force: { schema: z.boolean() } },
-  handler: async ({ options, tag, files }) => {
+  handler: async ({ options, context }) => {
     expectTypeOf(options).toEqualTypeOf<{ force: boolean }>();
-    expectTypeOf(tag).toEqualTypeOf<'demo'>();
-    const creds = await files.creds.read();
+    expectTypeOf(context.tag).toEqualTypeOf<'demo'>();
+    const creds = await context.files.creds.read();
     expectTypeOf(creds).toEqualTypeOf<{ token: string } | null>();
   },
 });

@@ -17,5 +17,7 @@
   "json.schemaDownload.trustedDomains": {
     "https://turborepo.dev/schema.json": true,
     "https://biomejs.dev": true
-  }
+  },
+  "biome.suggestInstallingGlobally": false,
+  "biome.lsp.bin": "./node_modules/@biomejs/biome/bin/biome"
 }

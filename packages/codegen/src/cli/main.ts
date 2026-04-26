@@ -2,8 +2,10 @@
 import { createCli } from '@repo/core';
 import { commandTree } from './commandTree.gen.ts';
 
-await createCli({
+const cli = createCli({
   programName: 'parsh-codegen',
   programDescription: 'Filesystem-driven command tree generator for parsh.',
   tree: commandTree,
-}).main();
+});
+
+await cli.main();

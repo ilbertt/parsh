@@ -10,7 +10,7 @@
   "license": "Unlicense",
   "type": "module",
   "bin": {
-    "parsh-codegen": "./dist/cli/bin.js"
+    "parsh-codegen": "./dist/cli/main.js"
   },
   "files": [
     "dist/*",

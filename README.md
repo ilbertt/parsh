@@ -1,6 +1,13 @@
 # parsh
 
-Type-safe router for TypeScript CLIs. Filesystem-driven command tree, [Standard Schema v1](https://standardschema.dev) for validation, fully typed options, params, and shared context — no generics at call sites.
+Build type-safe CLIs in TypeScript.
+
+- **File-based commands router** - inspired by TanStack Router.
+- **Inherited options** — parent options flow into every descendant, fully typed.
+- **Schema-agnostic** - validate options and params with any [Standard Schema v1](https://standardschema.dev) library (Zod, Valibot, Arktype, …).
+- **Extensible context** - inject shared services once, access them typed in every handler.
+- **Schemas are types** — params, options, and context infer end-to-end. Mistyped keys are compile errors.
+- **Headless core** — no Ink, chalk, or terminal deps. Plug in whatever TUI you want.
 
 ## For Agents
 

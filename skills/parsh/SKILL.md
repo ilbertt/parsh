@@ -36,10 +36,12 @@ bun add -d @parsh/codegen
 ```ts
 // src/commands/_root.ts
 import { defineRootCommand } from '@parsh/core';
+import { z } from 'zod';
 
 export const command = defineRootCommand({
-  description: 'My CLI.',
-  options: {},
+  options: {
+    verbose: { schema: z.boolean().optional(), forwardToChildren: true },
+  },
 });
 ```
 
@@ -57,7 +59,10 @@ export const command = defineCommand('hello', {
   options: {
     name: { schema: z.string().default('world') },
   },
-  handler: ({ options, print }) => {
+  handler: ({ options, rootOptions, print }) => {
+    if (rootOptions.verbose) {
+      print.dim(`greeting ${options.name}…`);
+    }
     print.success(`hello, ${options.name}`);
   },
 });

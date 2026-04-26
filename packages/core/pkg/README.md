@@ -26,13 +26,15 @@ import { defineRootCommand } from '@parsh/core';
 import { z } from 'zod';
 
 export const command = defineRootCommand({
-  description: 'A fake AWS CLI.',
   options: {
     region: {
       schema: z.string().default('eu-west-2'),
       forwardToChildren: true,
       aliases: ['r'],
     },
+  },
+  handler: ({ options, print }) => {
+    print.info(`region: ${options.region}`);
   },
 });
 ```

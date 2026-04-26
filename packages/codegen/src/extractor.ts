@@ -315,7 +315,6 @@ export async function extractRootCommand({
     obj: objectInitializerOf({ obj: def, key: 'options' }),
     filePath,
   });
-  const description = extractDescription(def);
   return {
     filePath,
     pathString: '',
@@ -324,7 +323,6 @@ export async function extractRootCommand({
     paramNames: [],
     importName: 'rootCmd',
     importSpecifier: importSpecifierFor({ outDir, filePath }),
-    ...(description !== undefined ? { description } : {}),
   };
 }
 

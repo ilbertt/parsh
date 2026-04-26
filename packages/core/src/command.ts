@@ -71,7 +71,6 @@ type DefinedRootCommand<Options extends OptionsRecord> = {
   options: Options;
   params: Record<string, never>;
   helpArg: HelpArgConfig;
-  description?: string;
   handler?: (ctx: unknown) => void | Promise<void>;
   beforeHandler?: (ctx: unknown) => void | Promise<void>;
   afterHandler?: (ctx: unknown) => void | Promise<void>;
@@ -81,7 +80,6 @@ export function defineRootCommand<const Options extends OptionsRecord>(def: {
   options: Options;
   /** @default { enabled: true } */
   helpArg?: HelpArgConfig;
-  description?: string;
   handler?: (ctx: RootHandlerCtx<Options>) => void | Promise<void>;
   /** Runs before `handler`. Throwing aborts the handler and `afterHandler`. */
   beforeHandler?: (ctx: RootHandlerCtx<Options>) => void | Promise<void>;

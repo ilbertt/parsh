@@ -376,10 +376,12 @@ function renderRootUsage({
   root,
   programName,
   programDescription,
+  hasVersion,
 }: {
   root: RuntimeNode;
   programName: string;
   programDescription: string | undefined;
+  hasVersion: boolean;
 }): string {
   const lines: string[] = [];
   if (programDescription) {
@@ -388,15 +390,19 @@ function renderRootUsage({
   lines.push(`${stdoutBold('Usage:')} ${programName} <command> [options]`, '');
 
   const rootOptions = root.command?.optionNames ?? [];
-  if (rootOptions.length > 0) {
-    lines.push(stdoutBold('Options:'));
-    for (const line of formatTwoColumn(
-      rootOptions.map((o) => ({ label: optionLabel(o), description: o.description })),
-    )) {
-      lines.push(`  ${line}`);
-    }
-    lines.push('');
+  const optionRows = rootOptions.map((o) => ({
+    label: optionLabel(o),
+    description: o.description,
+  }));
+  optionRows.push({ label: '--help, -h', description: 'Show this help message.' });
+  if (hasVersion) {
+    optionRows.push({ label: '--version, -V', description: 'Print the version and exit.' });
   }
+  lines.push(stdoutBold('Options:'));
+  for (const line of formatTwoColumn(optionRows)) {
+    lines.push(`  ${line}`);
+  }
+  lines.push('');
 
   lines.push(stdoutBold('Commands:'));
   const rows: Array<{ label: string; description: string | undefined }> = [];
@@ -638,6 +644,7 @@ export class Cli<C extends object = Record<string, never>> {
       root: this.#tree,
       programName: this.#programName,
       programDescription: this.#programDescription,
+      hasVersion: this.#version !== undefined,
     });
   }
 
@@ -647,12 +654,6 @@ export class Cli<C extends object = Record<string, never>> {
 
   async run(argv: string[]): Promise<number> {
     const rewritten = rewriteArgvAliases({ argv, aliasMap: this.#aliasMap });
-
-    if (this.#version !== undefined && versionRequested(rewritten)) {
-      process.stdout.write(`${this.#version}\n`);
-      return 0;
-    }
-
     let parsed: ReturnType<typeof parseArgs>;
     try {
       parsed = parseArgs({
@@ -664,6 +665,15 @@ export class Cli<C extends object = Record<string, never>> {
     } catch (err) {
       process.stderr.write(`${this.#errorPrefix()}: ${(err as Error).message}\n`);
       return 2;
+    }
+
+    if (
+      this.#version !== undefined &&
+      parsed.positionals.length === 0 &&
+      versionRequested(rewritten)
+    ) {
+      process.stdout.write(`${this.#version}\n`);
+      return 0;
     }
 
     const wantsHelp = helpRequested(rewritten);

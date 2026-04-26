@@ -4,9 +4,9 @@ import { loadState, saveState, stateFile } from '../../../state.ts';
 export const command = defineCommand('tasks [id] done', {
   description: 'Mark a task as done.',
   options: {},
-  handler: ({ root, parents, print }) => {
+  handler: ({ rootOptions, parents, print }) => {
     const id = parents['tasks [id]'].params.id;
-    const path = stateFile(root.options.stateFile);
+    const path = stateFile(rootOptions.stateFile);
     const state = loadState(path);
     const task = state.tasks.find((t) => t.id === id);
     if (!task) {

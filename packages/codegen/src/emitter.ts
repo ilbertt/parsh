@@ -89,12 +89,10 @@ function emitParentsMap(entry: FlatEntry): string {
   return `{\n${lines.join('\n')}\n      }`;
 }
 
-function emitRootBlock(rootCmd: ExtractedCommand | null): string {
-  const optionsType =
-    rootCmd && hasForwardedOption(rootCmd)
-      ? `InferForwardedOptions<typeof ${rootCmd.importName}.options>`
-      : '{}';
-  return `{ options: ${optionsType} }`;
+function emitRootOptionsType(rootCmd: ExtractedCommand | null): string {
+  return rootCmd && hasForwardedOption(rootCmd)
+    ? `InferForwardedOptions<typeof ${rootCmd.importName}.options>`
+    : '{}';
 }
 
 function emitRegistryEntry({
@@ -107,7 +105,7 @@ function emitRegistryEntry({
   const p = entry.pathString;
   return `    '${p}': {
       parents: ${emitParentsMap(entry)};
-      root: ${emitRootBlock(rootCmd)};
+      rootOptions: ${emitRootOptionsType(rootCmd)};
     };`;
 }
 

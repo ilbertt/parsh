@@ -29,7 +29,7 @@ type HandlerCtx<
       options: Simplify<InferOptions<Options>>;
       params: Simplify<OwnParamsOf<P & string, Params>>;
       parents: CommandRegistry[P]['parents'];
-      root: CommandRegistry[P]['root'];
+      rootOptions: CommandRegistry[P]['rootOptions'];
       print: Print;
       /**
        * User-defined context passed to `createCli({ context })`. Resolves to

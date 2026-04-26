@@ -6,11 +6,11 @@ declare module '@repo/core' {
   interface CommandRegistry {
     'serve': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
     'version': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
   }
 }

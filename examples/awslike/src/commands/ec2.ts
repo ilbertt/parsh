@@ -10,7 +10,7 @@ export const command = defineCommand('ec2', {
       description: 'Prompt before destructive EC2 operations.',
     },
   },
-  handler: ({ root, print }) => {
-    print.info(`Manage EC2 instances. Current identity: ${root.options.identity}`);
+  handler: ({ rootOptions, print }) => {
+    print.info(`Manage EC2 instances. Current identity: ${rootOptions.identity}`);
   },
 });

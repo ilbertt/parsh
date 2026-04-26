@@ -7,34 +7,34 @@ declare module '#index.ts' {
   interface CommandRegistry {
     deploy: {
       parents: {};
-      root: { options: { verbose: boolean } };
+      rootOptions: { verbose: boolean };
     };
     users: {
       parents: {};
-      root: { options: { verbose: boolean } };
+      rootOptions: { verbose: boolean };
     };
     'users create': {
       parents: { users: { options: { workspace: string }; params: {} } };
-      root: { options: { verbose: boolean } };
+      rootOptions: { verbose: boolean };
     };
     'items [sku]': {
       parents: {};
-      root: { options: { verbose: boolean } };
+      rootOptions: { verbose: boolean };
     };
     'items [sku] edit': {
       parents: { 'items [sku]': { options: { force: boolean }; params: { sku: string } } };
-      root: { options: { verbose: boolean } };
+      rootOptions: { verbose: boolean };
     };
   }
 }
 
 defineCommand('deploy', {
   options: { env: { schema: z.enum(['staging', 'prod']) } },
-  handler: ({ options, params, parents, root }) => {
+  handler: ({ options, params, parents, rootOptions }) => {
     expectTypeOf(options).toEqualTypeOf<{ env: 'staging' | 'prod' }>();
     expectTypeOf(params).toEqualTypeOf<Record<string, never>>();
     expectTypeOf<keyof typeof parents>().toBeNever();
-    expectTypeOf(root.options).toEqualTypeOf<{ verbose: boolean }>();
+    expectTypeOf(rootOptions).toEqualTypeOf<{ verbose: boolean }>();
   },
 });
 
@@ -48,11 +48,11 @@ defineCommand('users', {
 
 defineCommand('users create', {
   options: { email: { schema: z.string() } },
-  handler: ({ options, parents, root }) => {
+  handler: ({ options, parents, rootOptions }) => {
     expectTypeOf(options).toEqualTypeOf<{ email: string }>();
     expectTypeOf(parents.users.options).toEqualTypeOf<{ workspace: string }>();
     expectTypeOf<keyof (typeof parents)['users']['params']>().toBeNever();
-    expectTypeOf(root.options.verbose).toEqualTypeOf<boolean>();
+    expectTypeOf(rootOptions.verbose).toEqualTypeOf<boolean>();
   },
 });
 
@@ -96,11 +96,11 @@ declare module '#index.ts' {
   interface CommandRegistry {
     forwardCheck: {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
     'forwardCheck child': {
       parents: { forwardCheck: { options: { shared: boolean }; params: {} } };
-      root: { options: {} };
+      rootOptions: {};
     };
   }
 }
@@ -133,7 +133,7 @@ declare module '#index.ts' {
   interface CommandRegistry {
     'ctxhost open': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
   }
 }

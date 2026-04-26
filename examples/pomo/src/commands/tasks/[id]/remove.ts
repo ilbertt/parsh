@@ -4,9 +4,9 @@ import { loadState, saveState, stateFile } from '../../../state.ts';
 export const command = defineCommand('tasks [id] remove', {
   description: 'Delete a task.',
   options: {},
-  handler: ({ root, parents, print }) => {
+  handler: ({ rootOptions, parents, print }) => {
     const id = parents['tasks [id]'].params.id;
-    const path = stateFile(root.options.stateFile);
+    const path = stateFile(rootOptions.stateFile);
     const state = loadState(path);
     const before = state.tasks.length;
     state.tasks = state.tasks.filter((t) => t.id !== id);

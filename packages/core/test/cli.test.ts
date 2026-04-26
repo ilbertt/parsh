@@ -26,7 +26,7 @@ type Ctx = {
   options: Record<string, unknown>;
   params: Record<string, unknown>;
   parents: Record<string, { options: Record<string, unknown>; params: Record<string, unknown> }>;
-  root: { options: Record<string, unknown> };
+  rootOptions: Record<string, unknown>;
 };
 
 type Called = { path: string; ctx: Ctx };
@@ -156,13 +156,13 @@ function makeCli(opts: { calls: Called[]; idSchema?: () => z.ZodType<string | nu
 }
 
 describe('argument parsing', () => {
-  test('own options populate ctx.options; root options populate ctx.root.options', async () => {
+  test('own options populate ctx.options; root options populate ctx.rootOptions', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run(['deploy', '--env', 'prod']);
 
     expect(code).toBe(0);
     expect(calls[0]?.ctx.options).toEqual({ env: 'prod' });
-    expect(calls[0]?.ctx.root.options).toEqual({ verbose: false });
+    expect(calls[0]?.ctx.rootOptions).toEqual({ verbose: false });
   });
 
   test('lifts a bare boolean flag to true', async () => {
@@ -170,7 +170,7 @@ describe('argument parsing', () => {
     const code = await makeCli({ calls }).run(['deploy', '--env', 'prod', '--verbose']);
 
     expect(code).toBe(0);
-    expect(calls[0]?.ctx.root.options.verbose).toBe(true);
+    expect(calls[0]?.ctx.rootOptions.verbose).toBe(true);
   });
 
   test('ancestor options land in ctx.parents[path].options', async () => {
@@ -187,7 +187,7 @@ describe('argument parsing', () => {
     expect(code).toBe(0);
     expect(calls[0]?.ctx.options).toEqual({ email: 'a@b.com' });
     expect(calls[0]?.ctx.parents.users?.options).toEqual({ workspace: 'acme' });
-    expect(calls[0]?.ctx.root.options).toEqual({ verbose: false });
+    expect(calls[0]?.ctx.rootOptions).toEqual({ verbose: false });
   });
 });
 
@@ -319,7 +319,7 @@ describe('option aliases', () => {
       '-v',
     ]);
     expect(code).toBe(0);
-    expect(calls[0]?.ctx.root.options).toEqual({ verbose: true });
+    expect(calls[0]?.ctx.rootOptions).toEqual({ verbose: true });
   });
 
   test('alias colliding with another option name throws at construction', () => {

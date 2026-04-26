@@ -12,87 +12,87 @@ declare module '@repo/core' {
   interface CommandRegistry {
     'configure': {
       parents: {};
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'ec2': {
       parents: {};
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'ec2 create': {
       parents: {
         'ec2': { options: InferForwardedOptions<typeof ec2Cmd.options>; params: {} };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'ec2 instances list': {
       parents: {
         'ec2': { options: InferForwardedOptions<typeof ec2Cmd.options>; params: {} };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'ec2 instances [id]': {
       parents: {
         'ec2': { options: InferForwardedOptions<typeof ec2Cmd.options>; params: {} };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'ec2 instances [id] start': {
       parents: {
         'ec2': { options: InferForwardedOptions<typeof ec2Cmd.options>; params: {} };
         'ec2 instances [id]': { options: {}; params: InferParams<typeof ec2InstancesIdCmd.params> };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'ec2 instances [id] stop': {
       parents: {
         'ec2': { options: InferForwardedOptions<typeof ec2Cmd.options>; params: {} };
         'ec2 instances [id]': { options: {}; params: InferParams<typeof ec2InstancesIdCmd.params> };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'ec2 instances [id] tags add': {
       parents: {
         'ec2': { options: InferForwardedOptions<typeof ec2Cmd.options>; params: {} };
         'ec2 instances [id]': { options: {}; params: InferParams<typeof ec2InstancesIdCmd.params> };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     's3': {
       parents: {};
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     's3 buckets list': {
       parents: {
         's3': { options: InferForwardedOptions<typeof s3Cmd.options>; params: {} };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     's3 buckets [name]': {
       parents: {
         's3': { options: InferForwardedOptions<typeof s3Cmd.options>; params: {} };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     's3 buckets [name] create': {
       parents: {
         's3': { options: InferForwardedOptions<typeof s3Cmd.options>; params: {} };
         's3 buckets [name]': { options: {}; params: InferParams<typeof s3BucketsNameCmd.params> };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     's3 buckets [name] objects list': {
       parents: {
         's3': { options: InferForwardedOptions<typeof s3Cmd.options>; params: {} };
         's3 buckets [name]': { options: {}; params: InferParams<typeof s3BucketsNameCmd.params> };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     's3 buckets [name] objects [key]': {
       parents: {
         's3': { options: InferForwardedOptions<typeof s3Cmd.options>; params: {} };
         's3 buckets [name]': { options: {}; params: InferParams<typeof s3BucketsNameCmd.params> };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     's3 buckets [name] objects [key] get': {
       parents: {
@@ -100,7 +100,7 @@ declare module '@repo/core' {
         's3 buckets [name]': { options: {}; params: InferParams<typeof s3BucketsNameCmd.params> };
         's3 buckets [name] objects [key]': { options: {}; params: InferParams<typeof s3BucketsNameObjectsKeyCmd.params> };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     's3 buckets [name] objects [key] put': {
       parents: {
@@ -108,11 +108,11 @@ declare module '@repo/core' {
         's3 buckets [name]': { options: {}; params: InferParams<typeof s3BucketsNameCmd.params> };
         's3 buckets [name] objects [key]': { options: {}; params: InferParams<typeof s3BucketsNameObjectsKeyCmd.params> };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'status': {
       parents: {};
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
   }
 }

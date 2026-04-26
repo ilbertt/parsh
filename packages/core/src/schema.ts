@@ -109,7 +109,7 @@ type ForwardedKeys<O extends OptionsRecord> = {
 /**
  * The descendant-visible projection of an ancestor's options. Includes only
  * entries flagged `forwardToChildren: true`. Used by the generated registry
- * to type `ctx.parents[path].options` and `ctx.root.options`.
+ * to type `ctx.parents[path].options` and `ctx.rootOptions`.
  */
 export type InferForwardedOptions<O extends OptionsRecord> = {
   -readonly [K in ForwardedKeys<O>]: InferOutput<O[K]['schema']>;

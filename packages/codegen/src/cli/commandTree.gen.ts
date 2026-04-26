@@ -6,7 +6,7 @@ declare module '@repo/core' {
   interface CommandRegistry {
     'generate': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
   }
 }

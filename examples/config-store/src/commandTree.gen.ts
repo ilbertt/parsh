@@ -6,39 +6,39 @@ declare module '@repo/core' {
   interface CommandRegistry {
     'config': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
     'config get': {
       parents: {
         'config': { options: {}; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'config init': {
       parents: {
         'config': { options: {}; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'config set': {
       parents: {
         'config': { options: {}; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'config set default-region': {
       parents: {
         'config': { options: {}; params: {} };
         'config set': { options: {}; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'config set profile': {
       parents: {
         'config': { options: {}; params: {} };
         'config set': { options: {}; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
   }
 }

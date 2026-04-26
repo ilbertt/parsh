@@ -785,7 +785,7 @@ export class Cli<C extends object = Record<string, never>> {
       options: targetOwnOptions,
       params: targetOwnParams,
       parents,
-      root: { options: rootOptions },
+      rootOptions,
       print,
       context: resolvedContext,
     };

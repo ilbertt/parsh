@@ -18,8 +18,8 @@ export const command = defineCommand('start', {
     },
     task: { schema: z.string().optional() },
   },
-  handler: async ({ options, root, print }) => {
-    const path = stateFile(root.options.stateFile);
+  handler: async ({ options, rootOptions, print }) => {
+    const path = stateFile(rootOptions.stateFile);
     const state = loadState(path);
     const task = options.task ? state.tasks.find((t) => t.id === options.task) : null;
     if (options.task && !task) {

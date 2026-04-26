@@ -7,8 +7,8 @@ export const command = defineCommand('tasks add', {
   options: {
     title: { schema: z.string().min(1) },
   },
-  handler: ({ options, root, print }) => {
-    const path = stateFile(root.options.stateFile);
+  handler: ({ options, rootOptions, print }) => {
+    const path = stateFile(rootOptions.stateFile);
     const state = loadState(path);
     const task = { id: newId(), title: options.title, done: false };
     state.tasks.push(task);

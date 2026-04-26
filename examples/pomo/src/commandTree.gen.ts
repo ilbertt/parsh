@@ -8,47 +8,47 @@ declare module '@repo/core' {
   interface CommandRegistry {
     'start': {
       parents: {};
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'stats': {
       parents: {};
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'tasks': {
       parents: {};
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'tasks add': {
       parents: {
         'tasks': { options: {}; params: {} };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'tasks list': {
       parents: {
         'tasks': { options: {}; params: {} };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'tasks [id]': {
       parents: {
         'tasks': { options: {}; params: {} };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'tasks [id] done': {
       parents: {
         'tasks': { options: {}; params: {} };
         'tasks [id]': { options: {}; params: InferParams<typeof tasksIdCmd.params> };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'tasks [id] remove': {
       parents: {
         'tasks': { options: {}; params: {} };
         'tasks [id]': { options: {}; params: InferParams<typeof tasksIdCmd.params> };
       };
-      root: { options: InferForwardedOptions<typeof rootCmd.options> };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
   }
 }

@@ -7,23 +7,23 @@ declare module '#index.ts' {
   interface CommandRegistry {
     'alpha': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
     'alpha sub': {
       parents: {
         'alpha': { options: InferForwardedOptions<typeof alphaCmd.options>; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'beta': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
     'beta leaf': {
       parents: {
         'beta': { options: {}; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
   }
 }

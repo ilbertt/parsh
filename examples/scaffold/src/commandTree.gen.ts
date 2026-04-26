@@ -7,30 +7,30 @@ declare module '@repo/core' {
   interface CommandRegistry {
     'init': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
     'templates': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
     'templates list': {
       parents: {
         'templates': { options: {}; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'templates [name]': {
       parents: {
         'templates': { options: {}; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'templates [name] show': {
       parents: {
         'templates': { options: {}; params: {} };
         'templates [name]': { options: {}; params: InferParams<typeof templatesNameCmd.params> };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
   }
 }

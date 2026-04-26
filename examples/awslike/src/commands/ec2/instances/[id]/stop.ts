@@ -6,9 +6,9 @@ export const command = defineCommand('ec2 instances [id] stop', {
   options: {
     force: { schema: z.boolean().optional() },
   },
-  handler: ({ parents, options, root, print }) => {
+  handler: ({ parents, options, rootOptions, print }) => {
     const id = parents['ec2 instances [id]'].params.id;
     const verb = options.force ? 'Force-stopping' : 'Stopping';
-    print.info(`${verb} instance ${id} in ${root.options.region}`);
+    print.info(`${verb} instance ${id} in ${rootOptions.region}`);
   },
 });

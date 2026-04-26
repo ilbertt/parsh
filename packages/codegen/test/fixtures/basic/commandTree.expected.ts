@@ -9,53 +9,53 @@ declare module '@repo/core' {
   interface CommandRegistry {
     'admin': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
     'admin users': {
       parents: {
         'admin': { options: InferForwardedOptions<typeof adminCmd.options>; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'admin users ban': {
       parents: {
         'admin': { options: InferForwardedOptions<typeof adminCmd.options>; params: {} };
         'admin users': { options: {}; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'deploy': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
     'users': {
       parents: {};
-      root: { options: {} };
+      rootOptions: {};
     };
     'users create': {
       parents: {
         'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'users list': {
       parents: {
         'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'users [id]': {
       parents: {
         'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: {} };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
     'users [id] edit': {
       parents: {
         'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: {} };
         'users [id]': { options: {}; params: InferParams<typeof usersIdCmd.params> };
       };
-      root: { options: {} };
+      rootOptions: {};
     };
   }
 }

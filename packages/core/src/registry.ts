@@ -9,7 +9,7 @@
  */
 export interface CommandEntry {
   parents: Record<string, { options: object; params: object }>;
-  root: { options: object };
+  rootOptions: object;
 }
 
 // biome-ignore lint/suspicious/noEmptyInterface: intentional augmentation point

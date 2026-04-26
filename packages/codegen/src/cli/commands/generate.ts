@@ -34,7 +34,7 @@ export const command = defineCommand('generate', {
     eager: { schema: z.boolean().default(false) },
     watch: { schema: z.boolean().default(false) },
   },
-  handler: async ({ options }) => {
+  handler: async ({ options, print }) => {
     const commandsDir = resolve(options.commands);
     const outFile = resolve(options.out);
     const opts: GenerateOptions = {
@@ -47,9 +47,9 @@ export const command = defineCommand('generate', {
     const runOnce = async (): Promise<void> => {
       try {
         await generateCommandTree(opts);
-        console.log(`parsh-codegen: wrote ${outFile}`);
+        print.success(`parsh-codegen: wrote ${outFile}`);
       } catch (err) {
-        console.error((err as Error).message);
+        print.error((err as Error).message);
         if (!options.watch) {
           process.exit(1);
         }
@@ -59,7 +59,7 @@ export const command = defineCommand('generate', {
     await runOnce();
 
     if (options.watch) {
-      console.log(`parsh-codegen: watching ${commandsDir} for adds/removes/renames…`);
+      print.info(`parsh-codegen: watching ${commandsDir} for adds/removes/renames…`);
       let debounce: ReturnType<typeof setTimeout> | null = null;
       // biome-ignore lint/complexity/useMaxParams: fs.watch callback signature is (event, filename)
       watch(commandsDir, { recursive: true }, (_event, filename) => {

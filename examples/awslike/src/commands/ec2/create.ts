@@ -10,17 +10,17 @@ export const command = defineCommand('ec2 create', {
     name: { schema: z.string() },
     cpuCount: { schema: z.number().min(MIN_VCPU).max(MAX_VCPU) },
   },
-  handler: ({ options, root, parents }) => {
+  handler: ({ options, root, parents, print }) => {
     if (parents.ec2.options.askConfirmation) {
-      console.warn('!! I should ask for permissions here !!');
+      print.warn('!! I should ask for permissions here !!');
     }
 
-    console.log('Creating instance with:');
-    console.log(`  Name: ${options.name}`);
-    console.log(`  CPU: ${options.cpuCount} vCPU`);
-    console.log(`Current region: ${root.options.region}`);
-    console.log(`Current identity: ${root.options.identity}`);
+    print.info('Creating instance with:');
+    print.info(`  Name: ${options.name}`);
+    print.info(`  CPU: ${options.cpuCount} vCPU`);
+    print.info(`Current region: ${root.options.region}`);
+    print.info(`Current identity: ${root.options.identity}`);
 
-    console.log('Created!');
+    print.success('Created!');
   },
 });

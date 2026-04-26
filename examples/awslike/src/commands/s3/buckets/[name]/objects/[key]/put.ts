@@ -6,9 +6,9 @@ export const command = defineCommand('s3 buckets [name] objects [key] put', {
   options: {
     body: { schema: z.string() },
   },
-  handler: ({ options, parents }) => {
+  handler: ({ options, parents, print }) => {
     const bucket = parents['s3 buckets [name]'].params.name;
     const key = parents['s3 buckets [name] objects [key]'].params.key;
-    console.log(`Uploading ${options.body.length} bytes to s3://${bucket}/${key}`);
+    print.info(`Uploading ${options.body.length} bytes to s3://${bucket}/${key}`);
   },
 });

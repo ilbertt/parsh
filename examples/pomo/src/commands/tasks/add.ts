@@ -7,12 +7,12 @@ export const command = defineCommand('tasks add', {
   options: {
     title: { schema: z.string().min(1) },
   },
-  handler: ({ options, root }) => {
+  handler: ({ options, root, print }) => {
     const path = stateFile(root.options.stateFile);
     const state = loadState(path);
     const task = { id: newId(), title: options.title, done: false };
     state.tasks.push(task);
     saveState({ path, state });
-    console.log(`Added ${task.id}: ${task.title}`);
+    print.success(`Added ${task.id}: ${task.title}`);
   },
 });

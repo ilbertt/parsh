@@ -1,4 +1,5 @@
 import { type ParseArgsConfig, parseArgs } from 'node:util';
+import { print } from '#print.ts';
 import type { ResolveContext } from '#registry.ts';
 import type { AnyOption, AnyParam, AnySchema, OptionsRecord, ParamsRecord } from '#schema.ts';
 import { stderrBold, stderrDim, stderrRed, stdoutBold, stdoutCyan, stdoutDim } from '#style.ts';
@@ -645,14 +646,14 @@ export class Cli<C extends object = Record<string, never>> {
         allowPositionals: true,
       });
     } catch (err) {
-      console.error(`${this.#errorPrefix()}: ${(err as Error).message}`);
+      process.stderr.write(`${this.#errorPrefix()}: ${(err as Error).message}\n`);
       return 2;
     }
 
     const wantsHelp = helpRequested(rewritten);
 
     if (parsed.positionals.length === 0 && wantsHelp && !this.#tree.command) {
-      console.log(this.#renderRootUsage());
+      process.stdout.write(`${this.#renderRootUsage()}\n`);
       return 0;
     }
 
@@ -662,19 +663,19 @@ export class Cli<C extends object = Record<string, never>> {
     });
 
     if (unknown) {
-      console.error(
-        `${this.#errorPrefix()}: unknown command: ${unknownToken} — run \`${this.#programName} --help\` to see available commands`,
+      process.stderr.write(
+        `${this.#errorPrefix()}: unknown command: ${unknownToken} — run \`${this.#programName} --help\` to see available commands\n`,
       );
       return 2;
     }
 
     if (!node.command) {
-      console.log(this.#renderRootUsage());
+      process.stdout.write(`${this.#renderRootUsage()}\n`);
       return 0;
     }
 
     if (wantsHelp) {
-      console.log(
+      const usage =
         node === this.#tree
           ? this.#renderRootUsage()
           : renderCommandUsage({
@@ -683,8 +684,8 @@ export class Cli<C extends object = Record<string, never>> {
               visited: visitedCommands
                 .map((v) => v.command)
                 .filter((c): c is RuntimeCommand => c !== null),
-            }),
-      );
+            });
+      process.stdout.write(`${usage}\n`);
       return 0;
     }
 
@@ -699,7 +700,7 @@ export class Cli<C extends object = Record<string, never>> {
       loaded = new Map(pairs);
     } catch (err) {
       if (err instanceof CommandLoadError) {
-        console.error(`${this.#errorPrefix()}: ${err.message}`);
+        process.stderr.write(`${this.#errorPrefix()}: ${err.message}\n`);
         return 1;
       }
       throw err;
@@ -736,8 +737,8 @@ export class Cli<C extends object = Record<string, never>> {
         kind: 'option',
       });
       if (!optionsResult.ok) {
-        console.error(
-          `${this.#errorPrefix()}: ${optionsResult.error}${helpHint(targetHelpEnabled)}`,
+        process.stderr.write(
+          `${this.#errorPrefix()}: ${optionsResult.error}${helpHint(targetHelpEnabled)}\n`,
         );
         return 2;
       }
@@ -760,8 +761,8 @@ export class Cli<C extends object = Record<string, never>> {
         kind: 'param',
       });
       if (!paramsResult.ok) {
-        console.error(
-          `${this.#errorPrefix()}: ${paramsResult.error}${helpHint(targetHelpEnabled)}`,
+        process.stderr.write(
+          `${this.#errorPrefix()}: ${paramsResult.error}${helpHint(targetHelpEnabled)}\n`,
         );
         return 2;
       }
@@ -786,18 +787,19 @@ export class Cli<C extends object = Record<string, never>> {
       params: targetOwnParams,
       parents,
       root: { options: rootOptions },
+      print,
     };
 
     if (!targetLoaded.handler) {
-      console.log(
+      const usage =
         node === this.#tree
           ? this.#renderRootUsage()
           : renderCommandUsage({
               programName: this.#programName,
               node,
               visited: visitedCmds,
-            }),
-      );
+            });
+      process.stdout.write(`${usage}\n`);
       return 0;
     }
 
@@ -810,7 +812,7 @@ export class Cli<C extends object = Record<string, never>> {
     if (result.ok) {
       return 0;
     }
-    console.error(`${this.#errorPrefix()}: ${result.error.message}`);
+    process.stderr.write(`${this.#errorPrefix()}: ${result.error.message}\n`);
     return 1;
   }
 

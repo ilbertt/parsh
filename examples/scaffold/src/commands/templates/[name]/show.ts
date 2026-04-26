@@ -6,16 +6,16 @@ const isTemplate = (s: string): s is TemplateName => (templateNames as string[])
 export const command = defineCommand('templates [name] show', {
   description: 'Show what a template would generate.',
   options: {},
-  handler: ({ parents }) => {
+  handler: ({ parents, print }) => {
     const name = parents['templates [name]'].params.name;
     if (!isTemplate(name)) {
-      console.error(`Unknown template: ${name}. Try: ${templateNames.join(', ')}`);
+      print.error(`Unknown template: ${name}. Try: ${templateNames.join(', ')}`);
       process.exit(1);
     }
     const tpl = templates[name];
-    console.log(`# ${tpl.name} — ${tpl.description}`);
+    print.info(`# ${tpl.name} — ${tpl.description}`);
     for (const rel of Object.keys(tpl.files)) {
-      console.log(`  ${rel}`);
+      print.dim(`  ${rel}`);
     }
   },
 });

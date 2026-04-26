@@ -34,7 +34,8 @@
         }
       },
       "suspicious": {
-        "useAwait": "error"
+        "useAwait": "error",
+        "noConsole": "error"
       },
       "nursery": {
         "useAwaitThenable": "error",
@@ -61,6 +62,23 @@
       "enabled": false
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "**/build.ts",
+        "packages/pack-utils/**",
+        "packages/*/test/fixtures/**",
+        "packages/*/bench/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ],
   "assist": {
     "enabled": true,
     "actions": {

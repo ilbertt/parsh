@@ -1,3 +1,4 @@
+import type { Print } from '#print.ts';
 import type { CommandEntry, CommandRegistry, RegisteredContext, Simplify } from '#registry.ts';
 import type { AnyParam, InferOptions, InferParams, OptionsRecord } from '#schema.ts';
 
@@ -30,12 +31,13 @@ type HandlerCtx<
         params: Simplify<OwnParamsOf<P & string, Params>>;
         parents: CommandRegistry[P]['parents'];
         root: CommandRegistry[P]['root'];
+        print: Print;
       } & RegisteredContext
     >
   : never;
 
 type RootHandlerCtx<Options extends OptionsRecord> = Simplify<
-  { options: Simplify<InferOptions<Options>> } & RegisteredContext
+  { options: Simplify<InferOptions<Options>>; print: Print } & RegisteredContext
 >;
 
 type HelpArgConfig = { enabled: boolean };

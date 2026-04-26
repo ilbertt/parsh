@@ -33,7 +33,9 @@ function wrap({ open, close, enabled }: { open: number; close: number; enabled: 
 export const stdoutBold = wrap({ open: 1, close: 22, enabled: STDOUT_ENABLED });
 export const stdoutDim = wrap({ open: 2, close: 22, enabled: STDOUT_ENABLED });
 export const stdoutCyan = wrap({ open: 36, close: 39, enabled: STDOUT_ENABLED });
+export const stdoutGreen = wrap({ open: 32, close: 39, enabled: STDOUT_ENABLED });
 
 export const stderrBold = wrap({ open: 1, close: 22, enabled: STDERR_ENABLED });
 export const stderrDim = wrap({ open: 2, close: 22, enabled: STDERR_ENABLED });
 export const stderrRed = wrap({ open: 31, close: 39, enabled: STDERR_ENABLED });
+export const stderrYellow = wrap({ open: 33, close: 39, enabled: STDERR_ENABLED });

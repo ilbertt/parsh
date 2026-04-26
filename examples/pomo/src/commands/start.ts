@@ -18,12 +18,12 @@ export const command = defineCommand('start', {
     },
     task: { schema: z.string().optional() },
   },
-  handler: async ({ options, root }) => {
+  handler: async ({ options, root, print }) => {
     const path = stateFile(root.options.stateFile);
     const state = loadState(path);
     const task = options.task ? state.tasks.find((t) => t.id === options.task) : null;
     if (options.task && !task) {
-      console.error(`No task with id ${options.task}`);
+      print.error(`No task with id ${options.task}`);
       process.exit(1);
     }
 

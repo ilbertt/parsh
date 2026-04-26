@@ -6,9 +6,9 @@ const NAME_COL_WIDTH = 8;
 export const command = defineCommand('templates list', {
   description: 'List available templates.',
   options: {},
-  handler: () => {
+  handler: ({ print }) => {
     for (const n of templateNames) {
-      console.log(`${n.padEnd(NAME_COL_WIDTH)} ${templates[n].description}`);
+      print.info(`${n.padEnd(NAME_COL_WIDTH)} ${templates[n].description}`);
     }
   },
 });

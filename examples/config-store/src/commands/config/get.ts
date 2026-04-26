@@ -5,9 +5,9 @@ export const command = defineCommand('config get', {
   description: 'Print the current configuration.',
   options: {},
   beforeHandler: ensureConfig,
-  handler: async ({ files }) => {
+  handler: async ({ files, print }) => {
     const cfg = await files.config.read();
-    console.log(`config file: ${files.config.path}`);
-    console.log(JSON.stringify(cfg, null, 2));
+    print.dim(`config file: ${files.config.path}`);
+    print.info(JSON.stringify(cfg, null, 2));
   },
 });

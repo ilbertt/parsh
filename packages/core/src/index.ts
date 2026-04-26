@@ -9,6 +9,7 @@ export {
   type RuntimeNode,
 } from '#cli.ts';
 export { defineCommand, defineRootCommand } from '#command.ts';
+export type { Print } from '#print.ts';
 export type { CommandRegistry, Register, RegisteredContext, ResolveContext } from '#registry.ts';
 export type {
   AnyOption,

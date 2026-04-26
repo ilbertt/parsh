@@ -27,15 +27,16 @@ describe('CommandLoadError', () => {
     };
 
     const errors: string[] = [];
-    const origError = console.error;
-    console.error = (...args) => {
-      errors.push(args.map(String).join(' '));
-    };
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      errors.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
     try {
       const code = await createCli({ programName: 'app', tree }).run(['broken']);
       expect(code).toBe(1);
     } finally {
-      console.error = origError;
+      process.stderr.write = origWrite;
     }
 
     const msg = errors.join('\n');

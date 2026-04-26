@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, type Mock, spyOn, test } from 
 import { z } from 'zod';
 import { createCli, type LoadedCommand, type RuntimeCommand, type RuntimeNode } from '#index.ts';
 
-let stderrSpy: Mock<typeof console.error>;
+let stderrSpy: Mock<typeof process.stderr.write>;
 
 beforeEach(() => {
-  stderrSpy = spyOn(console, 'error').mockImplementation(() => {});
+  stderrSpy = spyOn(process.stderr, 'write').mockImplementation(() => true);
 });
 
 afterEach(() => {

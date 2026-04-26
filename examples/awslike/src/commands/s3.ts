@@ -10,7 +10,7 @@ export const command = defineCommand('s3', {
       description: 'AWS profile to use for S3 calls.',
     },
   },
-  handler: ({ options, root }) => {
-    console.log(`S3 — profile=${options.profile}, region=${root.options.region}`);
+  handler: ({ options, root, print }) => {
+    print.info(`S3 — profile=${options.profile}, region=${root.options.region}`);
   },
 });

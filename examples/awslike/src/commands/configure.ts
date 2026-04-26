@@ -7,11 +7,11 @@ export const command = defineCommand('configure', {
     'access-key': { schema: z.string().min(1) },
     'secret-key': { schema: z.string().min(1) },
   },
-  handler: async ({ options, files }) => {
+  handler: async ({ options, files, print }) => {
     await files.credentials.write({
       accessKey: options['access-key'],
       secretKey: options['secret-key'],
     });
-    console.log(`wrote ${files.credentials.path}`);
+    print.success(`wrote ${files.credentials.path}`);
   },
 });

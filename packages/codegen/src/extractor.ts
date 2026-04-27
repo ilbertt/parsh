@@ -288,7 +288,7 @@ function extractHidden({
 
 function importNameFor({ filePath }: { filePath: string }): string {
   const noExt = filePath.replace(/\.ts$/, '');
-  const parts = noExt.split('/');
+  const parts = noExt.split(/[/\\]/);
   const ix = parts.lastIndexOf('commands');
   const subpath = ix >= 0 ? parts.slice(ix + 1) : [basename(noExt)];
   const stripped = subpath
@@ -303,7 +303,7 @@ function importNameFor({ filePath }: { filePath: string }): string {
 }
 
 function importSpecifierFor({ outDir, filePath }: { outDir: string; filePath: string }): string {
-  let spec = relative(outDir, filePath);
+  let spec = relative(outDir, filePath).replaceAll('\\', '/');
   if (!spec.startsWith('.')) {
     spec = `./${spec}`;
   }

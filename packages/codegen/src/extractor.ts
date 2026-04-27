@@ -268,6 +268,24 @@ function extractDescription(obj: ts.ObjectLiteralExpression): string | undefined
   return ts.isStringLiteralLike(prop.initializer) ? prop.initializer.text : undefined;
 }
 
+function extractHidden({
+  obj,
+  filePath,
+}: {
+  obj: ts.ObjectLiteralExpression;
+  filePath: string;
+}): boolean | undefined {
+  const prop = getProperty({ obj, key: 'hidden' });
+  if (!prop) {
+    return undefined;
+  }
+  const v = readBooleanLiteral(prop.initializer);
+  if (v === null) {
+    throw new Error(`parsh: ${filePath} — \`hidden\` must be a boolean literal (true | false)`);
+  }
+  return v;
+}
+
 function importNameFor({ filePath }: { filePath: string }): string {
   const noExt = filePath.replace(/\.ts$/, '');
   const parts = noExt.split('/');
@@ -368,6 +386,7 @@ export async function extractCommand({
   });
   const paramNames = objectKeys(objectInitializerOf({ obj: defArg, key: 'params' }));
   const description = extractDescription(defArg);
+  const hidden = extractHidden({ obj: defArg, filePath });
   return {
     filePath,
     pathString,
@@ -377,5 +396,6 @@ export async function extractCommand({
     importName: importNameFor({ filePath }),
     importSpecifier: importSpecifierFor({ outDir, filePath }),
     ...(description !== undefined ? { description } : {}),
+    ...(hidden !== undefined ? { hidden } : {}),
   };
 }

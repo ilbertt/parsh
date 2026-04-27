@@ -43,6 +43,7 @@ export interface RuntimeCommand {
   optionNames: ReadonlyArray<OptionMeta>;
   paramNames: ReadonlyArray<string>;
   description?: string;
+  hidden?: boolean;
   load: () => Promise<LoadedCommand>;
 }
 
@@ -409,7 +410,7 @@ function renderRootUsage({
   function walk({ node, prefix }: { node: RuntimeNode; prefix: string[] }) {
     for (const [name, child] of Object.entries(node.literalChildren)) {
       const pieces = [...prefix, name];
-      if (child.command) {
+      if (child.command && child.command.hidden !== true) {
         rows.push({ label: pieces.join(' '), description: child.command.description });
       }
       walk({ node: child, prefix: pieces });
@@ -418,7 +419,7 @@ function renderRootUsage({
       const pc = node.paramChild;
       const segName = pc.segment?.kind === 'param' ? pc.segment.name : 'param';
       const pieces = [...prefix, `<${segName}>`];
-      if (pc.command) {
+      if (pc.command && pc.command.hidden !== true) {
         rows.push({ label: pieces.join(' '), description: pc.command.description });
       }
       walk({ node: pc, prefix: pieces });
@@ -501,15 +502,19 @@ function renderCommandUsage({
     lines.push('');
   }
 
-  const subs = Object.keys(node.literalChildren).sort();
-  if (subs.length > 0 || node.paramChild) {
+  const visibleSubs = Object.keys(node.literalChildren)
+    .sort()
+    .filter((name) => node.literalChildren[name]!.command?.hidden !== true);
+  const paramChildVisible =
+    node.paramChild?.segment?.kind === 'param' && node.paramChild.command?.hidden !== true;
+  if (visibleSubs.length > 0 || paramChildVisible) {
     lines.push(stdoutBold('Subcommands:'));
     const rows: Array<{ label: string; description: string | undefined }> = [];
-    for (const name of subs) {
+    for (const name of visibleSubs) {
       const child = node.literalChildren[name]!;
       rows.push({ label: name, description: child.command?.description });
     }
-    if (node.paramChild?.segment?.kind === 'param') {
+    if (paramChildVisible && node.paramChild?.segment?.kind === 'param') {
       rows.push({
         label: `<${node.paramChild.segment.name}>`,
         description: node.paramChild.command?.description,

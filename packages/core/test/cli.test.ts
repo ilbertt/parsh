@@ -470,6 +470,74 @@ describe('root --help Commands block', () => {
     expect(commandsBlock).not.toMatch(/^ +config set <key>\s*$/m);
   });
 
+  test('omits commands flagged hidden: true (literal child)', async () => {
+    const tree = root({
+      command: null,
+      children: {
+        secret: literal({
+          value: 'secret',
+          command: lazyCommand({
+            path: 'secret',
+            description: 'should not appear',
+            hidden: true,
+            loaded: { options: {}, handler: () => {} },
+          }),
+        }),
+        visible: literal({
+          value: 'visible',
+          command: lazyCommand({
+            path: 'visible',
+            description: 'shows up',
+            loaded: { options: {}, handler: () => {} },
+          }),
+        }),
+      },
+    });
+    const cli = createCli({ programName: 't', tree });
+    await cli.run(['--help']);
+
+    const out = stdoutText();
+    expect(out).toContain('visible');
+    expect(out).not.toContain('secret');
+    expect(out).not.toContain('should not appear');
+  });
+
+  test('omits hidden param-segment groups from the root help (the [key] case)', async () => {
+    const valueLeaf = lazyCommand({
+      path: 'set [key] [value]',
+      paramNames: ['value'],
+      description: 'Set a value',
+      loaded: { options: {}, handler: () => {} },
+    });
+    const keyGroup = lazyCommand({
+      path: 'set [key]',
+      paramNames: ['key'],
+      hidden: true,
+      loaded: { options: {} },
+    });
+    const tree = root({
+      command: null,
+      children: {
+        set: literal({
+          value: 'set',
+          command: null,
+          paramChild: param({
+            name: 'key',
+            command: keyGroup,
+            paramChild: param({ name: 'value', command: valueLeaf }),
+          }),
+        }),
+      },
+    });
+    const cli = createCli({ programName: 't', tree });
+    await cli.run(['--help']);
+
+    const block = stdoutText();
+    const commandsBlock = block.slice(block.indexOf('Commands:'));
+    expect(commandsBlock).toContain('set <key> <value>');
+    expect(commandsBlock).not.toMatch(/^ +set <key>\s*$/m);
+  });
+
   test('keeps explicit group commands (defineCommand without handler) in the list', async () => {
     const cli = createCli({
       programName: 'mycli',

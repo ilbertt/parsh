@@ -159,6 +159,7 @@ For deeper option/param patterns (aliases, required, defaults, `forwardToChildre
 - The path string declares which params exist; the `params` object declares their schemas. **Wrong key, missing key, or extra key are compile errors.**
 - **Children inherit ancestor params** — they don't redeclare them. Reach them through `parents['<ancestor path>'].params`.
 - **A parent with no `handler` is a routing group** — running it prints help and exits.
+- **`hidden: true` on `defineCommand` removes the command from parent help listings.** It can still be invoked and `--help`'d directly. Useful for `[name].ts` files that exist purely to declare a param schema for descendants and aren't meant to be run on their own.
 
 ## Always regenerate after editing `commands/`
 

@@ -14,12 +14,14 @@ export function lazyCommand({
   optionNames = [],
   paramNames = [],
   description,
+  hidden,
   loaded,
 }: {
   path: string;
   optionNames?: ReadonlyArray<OptionMeta>;
   paramNames?: ReadonlyArray<string>;
   description?: string;
+  hidden?: boolean;
   loaded: LoadedCommand;
 }): RuntimeCommand {
   return {
@@ -27,6 +29,7 @@ export function lazyCommand({
     optionNames,
     paramNames,
     ...(description === undefined ? {} : { description }),
+    ...(hidden === undefined ? {} : { hidden }),
     load: async () => loaded,
   };
 }

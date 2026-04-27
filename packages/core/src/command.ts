@@ -61,6 +61,7 @@ type DefinedCommand<
   params: Params;
   helpArg: HelpArgConfig;
   description?: string;
+  hidden?: boolean;
   handler?: (ctx: unknown) => void | Promise<void>;
   beforeHandler?: (ctx: unknown) => void | Promise<void>;
   afterHandler?: (ctx: unknown) => void | Promise<void>;
@@ -106,6 +107,8 @@ export function defineCommand<
     /** @default { enabled: true } */
     helpArg?: HelpArgConfig;
     description?: string;
+    /** Omit this command from parent help listings. It can still be invoked and `--help`'d directly. */
+    hidden?: boolean;
     handler?: (ctx: HandlerCtx<P, Options, Params>) => void | Promise<void>;
     /** Runs before `handler`. Throwing aborts the handler and `afterHandler`. */
     beforeHandler?: (ctx: HandlerCtx<P, Options, Params>) => void | Promise<void>;

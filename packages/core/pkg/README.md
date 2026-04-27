@@ -133,11 +133,8 @@ createCli({
       print.error(error.message);
       return exit(1);
     }
-    // void → fall through to default stderr + exit code
   },
 });
 ```
-
-`code` also includes four built-ins for framework error sites: `'PARSE'`, `'VALIDATION'`, `'LOAD'`, `'UNKNOWN'`. Return `exit(n)` to override the exit code and suppress default output, or `void` to fall through.
 
 Pair with [`@parshjs/env`](https://www.npmjs.com/package/@parshjs/env) for typed env vars and [`@parshjs/files`](https://www.npmjs.com/package/@parshjs/files) for typed JSON storage.

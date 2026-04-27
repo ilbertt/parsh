@@ -29,6 +29,7 @@
 - Internal/test code and unpublished packages use `#*` subpath mapping (e.g. `import { foo } from '#services/foo'`) configured via the package's `imports` field. These never go through declaration emit.
 - Single source of truth — never duplicate keys, enum values, or type info that belongs to a class/module; derive from the source instead
 - Biome enforces `useMaxParams: 1` — wrap multiple params in an object
+- Only re-export from index files - Biome enforces that
 
 ## Validation
 

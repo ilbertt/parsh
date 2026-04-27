@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/complexity/noBannedTypes: empty-object shapes mirror the generated registry */
+/** biome-ignore-all lint/style/noMagicNumbers: literal exit codes in type-test fixtures are intentional */
 import { expectTypeOf } from 'expect-type';
 import { z } from 'zod';
 import { type CommandRegistry, defineCommand } from '#index.ts';
@@ -162,3 +163,85 @@ defineCommand('ctxhost open', {
     expectTypeOf(creds).toEqualTypeOf<{ token: string } | null>();
   },
 });
+
+import { type CommandLoadError, type ExitFn, ExitSignal, type OnErrorHandlerCtx } from '#index.ts';
+
+class NotLoggedIn extends Error {
+  static readonly code = 'NotLoggedIn' as const;
+}
+class RateLimited extends Error {
+  static readonly code = 'RateLimited' as const;
+  readonly retryAfter: number = 0;
+}
+
+createCli({
+  programName: 'errs',
+  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
+  errors: { NotLoggedIn, RateLimited },
+  onError: ({ code, error, ctx, exit }) => {
+    expectTypeOf(code).toEqualTypeOf<
+      'NotLoggedIn' | 'RateLimited' | 'PARSE' | 'VALIDATION' | 'LOAD' | 'UNKNOWN'
+    >();
+    expectTypeOf(exit).toEqualTypeOf<ExitFn>();
+    if (code === 'NotLoggedIn') {
+      expectTypeOf(error).toEqualTypeOf<NotLoggedIn>();
+      expectTypeOf(ctx).toEqualTypeOf<OnErrorHandlerCtx<Record<string, never>>>();
+      return exit(77);
+    }
+    if (code === 'RateLimited') {
+      expectTypeOf(error).toEqualTypeOf<RateLimited>();
+      expectTypeOf(ctx.context).toEqualTypeOf<Record<string, never>>();
+    }
+    if (code === 'LOAD') {
+      expectTypeOf(error).toEqualTypeOf<CommandLoadError>();
+      expectTypeOf(ctx).toEqualTypeOf<undefined>();
+    }
+    if (code === 'PARSE' || code === 'VALIDATION') {
+      expectTypeOf(error).toEqualTypeOf<Error>();
+      expectTypeOf(ctx).toEqualTypeOf<undefined>();
+    }
+    if (code === 'UNKNOWN') {
+      expectTypeOf(error).toEqualTypeOf<unknown>();
+      expectTypeOf(ctx).toEqualTypeOf<OnErrorHandlerCtx<Record<string, never>>>();
+    }
+  },
+});
+
+// Returning a non-ExitSignal value other than void is rejected.
+createCli({
+  programName: 'errs',
+  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
+  // @ts-expect-error — must return void or ExitSignal
+  onError: () => 5,
+});
+
+// Reserved built-in codes cannot be registered.
+class BadParse extends Error {
+  static readonly code = 'PARSE' as const;
+}
+class BadLoad extends Error {
+  static readonly code = 'LOAD' as const;
+}
+createCli({
+  programName: 'errs',
+  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
+  // @ts-expect-error — 'PARSE' is reserved
+  errors: { BadParse },
+});
+createCli({
+  programName: 'errs',
+  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
+  // @ts-expect-error — 'LOAD' is reserved
+  errors: { BadLoad },
+});
+
+// No `errors`: code union is just the built-ins.
+createCli({
+  programName: 'errs',
+  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
+  onError: ({ code }) => {
+    expectTypeOf(code).toEqualTypeOf<'PARSE' | 'VALIDATION' | 'LOAD' | 'UNKNOWN'>();
+  },
+});
+
+expectTypeOf(new ExitSignal(0)).toMatchTypeOf<{ readonly code: number }>();

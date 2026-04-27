@@ -11,6 +11,16 @@ export {
   type RuntimeNode,
 } from './cli.js';
 export { defineCommand, defineRootCommand } from './command.js';
+export {
+  type BuiltInErrorCode,
+  type ErrorClass,
+  type ErrorsRecord,
+  type ExitFn,
+  ExitSignal,
+  type OnError,
+  type OnErrorHandlerCtx,
+  type OnErrorPayload,
+} from './error-handler.js';
 export type { Print } from './print.js';
 export type { CommandRegistry, Register, RegisteredContext, ResolveContext } from './registry.js';
 export type {

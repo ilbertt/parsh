@@ -36,7 +36,7 @@ describe('generateCommandTree', () => {
       readFile(basic.outFile, 'utf8'),
       readFile(join(FIXTURES, 'basic', 'commandTree.expected.ts'), 'utf8'),
     ]);
-    expect(generated).toBe(expected);
+    expect(generated.replaceAll('\r\n', '\n')).toBe(expected.replaceAll('\r\n', '\n'));
   });
 
   describe('validation rules', () => {

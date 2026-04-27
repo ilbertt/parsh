@@ -1,5 +1,5 @@
 import { readdir, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { extractCommand, extractRootCommand } from './extractor.js';
 import type { CommandNode, SourceSegment } from './types.js';
 
@@ -149,7 +149,7 @@ export async function walkCommandsDir({
   outFile: string;
 }): Promise<CommandNode> {
   const root = emptyNode({ segment: null, path: [] });
-  const outDir = outFile.replace(/[^/]+$/, '');
+  const outDir = dirname(outFile);
 
   async function visit({ dirAbs, node }: { dirAbs: string; node: CommandNode }): Promise<void> {
     const contents = await readDirContents(dirAbs);

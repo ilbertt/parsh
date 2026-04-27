@@ -119,47 +119,25 @@ defineCommand('migrate', {
 
 ## Error handling
 
-Register custom error classes via `errors` and centralize their handling in `onError`. The discriminant is `static readonly code` on each class, so the inferred `code` literal narrows `error` and lets you map exit codes per error type:
+Register `Error` subclasses under `errors` and centralize handling in `onError`. The object key is the `code` surfaced to the hook; `code` narrows `error` to the matching instance type:
 
 ```ts
-class NotAuthorized extends Error {
-  static readonly code = 'NotAuthorized' as const;
-}
-class RateLimited extends Error {
-  static readonly code = 'RateLimited' as const;
-  constructor(public retryAfter: number) {
-    super(`rate limited (retry after ${retryAfter}s)`);
-  }
-}
+class NotAuthorized extends Error {}
 
 createCli({
   programName: 'awslike',
   tree: commandTree,
-  errors: { NotAuthorized, RateLimited },
+  errors: { NotAuthorized },
   onError: ({ code, error, ctx, exit }) => {
     if (code === 'NotAuthorized') {
       ctx.print.error(error.message);
-      return exit(77);
+      return exit(1);
     }
-    if (code === 'RateLimited') {
-      ctx.print.warn(`retry after ${error.retryAfter}s`);
-      return exit(75);
-    }
+    // void → fall through to default stderr + exit code
   },
 });
 ```
 
-`code` is the union of every registered class's static `code` plus four built-ins:
-
-- `'PARSE'` — argv parsing or unknown-command failure.
-- `'VALIDATION'` — option/param schema rejection.
-- `'LOAD'` — `commands/<path>` import or load failure (`error` is `CommandLoadError`).
-- `'UNKNOWN'` — a handler threw something not registered in `errors`.
-
-`ctx` is the same shape your handler sees (options, params, parents, rootOptions, print, context), but is `undefined` for `'PARSE'`/`'VALIDATION'`/`'LOAD'` since those fail before the handler context is built.
-
-Return `exit(n)` to set the exit code and suppress the default stderr line. Return `void` to fall through to the default rendering. Throws inside `onError` itself surface as `app: onError threw: …` and exit `1` — they do not recurse.
-
-The `instanceof` walk follows the insertion order of `errors`, so register most-specific subclasses first (otherwise a parent class will catch its child instances). Class names matching a built-in code (`PARSE`, `VALIDATION`, `LOAD`, `UNKNOWN`) are rejected at compile time.
+`code` also includes four built-ins for framework error sites: `'PARSE'`, `'VALIDATION'`, `'LOAD'`, `'UNKNOWN'`. Return `exit(n)` to override the exit code and suppress default output, or `void` to fall through.
 
 Pair with [`@parshjs/env`](https://www.npmjs.com/package/@parshjs/env) for typed env vars and [`@parshjs/files`](https://www.npmjs.com/package/@parshjs/files) for typed JSON storage.

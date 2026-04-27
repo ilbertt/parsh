@@ -166,11 +166,8 @@ defineCommand('ctxhost open', {
 
 import { type CommandLoadError, type ExitFn, ExitSignal, type OnErrorHandlerCtx } from '#index.ts';
 
-class NotLoggedIn extends Error {
-  static readonly code = 'NotLoggedIn' as const;
-}
+class NotLoggedIn extends Error {}
 class RateLimited extends Error {
-  static readonly code = 'RateLimited' as const;
   readonly retryAfter: number = 0;
 }
 
@@ -201,7 +198,7 @@ createCli({
       expectTypeOf(ctx).toEqualTypeOf<undefined>();
     }
     if (code === 'UNKNOWN') {
-      expectTypeOf(error).toEqualTypeOf<unknown>();
+      expectTypeOf(error).toEqualTypeOf<Error>();
       expectTypeOf(ctx).toEqualTypeOf<OnErrorHandlerCtx<Record<string, never>>>();
     }
   },
@@ -213,26 +210,6 @@ createCli({
   tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
   // @ts-expect-error — must return void or ExitSignal
   onError: () => 5,
-});
-
-// Reserved built-in codes cannot be registered.
-class BadParse extends Error {
-  static readonly code = 'PARSE' as const;
-}
-class BadLoad extends Error {
-  static readonly code = 'LOAD' as const;
-}
-createCli({
-  programName: 'errs',
-  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
-  // @ts-expect-error — 'PARSE' is reserved
-  errors: { BadParse },
-});
-createCli({
-  programName: 'errs',
-  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
-  // @ts-expect-error — 'LOAD' is reserved
-  errors: { BadLoad },
 });
 
 // No `errors`: code union is just the built-ins.

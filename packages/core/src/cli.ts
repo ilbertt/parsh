@@ -6,7 +6,6 @@ import {
   matchRegisteredError,
   type OnError,
   type OnErrorHandlerCtx,
-  type ValidateErrorsRecord,
 } from './error-handler.js';
 import { print } from './print.js';
 import type { ResolveContext } from './registry.js';
@@ -91,12 +90,11 @@ interface CreateCliOptions<
    */
   context?: C;
   /**
-   * Custom error classes. Each must declare `static readonly code = '<name>' as const`.
-   * Object keys are decorative — the discriminant comes from the class's static
-   * `code`. Insertion order controls the `instanceof` walk; register
-   * most-specific subclasses first.
+   * Custom error classes (Error subclasses). The object key is the `code`
+   * surfaced to `onError`. Insertion order controls the `instanceof` walk;
+   * register most-specific subclasses first.
    */
-  errors?: ValidateErrorsRecord<E> & E;
+  errors?: E;
   /**
    * Centralized error hook. Fires for parse, validation, load, and handler
    * errors. Return `exit(n)` to override the exit code and suppress default
@@ -895,7 +893,8 @@ export class Cli<C extends object = Record<string, never>> {
     if (result.ok) {
       return 0;
     }
-    const errVal: unknown = result.error;
+    const raw: unknown = result.error;
+    const errVal: Error = raw instanceof Error ? raw : new Error(String(raw));
     const matchedCode = matchRegisteredError({ error: errVal, errors: this.#errors });
     const errorCtx: OnErrorHandlerCtx = {
       options: ctx.options,
@@ -910,7 +909,7 @@ export class Cli<C extends object = Record<string, never>> {
         code: matchedCode ?? 'UNKNOWN',
         error: errVal,
         ctx: errorCtx,
-        defaultMessage: errVal instanceof Error ? errVal.message : String(errVal),
+        defaultMessage: errVal.message,
         defaultExitCode: 1,
       },
       programName: this.#programName,

@@ -11,9 +11,7 @@ import {
 import { lazyCommand, literal, param, root } from './helpers/runtime-tree.ts';
 import { captureStdio } from './helpers/stdio.ts';
 
-class NotLoggedIn extends Error {
-  static readonly code = 'NotLoggedIn' as const;
-}
+class NotLoggedIn extends Error {}
 
 const { stderrText, stdoutText } = captureStdio();
 
@@ -94,7 +92,7 @@ function makeLoadErrorTree(): RuntimeNode {
 }
 
 describe('onError — registered handler errors', () => {
-  test('routes a registered error class to its static code', async () => {
+  test('routes a registered error class to the object key as code', async () => {
     const seen: Array<{ code: string; isInstance: boolean }> = [];
     const cli = createCli({
       programName: 'app',
@@ -114,30 +112,34 @@ describe('onError — registered handler errors', () => {
   });
 
   test('UNKNOWN code for unregistered handler errors, ctx is provided', async () => {
-    const observed: Array<{ code: string; error: unknown; ctxOptions: unknown }> = [];
+    const observed: Array<{
+      code: string;
+      message: string;
+      isError: boolean;
+      ctxOptions: unknown;
+    }> = [];
     const cli = createCli({
       programName: 'app',
       tree: makeTreeWithThrowingHandler('oops-string-throw'),
       onError: (payload) => {
         observed.push({
           code: payload.code,
-          error: payload.error,
+          message: payload.code === 'UNKNOWN' ? payload.error.message : '',
+          isError: payload.code === 'UNKNOWN' ? payload.error instanceof Error : false,
           ctxOptions: payload.ctx?.options,
         });
       },
     });
     const exitCode = await cli.run(['run']);
     expect(exitCode).toBe(1);
-    expect(observed).toEqual([{ code: 'UNKNOWN', error: 'oops-string-throw', ctxOptions: {} }]);
+    expect(observed).toEqual([
+      { code: 'UNKNOWN', message: 'oops-string-throw', isError: true, ctxOptions: {} },
+    ]);
   });
 
   test('first match wins (registration order)', async () => {
-    class Parent extends Error {
-      static readonly code = 'Parent' as const;
-    }
-    class Child extends Error {
-      static readonly code = 'Child' as const;
-    }
+    class Parent extends Error {}
+    class Child extends Error {}
     Object.setPrototypeOf(Child.prototype, Parent.prototype);
 
     const codes: string[] = [];

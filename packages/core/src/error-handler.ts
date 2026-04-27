@@ -3,21 +3,9 @@ import { stderrBold, stderrRed } from './style.js';
 
 export type BuiltInErrorCode = 'PARSE' | 'VALIDATION' | 'LOAD' | 'UNKNOWN';
 
-type ReservedCodeMessage<K extends string> =
-  `'${K}' is a built-in error code and cannot be used as a custom error code`;
-
-export interface ErrorClass {
-  new (...args: never[]): Error;
-  readonly code: string;
-}
+export type ErrorClass = new (...args: never[]) => Error;
 
 export type ErrorsRecord = Record<string, ErrorClass>;
-
-export type ValidateErrorsRecord<E extends ErrorsRecord> = {
-  [K in keyof E]: E[K]['code'] extends BuiltInErrorCode
-    ? ReservedCodeMessage<E[K]['code'] & string>
-    : E[K];
-};
 
 export interface OnErrorHandlerCtx<C extends object = object> {
   options: Record<string, unknown>;
@@ -28,19 +16,21 @@ export interface OnErrorHandlerCtx<C extends object = object> {
   context: C;
 }
 
-type RegisteredVariants<E extends ErrorsRecord, C extends object> = {
-  [K in keyof E & string]: {
-    code: E[K]['code'];
-    error: InstanceType<E[K]>;
-    ctx: OnErrorHandlerCtx<C>;
-  };
-}[keyof E & string];
+type RegisteredVariants<E extends ErrorsRecord, C extends object> = string extends keyof E
+  ? never
+  : {
+      [K in keyof E & string]: {
+        code: K;
+        error: InstanceType<E[K]>;
+        ctx: OnErrorHandlerCtx<C>;
+      };
+    }[keyof E & string];
 
 export type OnErrorPayload<E extends ErrorsRecord, C extends object> =
   | { code: 'PARSE'; error: Error; ctx?: undefined }
   | { code: 'VALIDATION'; error: Error; ctx?: undefined }
   | { code: 'LOAD'; error: CommandLoadError; ctx?: undefined }
-  | { code: 'UNKNOWN'; error: unknown; ctx: OnErrorHandlerCtx<C> }
+  | { code: 'UNKNOWN'; error: Error; ctx: OnErrorHandlerCtx<C> }
   | RegisteredVariants<E, C>;
 
 export class ExitSignal {
@@ -60,7 +50,6 @@ export type OnError<E extends ErrorsRecord, C extends object> = (
 ) => OnErrorReturn | Promise<OnErrorReturn>;
 
 export class CommandLoadError extends Error {
-  static readonly code = 'LOAD' as const;
   readonly path: string;
   // biome-ignore lint/suspicious/noExplicitAny: error cause is unknown
   override readonly cause: any;
@@ -80,9 +69,9 @@ export function matchRegisteredError({
   error: unknown;
   errors: ErrorsRecord;
 }): string | null {
-  for (const cls of Object.values(errors)) {
+  for (const [code, cls] of Object.entries(errors)) {
     if (error instanceof cls) {
-      return cls.code;
+      return code;
     }
   }
   return null;
@@ -90,7 +79,7 @@ export function matchRegisteredError({
 
 export interface ErrorSite {
   code: string;
-  error: unknown;
+  error: Error;
   ctx?: OnErrorHandlerCtx;
   defaultMessage: string;
   defaultExitCode: number;

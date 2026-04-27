@@ -25,7 +25,8 @@
 
 - No comments that restate what types and naming already say — only comment the non-obvious
 - No comments to highlight code sections - split the files if it's too big or contains unrelated code
-- Imports use `#*` subpath mapping (e.g. `import { foo } from '#services/foo'`)
+- Imports inside a published package's `src/` (anything with a `pkg/` directory) use relative paths with `.js` extensions (e.g. `import { foo } from './services/foo.js'`). Reason: `tsc` preserves the literal specifier in emitted `.d.ts`, so `.js` is what consumers need.
+- Internal/test code and unpublished packages use `#*` subpath mapping (e.g. `import { foo } from '#services/foo'`) configured via the package's `imports` field. These never go through declaration emit.
 - Single source of truth — never duplicate keys, enum values, or type info that belongs to a class/module; derive from the source instead
 - Biome enforces `useMaxParams: 1` — wrap multiple params in an object
 

@@ -133,6 +133,7 @@ createCli({
       print.error(error.message);
       return exit(1);
     }
+    // void → fall through to default stderr + exit code
   },
 });
 ```

@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 
 export const command = defineCommand('ec2 instances list', {
   description: 'List EC2 instances.',

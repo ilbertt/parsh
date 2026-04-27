@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { createFilesContext, osHomeConfigDir } from '@repo/files';
+import { createFilesContext, osHomeConfigDir } from '@parshjs/files';
 import { z } from 'zod';
 
 const credentialsSchema = z.object({

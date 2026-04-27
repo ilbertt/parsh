@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import * as p from '@clack/prompts';
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 import { z } from 'zod';
 import { type TemplateName, templateNames, templates } from '../templates.ts';
 

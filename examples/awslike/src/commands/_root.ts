@@ -1,4 +1,4 @@
-import { defineRootCommand } from '@repo/core';
+import { defineRootCommand } from '@parshjs/core';
 import { z } from 'zod';
 
 export const command = defineRootCommand({

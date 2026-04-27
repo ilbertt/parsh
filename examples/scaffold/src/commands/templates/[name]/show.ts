@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 import { type TemplateName, templateNames, templates } from '../../../templates.ts';
 
 const isTemplate = (s: string): s is TemplateName => (templateNames as string[]).includes(s);

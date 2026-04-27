@@ -1,4 +1,4 @@
-import type { RegisteredContext } from '@repo/core';
+import type { RegisteredContext } from '@parshjs/core';
 
 export async function ensureConfig(ctx: { context: RegisteredContext }): Promise<void> {
   await ctx.context.files.config.ensureExists({

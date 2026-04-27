@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 import { z } from 'zod';
 import { loadState, newId, saveState, stateFile } from '../../state.ts';
 

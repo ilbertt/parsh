@@ -3,17 +3,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "bun src/main.ts",
+    "build": "bun run build.ts",
+    "start": "bun run build > /dev/null && bun dist/main.js",
     "check:types": "bun run --bun tsc",
-    "generate": "parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts --core-module @repo/core"
+    "generate": "parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts"
   },
   "dependencies": {
-    "@repo/core": "workspace:*",
-    "@repo/env": "workspace:*",
+    "@parshjs/core": "../../packages/core/pkg",
+    "@parshjs/env": "../../packages/env/pkg",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@repo/codegen": "workspace:*",
+    "@parshjs/codegen": "../../packages/codegen/pkg",
     "@repo/typescript-config": "workspace:*",
     "typescript": "catalog:"
   }

@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 
 export const command = defineCommand('serve', {
   description: 'Start the (pretend) HTTP server using validated env vars.',

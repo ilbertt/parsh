@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 import { DEFAULT_CONFIG } from '../../files.ts';
 
 export const command = defineCommand('config init', {

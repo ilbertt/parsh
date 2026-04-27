@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { createCli } from '@repo/core';
+import { createCli } from '@parshjs/core';
 import { commandTree } from './commandTree.gen.ts';
 
 /** Injected at build time */

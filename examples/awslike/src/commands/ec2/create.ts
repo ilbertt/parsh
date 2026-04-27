@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 import { z } from 'zod';
 
 const MIN_VCPU = 0.25;

@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 import { render } from 'ink';
 import { createElement } from 'react';
 import { z } from 'zod';

@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 import { loadState, stateFile } from '../state.ts';
 
 export const command = defineCommand('stats', {

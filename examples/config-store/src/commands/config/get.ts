@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 import { ensureConfig } from '../../hooks/ensure-config.ts';
 
 export const command = defineCommand('config get', {

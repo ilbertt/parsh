@@ -1,0 +1,8 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "build":    { "dependsOn": ["@repo/core#build", "@repo/files#build"] },
+    "generate": { "dependsOn": ["@repo/codegen#build"] },
+    "check:types": { "dependsOn": ["@repo/core#build", "@repo/files#build"] }
+  }
+}

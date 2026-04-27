@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { createCli } from '@repo/core';
+import { createCli } from '@parshjs/core';
 import { commandTree } from './commandTree.gen.ts';
 import { envVarsContext } from './env.ts';
 import { filesContext } from './files.ts';
@@ -18,7 +18,7 @@ const cli = createCli({
   },
 });
 
-declare module '@repo/core' {
+declare module '@parshjs/core' {
   interface Register {
     cli: typeof cli;
   }

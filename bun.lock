@@ -17,14 +17,15 @@
     },
     "examples/awslike": {
       "name": "@repo/examples-awslike",
+      "version": "0.1.0",
       "dependencies": {
-        "@repo/core": "workspace:*",
-        "@repo/env": "workspace:*",
-        "@repo/files": "workspace:*",
+        "@parshjs/core": "../../packages/core/pkg",
+        "@parshjs/env": "../../packages/env/pkg",
+        "@parshjs/files": "../../packages/files/pkg",
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@repo/codegen": "workspace:*",
+        "@parshjs/codegen": "../../packages/codegen/pkg",
         "@repo/typescript-config": "workspace:*",
         "typescript": "catalog:",
       },
@@ -32,12 +33,12 @@
     "examples/config-store": {
       "name": "@repo/examples-config-store",
       "dependencies": {
-        "@repo/core": "workspace:*",
-        "@repo/files": "workspace:*",
+        "@parshjs/core": "../../packages/core/pkg",
+        "@parshjs/files": "../../packages/files/pkg",
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@repo/codegen": "workspace:*",
+        "@parshjs/codegen": "../../packages/codegen/pkg",
         "@repo/typescript-config": "workspace:*",
         "typescript": "catalog:",
       },
@@ -45,26 +46,27 @@
     "examples/env-vars": {
       "name": "@repo/examples-env-vars",
       "dependencies": {
-        "@repo/core": "workspace:*",
-        "@repo/env": "workspace:*",
+        "@parshjs/core": "../../packages/core/pkg",
+        "@parshjs/env": "../../packages/env/pkg",
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@repo/codegen": "workspace:*",
+        "@parshjs/codegen": "../../packages/codegen/pkg",
         "@repo/typescript-config": "workspace:*",
         "typescript": "catalog:",
       },
     },
     "examples/pomo": {
       "name": "@repo/examples-pomo",
+      "version": "0.1.0",
       "dependencies": {
-        "@repo/core": "workspace:*",
+        "@parshjs/core": "../../packages/core/pkg",
         "ink": "^5.2.1",
         "react": "^18.3.1",
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@repo/codegen": "workspace:*",
+        "@parshjs/codegen": "../../packages/codegen/pkg",
         "@repo/typescript-config": "workspace:*",
         "@types/react": "^18.3.12",
         "typescript": "catalog:",
@@ -72,13 +74,14 @@
     },
     "examples/scaffold": {
       "name": "@repo/examples-scaffold",
+      "version": "0.1.0",
       "dependencies": {
         "@clack/prompts": "^0.9.1",
-        "@repo/core": "workspace:*",
+        "@parshjs/core": "../../packages/core/pkg",
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@repo/codegen": "workspace:*",
+        "@parshjs/codegen": "../../packages/codegen/pkg",
         "@repo/typescript-config": "workspace:*",
         "typescript": "catalog:",
       },
@@ -449,6 +452,34 @@
     "yoga-layout": ["yoga-layout@3.2.1", "", {}, "sha512-0LPOt3AxKqMdFBZA3HBAt/t/8vIKq7VaQYbuA8WxCgung+p9TVyKRYdpvCb80HcdTN2NkbIKbhNwKUfm3tQywQ=="],
 
     "zod": ["zod@4.3.6", "", {}, "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="],
+
+    "@repo/examples-awslike/@parshjs/codegen": ["@parshjs/codegen@file:packages/codegen/pkg", { "dependencies": { "typescript": "^5.9.3" }, "bin": { "parsh-codegen": "./dist/cli/main.js" } }],
+
+    "@repo/examples-awslike/@parshjs/core": ["@parshjs/core@file:packages/core/pkg", {}],
+
+    "@repo/examples-awslike/@parshjs/env": ["@parshjs/env@file:packages/env/pkg", {}],
+
+    "@repo/examples-awslike/@parshjs/files": ["@parshjs/files@file:packages/files/pkg", {}],
+
+    "@repo/examples-config-store/@parshjs/codegen": ["@parshjs/codegen@file:packages/codegen/pkg", { "dependencies": { "typescript": "^5.9.3" }, "bin": { "parsh-codegen": "./dist/cli/main.js" } }],
+
+    "@repo/examples-config-store/@parshjs/core": ["@parshjs/core@file:packages/core/pkg", {}],
+
+    "@repo/examples-config-store/@parshjs/files": ["@parshjs/files@file:packages/files/pkg", {}],
+
+    "@repo/examples-env-vars/@parshjs/codegen": ["@parshjs/codegen@file:packages/codegen/pkg", { "dependencies": { "typescript": "^5.9.3" }, "bin": { "parsh-codegen": "./dist/cli/main.js" } }],
+
+    "@repo/examples-env-vars/@parshjs/core": ["@parshjs/core@file:packages/core/pkg", {}],
+
+    "@repo/examples-env-vars/@parshjs/env": ["@parshjs/env@file:packages/env/pkg", {}],
+
+    "@repo/examples-pomo/@parshjs/codegen": ["@parshjs/codegen@file:packages/codegen/pkg", { "dependencies": { "typescript": "^5.9.3" }, "bin": { "parsh-codegen": "./dist/cli/main.js" } }],
+
+    "@repo/examples-pomo/@parshjs/core": ["@parshjs/core@file:packages/core/pkg", {}],
+
+    "@repo/examples-scaffold/@parshjs/codegen": ["@parshjs/codegen@file:packages/codegen/pkg", { "dependencies": { "typescript": "^5.9.3" }, "bin": { "parsh-codegen": "./dist/cli/main.js" } }],
+
+    "@repo/examples-scaffold/@parshjs/core": ["@parshjs/core@file:packages/core/pkg", {}],
 
     "cli-truncate/slice-ansi": ["slice-ansi@5.0.0", "", { "dependencies": { "ansi-styles": "^6.0.0", "is-fullwidth-code-point": "^4.0.0" } }, "sha512-FC+lgizVPfie0kkhqUScwRu1O/lF6NOgJmlCgK+/LYxDCTk8sGelYaHDhFcDN+Sn3Cv+3VSa4Byeo+IMCzpMgQ=="],
 

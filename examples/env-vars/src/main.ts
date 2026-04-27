@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-import { createCli } from '@repo/core';
-import { createEnvContext } from '@repo/env';
+import { createCli } from '@parshjs/core';
+import { createEnvContext } from '@parshjs/env';
 import { commandTree } from './commandTree.gen.ts';
 import { databaseUrlSchema, nodeEnvSchema, portSchema } from './env.ts';
 
@@ -19,7 +19,7 @@ export const cli = createCli({
   },
 });
 
-declare module '@repo/core' {
+declare module '@parshjs/core' {
   interface Register {
     cli: typeof cli;
   }

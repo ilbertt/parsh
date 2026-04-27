@@ -1,4 +1,4 @@
-import { createEnvContext } from '@repo/env';
+import { createEnvContext } from '@parshjs/env';
 import { z } from 'zod';
 
 export const envVarsContext = createEnvContext({

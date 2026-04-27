@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 import { templateNames, templates } from '../../templates.ts';
 
 const NAME_COL_WIDTH = 8;

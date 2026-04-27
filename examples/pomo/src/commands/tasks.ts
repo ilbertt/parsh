@@ -1,4 +1,4 @@
-import { defineCommand } from '@repo/core';
+import { defineCommand } from '@parshjs/core';
 
 export const command = defineCommand('tasks', {
   description: 'Manage pomodoro tasks.',

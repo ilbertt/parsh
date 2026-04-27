@@ -17,7 +17,7 @@ If that doesn't fix it, check in this order:
 1. Did you create the file at the **exact location** matching the path string? `defineCommand('a b c', …)` must live at `commands/a/b/c.ts` (or `commands/a/b/c/_root.ts` for a routing group with descendants).
 2. Does the file `export const command = defineCommand(…)`? The codegen looks for the named `command` export.
 3. Is the file named with one of the codegen's filters? It **ignores** `*.gen.ts`, `*.test.ts`, and any `_*` filename other than `_root.ts`.
-4. Did you import `defineCommand` / `defineRootCommand` from `@parsh/core` (or the workspace alias) and **not** redefine them locally?
+4. Did you import `defineCommand` / `defineRootCommand` from `@parshjs/core` (or the workspace alias) and **not** redefine them locally?
 
 ## TS errors after renaming a path or a param
 
@@ -58,7 +58,7 @@ handler: ({ context }) => { context.db /* … */ }
 
 ```ts
 // in the same file as createCli:
-declare module '@parsh/core' {
+declare module '@parshjs/core' {
   interface Register {
     cli: typeof cli;
   }

@@ -1,11 +1,11 @@
 ---
 name: parsh-env
-description: How to use @parsh/env for typed, lazy environment-variable access in a parsh CLI. Use when adding env vars to a CLI, or when you see a handler reading `process.env` directly. Pairs with the parsh skill — read that first if you don't know how parsh CLIs are structured.
+description: How to use @parshjs/env for typed, lazy environment-variable access in a parsh CLI. Use when adding env vars to a CLI, or when you see a handler reading `process.env` directly. Pairs with the parsh skill — read that first if you don't know how parsh CLIs are structured.
 ---
 
 # parsh-env
 
-[`@parsh/env`](https://www.npmjs.com/package/@parsh/env) gives a parsh CLI a typed, lazy `ctx.context.env` for environment variables. It validates each variable with [Standard Schema v1](https://standardschema.dev) (Zod, Valibot, ArkType, …) the first time a handler reads it — subcommands that never touch a variable never pay the cost or throw on a missing one.
+[`@parshjs/env`](https://www.npmjs.com/package/@parshjs/env) gives a parsh CLI a typed, lazy `ctx.context.env` for environment variables. It validates each variable with [Standard Schema v1](https://standardschema.dev) (Zod, Valibot, ArkType, …) the first time a handler reads it — subcommands that never touch a variable never pay the cost or throw on a missing one.
 
 For the broader parsh workflow (commands, codegen, `Register`), see [`../parsh/SKILL.md`](../parsh/SKILL.md).
 
@@ -15,12 +15,12 @@ For the broader parsh workflow (commands, codegen, `Register`), see [`../parsh/S
 - A handler is reading `process.env.X` directly — replace with `ctx.context.env.X`.
 - The CLI needs config that depends on the deployment environment (DB URL, ports, feature flags, secrets).
 
-**Do not use** for CLI flags — those go in `defineCommand({ options: … })`. `@parsh/env` is exclusively for `process.env`-style variables.
+**Do not use** for CLI flags — those go in `defineCommand({ options: … })`. `@parshjs/env` is exclusively for `process.env`-style variables.
 
 ## Install
 
 ```sh
-bun add @parsh/env
+bun add @parshjs/env
 ```
 
 ## Setup
@@ -29,8 +29,8 @@ Inject `createEnvContext` into `createCli`'s `context`, and register the `Cli` s
 
 ```ts
 // src/main.ts
-import { createCli } from '@parsh/core';
-import { createEnvContext } from '@parsh/env';
+import { createCli } from '@parshjs/core';
+import { createEnvContext } from '@parshjs/env';
 import { z } from 'zod';
 import { commandTree } from './commandTree.gen.ts';
 
@@ -48,7 +48,7 @@ const cli = createCli({
   },
 });
 
-declare module '@parsh/core' {
+declare module '@parshjs/core' {
   interface Register {
     cli: typeof cli;
   }
@@ -80,7 +80,7 @@ Each variable is validated lazily, **on first access**. Once validated, the valu
 
 ## Coercion
 
-`@parsh/env` tries the raw string as-is, then numerically, then as a boolean — first success wins. So `z.number()` and `z.boolean()` work without `z.coerce.*`:
+`@parshjs/env` tries the raw string as-is, then numerically, then as a boolean — first success wins. So `z.number()` and `z.boolean()` work without `z.coerce.*`:
 
 ```ts
 vars: {
@@ -129,5 +129,5 @@ createEnvContext({
 - **Reading `process.env.X` directly inside a handler.** Use `ctx.context.env.X` instead — typed, validated, lazy.
 - **Looking on `ctx.env` instead of `ctx.context.env`.** Registered context always lives under `ctx.context`. The flat `ctx.env` doesn't exist.
 - **Forgetting the `Register` augmentation.** Without it, `ctx.context` is invisible at the type level. See the [parsh skill](../parsh/SKILL.md#shared-context).
-- **Using `z.coerce.*` for numbers/booleans.** Not needed — `@parsh/env` coerces automatically.
+- **Using `z.coerce.*` for numbers/booleans.** Not needed — `@parshjs/env` coerces automatically.
 - **Putting CLI flags in `vars`.** Flags go in `defineCommand({ options: … })`, not in env.

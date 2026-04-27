@@ -1,4 +1,4 @@
-# @parsh/core
+# @parshjs/core
 
 Type-safe router for TypeScript CLIs.
 
@@ -12,8 +12,8 @@ Type-safe router for TypeScript CLIs.
 ## Install
 
 ```sh
-bun add @parsh/core
-bun add -d @parsh/codegen
+bun add @parshjs/core
+bun add -d @parshjs/codegen
 ```
 
 ## Define commands
@@ -22,7 +22,7 @@ The path string passed to `defineCommand` is the source of truth. Space-separate
 
 ```ts
 // commands/_root.ts
-import { defineRootCommand } from '@parsh/core';
+import { defineRootCommand } from '@parshjs/core';
 import { z } from 'zod';
 
 export const command = defineRootCommand({
@@ -41,7 +41,7 @@ export const command = defineRootCommand({
 
 ```ts
 // commands/s3/buckets/[name]/create.ts
-import { defineCommand } from '@parsh/core';
+import { defineCommand } from '@parshjs/core';
 import { z } from 'zod';
 
 export const command = defineCommand('s3 buckets [name] create', {
@@ -70,7 +70,7 @@ The generated file is what makes `ctx` typed inside every handler — keep it un
 
 ```ts
 // main.ts
-import { createCli } from '@parsh/core';
+import { createCli } from '@parshjs/core';
 import { commandTree } from './commandTree.gen.ts';
 
 await createCli({
@@ -91,7 +91,7 @@ const cli = createCli({
   context: { db: connect(), now: () => new Date() },
 });
 
-declare module '@parsh/core' {
+declare module '@parshjs/core' {
   interface Register {
     cli: typeof cli;
   }
@@ -114,4 +114,4 @@ defineCommand('migrate', {
 });
 ```
 
-Pair with [`@parsh/env`](https://www.npmjs.com/package/@parsh/env) for typed env vars and [`@parsh/files`](https://www.npmjs.com/package/@parsh/files) for typed JSON storage.
+Pair with [`@parshjs/env`](https://www.npmjs.com/package/@parshjs/env) for typed env vars and [`@parshjs/files`](https://www.npmjs.com/package/@parshjs/files) for typed JSON storage.

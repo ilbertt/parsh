@@ -1,5 +1,5 @@
 {
-  "name": "@parsh/env",
+  "name": "@parshjs/env",
   "description": "Typed environment variable access for parsh CLIs.",
   "version": "0.0.1",
   "repository": {

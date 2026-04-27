@@ -1,11 +1,11 @@
 ---
 name: parsh-files
-description: How to use @parsh/files for typed JSON file storage in a parsh CLI. Use when adding persistent config or state to a CLI (credentials, user prefs, cached state) — anything written as JSON on disk. Pairs with the parsh skill — read that first if you don't know how parsh CLIs are structured.
+description: How to use @parshjs/files for typed JSON file storage in a parsh CLI. Use when adding persistent config or state to a CLI (credentials, user prefs, cached state) — anything written as JSON on disk. Pairs with the parsh skill — read that first if you don't know how parsh CLIs are structured.
 ---
 
 # parsh-files
 
-[`@parsh/files`](https://www.npmjs.com/package/@parsh/files) gives a parsh CLI a typed `ctx.context.files` for persistent JSON storage. Each file is declared with a [Standard Schema v1](https://standardschema.dev) schema (Zod, Valibot, ArkType, …); reads and writes are validated and atomic (write-via-rename, never half-written JSON on disk).
+[`@parshjs/files`](https://www.npmjs.com/package/@parshjs/files) gives a parsh CLI a typed `ctx.context.files` for persistent JSON storage. Each file is declared with a [Standard Schema v1](https://standardschema.dev) schema (Zod, Valibot, ArkType, …); reads and writes are validated and atomic (write-via-rename, never half-written JSON on disk).
 
 For the broader parsh workflow (commands, codegen, `Register`), see [`../parsh/SKILL.md`](../parsh/SKILL.md).
 
@@ -20,7 +20,7 @@ For the broader parsh workflow (commands, codegen, `Register`), see [`../parsh/S
 ## Install
 
 ```sh
-bun add @parsh/files
+bun add @parshjs/files
 ```
 
 ## Setup
@@ -30,8 +30,8 @@ Inject `createFilesContext` into `createCli`'s `context`, and register the `Cli`
 ```ts
 // src/main.ts
 import { join } from 'node:path';
-import { createCli } from '@parsh/core';
-import { createFilesContext, osHomeConfigDir } from '@parsh/files';
+import { createCli } from '@parshjs/core';
+import { createFilesContext, osHomeConfigDir } from '@parshjs/files';
 import { z } from 'zod';
 import { commandTree } from './commandTree.gen.ts';
 
@@ -55,7 +55,7 @@ const cli = createCli({
   },
 });
 
-declare module '@parsh/core' {
+declare module '@parshjs/core' {
   interface Register {
     cli: typeof cli;
   }
@@ -140,5 +140,5 @@ These are **developer signals**. Surface them to the user via a friendly `messag
 
 - **Forgetting the `Register` augmentation.** Without it, `ctx.files` is invisible. See the [parsh skill](../parsh/SKILL.md#shared-context).
 - **Using `read()` without `ensureExists()`.** `read()` throws on missing — call it from a handler that's already gated by `ensureExists()` in `beforeHandler`, or use `maybeRead()` and handle `null`.
-- **Hand-rolling JSON read/write next to `@parsh/files`.** Use the typed handle so writes are atomic and schema-checked.
+- **Hand-rolling JSON read/write next to `@parshjs/files`.** Use the typed handle so writes are atomic and schema-checked.
 - **Storing large or binary data.** This package is for small JSON state.

@@ -1,6 +1,6 @@
 # scaffold
 
-A `create-app`-style CLI built with parsh + [@clack/prompts](https://github.com/bombshell-dev/clack). Demonstrates how a parsh handler can drive an interactive wizard without `@parsh/core` knowing anything about prompts.
+A `create-app`-style CLI built with parsh + [@clack/prompts](https://github.com/bombshell-dev/clack). Demonstrates how a parsh handler can drive an interactive wizard without `@parshjs/core` knowing anything about prompts.
 
 ```sh
 bun run generate                    # regenerate src/commandTree.gen.ts

@@ -1,6 +1,6 @@
 # pomo
 
-A pomodoro timer CLI built with parsh + [Ink](https://github.com/vadimdemedes/ink). Demonstrates how a parsh handler can render a live TUI without `@parsh/core` knowing anything about React.
+A pomodoro timer CLI built with parsh + [Ink](https://github.com/vadimdemedes/ink). Demonstrates how a parsh handler can render a live TUI without `@parshjs/core` knowing anything about React.
 
 State is persisted to `~/.pomo-example.json`.
 

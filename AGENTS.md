@@ -5,9 +5,9 @@
 ## Non-negotiables
 
 1. **No `any` in public API types.** `unknown` where necessary. If tempted to reach for `any`, stop and ask.
-2. **Schema-agnostic via Standard Schema v1.** `@parsh/core` depends on the `~standard` interface only. Zod is allowed in tests and fixtures, never as a dependency of core.
+2. **Schema-agnostic via Standard Schema v1.** `@parshjs/core` depends on the `~standard` interface only. Zod is allowed in tests and fixtures, never as a dependency of core.
 3. **Object-config API.** `defineCommand('path', {...})` with an explicit path string. No fluent chain.
-4. **Headless core.** No Ink, chalk, ora, or terminal-rendering deps in `@parsh/core` or `@parsh/codegen`.
+4. **Headless core.** No Ink, chalk, ora, or terminal-rendering deps in `@parshjs/core` or `@parshjs/codegen`.
 5. **Filesystem is the source of truth.** Users declare commands by creating files. They never maintain a hand-written mirror of the command tree.
 6. **End-to-end inference is the product.** Handler `ctx` is typed via `CommandRegistry[Path]` lookup, populated by the generated file. Zero user-written generics at call sites. If inference breaks, that's a P0 bug.
 7. **Generator verbosity beats clever types.** Precompute intersections in the generated `declare module` block. Do not compute them via recursive conditional types at use sites. The spike proved this keeps compile times flat even at depth.
@@ -47,7 +47,7 @@ When running a script, always check `package.json` scripts (root and per-app) fo
 Packages fall in two buckets:
 
 - **Published packages** (have a `pkg/` directory) carry **two** READMEs:
-  - **`packages/<package>/pkg/README.md`** — public, user-facing. Ships to npm as part of `@parsh/<package>` (listed under `"files"` in `pkg/package.json`). This is what users see on the npm page. Covers install, usage, and public API. Must use the published name (`@parsh/...`), not the workspace name (`@repo/...`).
+  - **`packages/<package>/pkg/README.md`** — public, user-facing. Ships to npm as part of `@parshjs/<package>` (listed under `"files"` in `pkg/package.json`). This is what users see on the npm page. Covers install, usage, and public API. Must use the published name (`@parshjs/...`), not the workspace name (`@repo/...`).
   - **`packages/<package>/README.md`** — internal contributor doc. Covers source layout, dev scripts, and constraints. **Must link to `pkg/README.md`** and **must not duplicate install/usage** — when in doubt, the public README wins and the internal one points to it.
 - **Internal-only packages** (no `pkg/`) may not need a README at all. Add one only when there's contributor-relevant context that isn't obvious from the source.
 

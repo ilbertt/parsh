@@ -20,7 +20,7 @@ export interface CommandRegistry {}
  * `context` type — to the package globally. Mirrors TanStack Router's
  * `Register` pattern:
  *
- *     declare module '@parsh/core' {
+ *     declare module '@parshjs/core' {
  *       interface Register { cli: typeof cli }
  *     }
  *

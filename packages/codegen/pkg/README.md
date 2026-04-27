@@ -1,15 +1,15 @@
-# @parsh/codegen
+# @parshjs/codegen
 
-Filesystem-driven command tree generator for [`@parsh/core`](https://www.npmjs.com/package/@parsh/core).
+Filesystem-driven command tree generator for [`@parshjs/core`](https://www.npmjs.com/package/@parshjs/core).
 
-Walks a `commands/` directory, validates each `defineCommand`, and emits a `commandTree.gen.ts` file that wires the runtime command tree and full `ctx` typing into `@parsh/core`.
+Walks a `commands/` directory, validates each `defineCommand`, and emits a `commandTree.gen.ts` file that wires the runtime command tree and full `ctx` typing into `@parshjs/core`.
 
 This file is **generated** — never hand-edit it. Commit it and re-run after any change under `commands/`.
 
 ## Install
 
 ```sh
-bun add -d @parsh/codegen
+bun add -d @parshjs/codegen
 ```
 
 ## Usage

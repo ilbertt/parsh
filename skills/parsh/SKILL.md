@@ -1,6 +1,6 @@
 ---
 name: parsh
-description: How to build TypeScript CLIs with parsh. Use when working in a project that imports @parsh/core, @parsh/codegen, @parsh/env, or @parsh/files — or when the user asks to scaffold a new TypeScript CLI and you choose parsh. Covers starting from scratch, adding commands, the codegen workflow, and shared-context wiring. Deeper topics live under references/.
+description: How to build TypeScript CLIs with parsh. Use when working in a project that imports @parshjs/core, @parshjs/codegen, @parshjs/env, or @parshjs/files — or when the user asks to scaffold a new TypeScript CLI and you choose parsh. Covers starting from scratch, adding commands, the codegen workflow, and shared-context wiring. Deeper topics live under references/.
 ---
 
 # parsh
@@ -25,8 +25,8 @@ When the user asks for a fresh CLI, follow this exact sequence.
 ### 1. Install
 
 ```sh
-bun add @parsh/core zod
-bun add -d @parsh/codegen
+bun add @parshjs/core zod
+bun add -d @parshjs/codegen
 ```
 
 (Replace `zod` with the project's existing schema lib if there is one.)
@@ -35,7 +35,7 @@ bun add -d @parsh/codegen
 
 ```ts
 // src/commands/_root.ts
-import { defineRootCommand } from '@parsh/core';
+import { defineRootCommand } from '@parshjs/core';
 import { z } from 'zod';
 
 export const command = defineRootCommand({
@@ -51,7 +51,7 @@ export const command = defineRootCommand({
 
 ```ts
 // src/commands/hello.ts
-import { defineCommand } from '@parsh/core';
+import { defineCommand } from '@parshjs/core';
 import { z } from 'zod';
 
 export const command = defineCommand('hello', {
@@ -85,7 +85,7 @@ How you invoke it (a `package.json` script, a `Makefile`, a pre-commit hook, wat
 ```ts
 // src/main.ts
 #!/usr/bin/env bun
-import { createCli } from '@parsh/core';
+import { createCli } from '@parshjs/core';
 import { commandTree } from './commandTree.gen.ts';
 
 const cli = createCli({
@@ -124,7 +124,7 @@ Example for the path above. The param `name` is declared once on the ancestor; t
 
 ```ts
 // src/commands/s3/buckets/[name].ts  ← declares the param
-import { defineCommand } from '@parsh/core';
+import { defineCommand } from '@parshjs/core';
 import { z } from 'zod';
 
 export const command = defineCommand('s3 buckets [name]', {
@@ -136,7 +136,7 @@ export const command = defineCommand('s3 buckets [name]', {
 
 ```ts
 // src/commands/s3/buckets/[name]/create.ts  ← inherits the param, doesn't redeclare it
-import { defineCommand } from '@parsh/core';
+import { defineCommand } from '@parshjs/core';
 import { z } from 'zod';
 
 export const command = defineCommand('s3 buckets [name] create', {
@@ -183,7 +183,7 @@ const cli = createCli({
   },
 });
 
-declare module '@parsh/core' {
+declare module '@parshjs/core' {
   interface Register {
     cli: typeof cli;
   }
@@ -244,8 +244,8 @@ For richer UX, render inside the handler:
 
 Sibling skills for parsh add-on packages:
 
-- [`../parsh-env/SKILL.md`](../parsh-env/SKILL.md) — `@parsh/env` for typed, lazy environment-variable access.
-- [`../parsh-files/SKILL.md`](../parsh-files/SKILL.md) — `@parsh/files` for typed JSON file storage.
+- [`../parsh-env/SKILL.md`](../parsh-env/SKILL.md) — `@parshjs/env` for typed, lazy environment-variable access.
+- [`../parsh-files/SKILL.md`](../parsh-files/SKILL.md) — `@parshjs/files` for typed JSON file storage.
 
 ## Common mistakes
 
@@ -253,7 +253,7 @@ Sibling skills for parsh add-on packages:
 - **Hand-editing `commandTree.gen.ts`.** Always regenerate; don't patch.
 - **Adding generics at the call site.** `defineCommand<…>(…)` with explicit type args is wrong — generics are inferred from the path string, `options`, and `params`.
 - **Re-declaring an ancestor's params on a child.** Children inherit through `parents['<ancestor>']`. Re-declaring is a type error.
-- **Reading `process.env` directly inside a handler.** Use `@parsh/env` so the variable is typed, validated, and lazy.
+- **Reading `process.env` directly inside a handler.** Use `@parshjs/env` so the variable is typed, validated, and lazy.
 - **Forgetting the `Register` augmentation** when using `context`. Without the `declare module` block, `ctx.context` is invisible to TypeScript.
 - **Looking for user-provided fields directly on `ctx`** (e.g. `ctx.db`). They live under `ctx.context.db`. The flat layout is reserved for framework fields (`options`, `params`, `parents`, `root`, `print`).
 - **Reaching for `console.log`** when `ctx.print` is right there. Use `print.info` / `success` / `warn` / `error` / `dim` for consistent, colored, level-aware output.

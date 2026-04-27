@@ -1,6 +1,6 @@
-# @parsh/files
+# @parshjs/files
 
-Typed JSON file storage for [`@parsh/core`](https://www.npmjs.com/package/@parsh/core) handler `ctx`.
+Typed JSON file storage for [`@parshjs/core`](https://www.npmjs.com/package/@parshjs/core) handler `ctx`.
 
 - **Standard Schema v1** — bring your own validator (Zod, Valibot, ArkType, …).
 - **Typed handles** — each file gets a `read()` / `write()` API typed from its schema.
@@ -10,15 +10,15 @@ Typed JSON file storage for [`@parsh/core`](https://www.npmjs.com/package/@parsh
 ## Install
 
 ```sh
-bun add @parsh/files
+bun add @parshjs/files
 ```
 
 ## Usage
 
 ```ts
 import { join } from 'node:path';
-import { createCli } from '@parsh/core';
-import { createFilesContext, osHomeConfigDir } from '@parsh/files';
+import { createCli } from '@parshjs/core';
+import { createFilesContext, osHomeConfigDir } from '@parshjs/files';
 import { z } from 'zod';
 import { commandTree } from './commandTree.gen.ts';
 
@@ -38,7 +38,7 @@ const cli = createCli({
   },
 });
 
-declare module '@parsh/core' {
+declare module '@parshjs/core' {
   interface Register {
     cli: typeof cli;
   }

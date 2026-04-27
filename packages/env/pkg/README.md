@@ -1,6 +1,6 @@
-# @parsh/env
+# @parshjs/env
 
-Typed, lazy environment-variable access for [`@parsh/core`](https://www.npmjs.com/package/@parsh/core) handler `ctx`.
+Typed, lazy environment-variable access for [`@parshjs/core`](https://www.npmjs.com/package/@parshjs/core) handler `ctx`.
 
 - **Standard Schema v1** — bring your own validator (Zod, Valibot, ArkType, …).
 - **Lazy** — variables are validated the first time a handler reads them. Subcommands that never touch a variable never pay the cost or risk a missing-env error.
@@ -9,14 +9,14 @@ Typed, lazy environment-variable access for [`@parsh/core`](https://www.npmjs.co
 ## Install
 
 ```sh
-bun add @parsh/env
+bun add @parshjs/env
 ```
 
 ## Usage
 
 ```ts
-import { createCli } from '@parsh/core';
-import { createEnvContext } from '@parsh/env';
+import { createCli } from '@parshjs/core';
+import { createEnvContext } from '@parshjs/env';
 import { z } from 'zod';
 import { commandTree } from './commandTree.gen.ts';
 
@@ -34,7 +34,7 @@ const cli = createCli({
   },
 });
 
-declare module '@parsh/core' {
+declare module '@parshjs/core' {
   interface Register {
     cli: typeof cli;
   }

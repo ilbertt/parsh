@@ -1,5 +1,5 @@
 {
-  "name": "@parsh/codegen",
+  "name": "@parshjs/codegen",
   "description": "Filesystem-driven command tree generator for parsh.",
   "version": "0.0.1",
   "repository": {

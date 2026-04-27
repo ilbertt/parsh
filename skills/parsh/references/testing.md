@@ -25,7 +25,7 @@ Capture whichever channel matches the assertion you want to make.
 
 ```ts
 import { describe, expect, test } from 'bun:test';
-import { createCli } from '@parsh/core';
+import { createCli } from '@parshjs/core';
 import { commandTree } from '../src/commandTree.gen.ts';
 
 function makeCli() {
@@ -96,10 +96,10 @@ const cli = createCli({
 await cli.run(['migrate']);
 ```
 
-For `@parsh/env`, pass a `source` to `createEnvContext` to bypass `process.env`:
+For `@parshjs/env`, pass a `source` to `createEnvContext` to bypass `process.env`:
 
 ```ts
-import { createEnvContext } from '@parsh/env';
+import { createEnvContext } from '@parshjs/env';
 
 context: {
   env: createEnvContext({
@@ -109,12 +109,12 @@ context: {
 }
 ```
 
-For `@parsh/files`, point `basePath` at a temp dir created per test:
+For `@parshjs/files`, point `basePath` at a temp dir created per test:
 
 ```ts
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join, tmpdir } from 'node:path';
-import { createFilesContext } from '@parsh/files';
+import { createFilesContext } from '@parshjs/files';
 
 const basePath = mkdtempSync(join(tmpdir(), 'mycli-test-'));
 afterEach(() => rmSync(basePath, { recursive: true, force: true }));
@@ -182,7 +182,7 @@ Two channels to know about:
 
 If your test framework has a built-in spy (`spyOn`, `vi.spyOn`, etc.), prefer it — it'll restore automatically.
 
-For ANSI color output, the helpers in `@parsh/core`'s style module check `process.stdout.isTTY` / `NO_COLOR`, so test output is plain by default. If you need to assert against colored output, set `FORCE_COLOR=1` or assert against substrings rather than exact equality.
+For ANSI color output, the helpers in `@parshjs/core`'s style module check `process.stdout.isTTY` / `NO_COLOR`, so test output is plain by default. If you need to assert against colored output, set `FORCE_COLOR=1` or assert against substrings rather than exact equality.
 
 ## What not to test
 

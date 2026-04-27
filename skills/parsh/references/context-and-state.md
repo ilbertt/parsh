@@ -25,7 +25,7 @@ The split exists so the framework can add fields freely without ever colliding w
 
 ```ts
 // src/main.ts
-import { createCli } from '@parsh/core';
+import { createCli } from '@parshjs/core';
 import { commandTree } from './commandTree.gen.ts';
 
 const cli = createCli({
@@ -37,7 +37,7 @@ const cli = createCli({
   },
 });
 
-declare module '@parsh/core' {
+declare module '@parshjs/core' {
   interface Register {
     cli: typeof cli;
   }
@@ -108,4 +108,4 @@ Semantics:
 - **`handler` runs only if `beforeHandler` did not throw.**
 - **`afterHandler` runs after `handler` resolves.** Skipped if `handler` or `beforeHandler` throws.
 
-A common pattern: combine `beforeHandler` with `@parsh/files`'s `ensureExists()` to fail fast with a friendly message before the handler runs — see the [`parsh-files` skill](../../parsh-files/SKILL.md) for an end-to-end example.
+A common pattern: combine `beforeHandler` with `@parshjs/files`'s `ensureExists()` to fail fast with a friendly message before the handler runs — see the [`parsh-files` skill](../../parsh-files/SKILL.md) for an end-to-end example.

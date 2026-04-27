@@ -17,7 +17,7 @@ const PACKAGE_ENTRYPOINTS = ['./src/cli/main.ts'];
 console.log('🧹 Cleaning dist directory...');
 await cleanDir({ dir: DIST_DIR });
 
-console.log('🔨 Building @parsh/codegen...');
+console.log('🔨 Building @parshjs/codegen...');
 const buildResult = await Bun.build({
   entrypoints: PACKAGE_ENTRYPOINTS,
   outdir: DIST_DIR,

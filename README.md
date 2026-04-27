@@ -16,13 +16,13 @@ Guidelines and instructions on how to build amazing CLI applications are availab
 ## Quick start
 
 ```sh
-bun add @parsh/core
-bun add -d @parsh/codegen
+bun add @parshjs/core
+bun add -d @parshjs/codegen
 ```
 
 ```ts
 // src/commands/_root.ts
-import { defineRootCommand } from '@parsh/core';
+import { defineRootCommand } from '@parshjs/core';
 import { z } from 'zod';
 
 export const command = defineRootCommand({
@@ -34,7 +34,7 @@ export const command = defineRootCommand({
 
 ```ts
 // src/commands/hello.ts
-import { defineCommand } from '@parsh/core';
+import { defineCommand } from '@parshjs/core';
 import { z } from 'zod';
 
 export const command = defineCommand('hello', {
@@ -55,7 +55,7 @@ parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts
 
 ```ts
 // src/main.ts
-import { createCli } from '@parsh/core';
+import { createCli } from '@parshjs/core';
 import { commandTree } from './commandTree.gen.ts';
 
 await createCli({ programName: 'mycli', tree: commandTree }).main();
@@ -127,7 +127,7 @@ const cli = createCli({
   },
 });
 
-declare module '@parsh/core' {
+declare module '@parshjs/core' {
   interface Register { cli: typeof cli }
 }
 
@@ -161,22 +161,22 @@ defineCommand('deploy', {
 
 | Example | What it shows |
 | --- | --- |
-| [`awslike`](examples/awslike) | Deeply nested commands modeled after the AWS CLI (`s3 buckets [name] create`), `forwardToChildren` flags inherited down the tree, and `@parsh/files` for credentials on disk. |
+| [`awslike`](examples/awslike) | Deeply nested commands modeled after the AWS CLI (`s3 buckets [name] create`), `forwardToChildren` flags inherited down the tree, and `@parshjs/files` for credentials on disk. |
 | [`pomo`](examples/pomo) | Pomodoro timer with a live [Ink](https://github.com/vadimdemedes/ink) TUI rendered from inside a handler. Demonstrates that core stays headless — any TUI library plugs in. |
-| [`env-vars`](examples/env-vars) | `@parsh/env` with `createEnvContext` for typed, lazy `process.env` access (`PORT`, `NODE_ENV`, `DATABASE_URL`). |
-| [`config-store`](examples/config-store) | `@parsh/files` for typed JSON config in `~/.config/mycli/`, with `ensureExists()` gating reads via `beforeHandler`. |
+| [`env-vars`](examples/env-vars) | `@parshjs/env` with `createEnvContext` for typed, lazy `process.env` access (`PORT`, `NODE_ENV`, `DATABASE_URL`). |
+| [`config-store`](examples/config-store) | `@parshjs/files` for typed JSON config in `~/.config/mycli/`, with `ensureExists()` gating reads via `beforeHandler`. |
 | [`scaffold`](examples/scaffold) | A `create-app`-style wizard built with [`@clack/prompts`](https://github.com/bombshell-dev/clack) — options can fall back to interactive prompts when absent. |
 
 ## Core Packages
 
 | Package | Description |
 | --- | --- |
-| [`@parsh/core`](packages/core/pkg) | The router. `defineCommand`, `createCli`, types. |
-| [`@parsh/codegen`](packages/codegen/pkg) | `parsh-codegen` CLI that walks `commands/` and emits `commandTree.gen.ts`. |
+| [`@parshjs/core`](packages/core/pkg) | The router. `defineCommand`, `createCli`, types. |
+| [`@parshjs/codegen`](packages/codegen/pkg) | `parsh-codegen` CLI that walks `commands/` and emits `commandTree.gen.ts`. |
 
 ## Add-on Packages
 
 | Package | Description |
 | --- | --- |
-| [`@parsh/env`](packages/env/pkg) | Typed, lazy `process.env` access for the cli's `ctx`. |
-| [`@parsh/files`](packages/files/pkg) | Typed JSON file storage for the cli's `ctx`. |
+| [`@parshjs/env`](packages/env/pkg) | Typed, lazy `process.env` access for the cli's `ctx`. |
+| [`@parshjs/files`](packages/files/pkg) | Typed JSON file storage for the cli's `ctx`. |

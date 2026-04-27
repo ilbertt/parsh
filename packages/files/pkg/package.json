@@ -1,5 +1,5 @@
 {
-  "name": "@parsh/files",
+  "name": "@parshjs/files",
   "description": "Typed JSON file storage for parsh CLIs.",
   "version": "0.0.1",
   "repository": {

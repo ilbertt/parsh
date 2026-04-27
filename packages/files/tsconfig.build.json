@@ -6,8 +6,8 @@
     "noEmit": false,
     "emitDeclarationOnly": true,
     "declaration": true,
-    "declarationMap": false,
+    "declarationMap": false
   },
-  "include": ["src/**/*"],
+  "include": ["src"],
   "exclude": ["node_modules", "pkg", "test", "build.ts"]
 }

@@ -409,8 +409,8 @@ function renderRootUsage({
   function walk({ node, prefix }: { node: RuntimeNode; prefix: string[] }) {
     for (const [name, child] of Object.entries(node.literalChildren)) {
       const pieces = [...prefix, name];
-      if (child.command || Object.keys(child.literalChildren).length || child.paramChild) {
-        rows.push({ label: pieces.join(' '), description: child.command?.description });
+      if (child.command) {
+        rows.push({ label: pieces.join(' '), description: child.command.description });
       }
       walk({ node: child, prefix: pieces });
     }
@@ -418,8 +418,8 @@ function renderRootUsage({
       const pc = node.paramChild;
       const segName = pc.segment?.kind === 'param' ? pc.segment.name : 'param';
       const pieces = [...prefix, `<${segName}>`];
-      if (pc.command || Object.keys(pc.literalChildren).length || pc.paramChild) {
-        rows.push({ label: pieces.join(' '), description: pc.command?.description });
+      if (pc.command) {
+        rows.push({ label: pieces.join(' '), description: pc.command.description });
       }
       walk({ node: pc, prefix: pieces });
     }

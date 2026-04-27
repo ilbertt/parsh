@@ -403,3 +403,88 @@ describe('root --help Options block', () => {
     expect(out).toContain('--help, -h');
   });
 });
+
+describe('root --help Commands block', () => {
+  function makeNestedTree({ withGroupCommands }: { withGroupCommands: boolean }): RuntimeNode {
+    const leafSet = lazyCommand({
+      path: 'config set <key> <value>',
+      paramNames: ['key', 'value'],
+      description: 'Set a config value',
+      loaded: { options: {}, handler: () => {} },
+    });
+    const leafShow = lazyCommand({
+      path: 'config show',
+      description: 'Show current config',
+      loaded: { options: {}, handler: () => {} },
+    });
+
+    const valueNode = param({ name: 'value', command: leafSet });
+    const keyNode = param({
+      name: 'key',
+      command: withGroupCommands
+        ? lazyCommand({ path: 'config set <key>', paramNames: ['key'], loaded: { options: {} } })
+        : null,
+      paramChild: valueNode,
+    });
+    const setNode = literal({
+      value: 'set',
+      command: withGroupCommands
+        ? lazyCommand({
+            path: 'config set',
+            description: 'Update a config field.',
+            loaded: { options: {} },
+          })
+        : null,
+      paramChild: keyNode,
+    });
+    const showNode = literal({ value: 'show', command: leafShow });
+    const configNode = literal({
+      value: 'config',
+      command: withGroupCommands
+        ? lazyCommand({
+            path: 'config',
+            description: 'Manage CLI configuration.',
+            loaded: { options: {} },
+          })
+        : null,
+      children: { set: setNode, show: showNode },
+    });
+    return root({ command: null, children: { config: configNode } });
+  }
+
+  test('omits intermediate branch nodes that have no defineCommand', async () => {
+    const cli = createCli({
+      programName: 'psst',
+      tree: makeNestedTree({ withGroupCommands: false }),
+    });
+    await cli.run(['--help']);
+
+    const out = stdoutText();
+    const commandsBlock = out.slice(out.indexOf('Commands:'));
+    expect(commandsBlock).toContain('config set <key> <value>');
+    expect(commandsBlock).toContain('Set a config value');
+    expect(commandsBlock).toContain('config show');
+    expect(commandsBlock).toContain('Show current config');
+    expect(commandsBlock).not.toMatch(/^ +config\s*$/m);
+    expect(commandsBlock).not.toMatch(/^ +config set\s*$/m);
+    expect(commandsBlock).not.toMatch(/^ +config set <key>\s*$/m);
+  });
+
+  test('keeps explicit group commands (defineCommand without handler) in the list', async () => {
+    const cli = createCli({
+      programName: 'mycli',
+      tree: makeNestedTree({ withGroupCommands: true }),
+    });
+    await cli.run(['--help']);
+
+    const out = stdoutText();
+    const commandsBlock = out.slice(out.indexOf('Commands:'));
+    expect(commandsBlock).toContain('config');
+    expect(commandsBlock).toContain('Manage CLI configuration.');
+    expect(commandsBlock).toContain('config set');
+    expect(commandsBlock).toContain('Update a config field.');
+    expect(commandsBlock).toContain('config set <key>');
+    expect(commandsBlock).toContain('config set <key> <value>');
+    expect(commandsBlock).toContain('config show');
+  });
+});

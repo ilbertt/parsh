@@ -10,13 +10,13 @@
     "generate": "parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts"
   },
   "dependencies": {
-    "@parshjs/core": "../../packages/core/pkg",
+    "@parshjs/core": "workspace:",
     "ink": "^5.2.1",
     "react": "^18.3.1",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@parshjs/codegen": "../../packages/codegen/pkg",
+    "@parshjs/codegen": "workspace:",
     "@repo/typescript-config": "workspace:*",
     "@types/react": "^18.3.12",
     "typescript": "catalog:"

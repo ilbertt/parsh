@@ -9,12 +9,12 @@
     "generate": "parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts"
   },
   "dependencies": {
-    "@parshjs/core": "../../packages/core/pkg",
-    "@parshjs/files": "../../packages/files/pkg",
+    "@parshjs/core": "workspace:",
+    "@parshjs/files": "workspace:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@parshjs/codegen": "../../packages/codegen/pkg",
+    "@parshjs/codegen": "workspace:",
     "@repo/typescript-config": "workspace:*",
     "typescript": "catalog:"
   }

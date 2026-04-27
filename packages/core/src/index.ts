@@ -4,7 +4,6 @@ export {
   CommandLoadError,
   createCli,
   type LoadedCommand,
-  type OptionMeta,
   type RuntimeCommand,
   type RuntimeNode,
 } from './cli.js';

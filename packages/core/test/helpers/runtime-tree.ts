@@ -1,4 +1,4 @@
-import type { LoadedCommand, OptionMeta, RuntimeCommand, RuntimeNode } from '#index.ts';
+import type { LoadedCommand, RuntimeCommand, RuntimeNode } from '#index.ts';
 
 export type Ctx = {
   options: Record<string, unknown>;
@@ -11,14 +11,12 @@ export type Called = { path: string; ctx: Ctx };
 
 export function lazyCommand({
   path,
-  optionNames = [],
   paramNames = [],
   description,
   hidden,
   loaded,
 }: {
   path: string;
-  optionNames?: ReadonlyArray<OptionMeta>;
   paramNames?: ReadonlyArray<string>;
   description?: string;
   hidden?: boolean;
@@ -26,7 +24,6 @@ export function lazyCommand({
 }): RuntimeCommand {
   return {
     path,
-    optionNames,
     paramNames,
     ...(description === undefined ? {} : { description }),
     ...(hidden === undefined ? {} : { hidden }),

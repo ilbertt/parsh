@@ -8,14 +8,6 @@ type TreeSegment =
   | { readonly kind: 'literal'; readonly value: string }
   | { readonly kind: 'param'; readonly name: string };
 
-export interface OptionMeta {
-  name: string;
-  type: 'boolean' | 'string';
-  forwardToChildren?: boolean;
-  description?: string;
-  aliases?: ReadonlyArray<string>;
-}
-
 export interface LoadedCommand {
   options: OptionsRecord;
   params?: ParamsRecord;
@@ -40,7 +32,6 @@ export interface LoadedCommand {
  */
 export interface RuntimeCommand {
   path: string;
-  optionNames: ReadonlyArray<OptionMeta>;
   paramNames: ReadonlyArray<string>;
   description?: string;
   hidden?: boolean;
@@ -115,44 +106,178 @@ function optionSpecsFor({
   return out;
 }
 
-function collectParseOptions(tree: RuntimeNode): ParseArgsConfig['options'] {
-  const out: NonNullable<ParseArgsConfig['options']> = {};
-  function walk(node: RuntimeNode) {
-    if (node.command) {
-      for (const opt of node.command.optionNames) {
-        out[opt.name] = { type: opt.type };
-      }
+/**
+ * Split argv into positionals (before the first flag) and the flag tail.
+ * parsh uses positionals-first grammar: all positionals must come before any
+ * `--flag` / `-x`. The `--` separator ends positionals explicitly. This
+ * removes the need for codegen to extract option types — the runtime can walk
+ * positionals first, lazy-load the target chain, then build the parseArgs
+ * config from the loaded schemas.
+ */
+function splitArgvAtFirstFlag(argv: readonly string[]): {
+  positionals: string[];
+  flagTail: string[];
+} {
+  for (let i = 0; i < argv.length; i++) {
+    const tok = argv[i]!;
+    if (tok === '--') {
+      return { positionals: argv.slice(0, i), flagTail: argv.slice(i + 1) };
     }
-    for (const child of Object.values(node.literalChildren)) {
-      walk(child);
-    }
-    if (node.paramChild) {
-      walk(node.paramChild);
+    if (tok.length > 1 && tok.startsWith('-')) {
+      return { positionals: argv.slice(0, i), flagTail: argv.slice(i) };
     }
   }
-  walk(tree);
+  return { positionals: [...argv], flagTail: [] };
+}
+
+async function probeAccepts({
+  schema,
+  value,
+}: {
+  schema: AnySchema;
+  value: unknown;
+}): Promise<boolean> {
+  const r = schema['~standard'].validate(value);
+  const settled = r instanceof Promise ? await r : r;
+  return !('issues' in settled && settled.issues);
+}
+
+interface ParserShape {
+  type: 'boolean' | 'string';
+  multiple?: boolean;
+}
+
+/**
+ * Determine how `parseArgs` should treat an option, by probing its schema.
+ *
+ * 1. If it accepts an array (`[]`, `['x']`, `[0]`), the flag is repeatable
+ *    (`--header A --header B` → `['A', 'B']`).
+ * 2. Else if it accepts `true` but rejects an arbitrary string, the flag is
+ *    boolean (consumes no value).
+ * 3. Otherwise, the flag is a single-value string. Numeric/enum schemas land
+ *    here; argv is always a string and `validateScalar` retries with numeric
+ *    coercion later.
+ */
+async function inferOptionParserShape(schema: AnySchema): Promise<ParserShape> {
+  if (await probeAccepts({ schema, value: [] })) {
+    return { type: 'string', multiple: true };
+  }
+  if (await probeAccepts({ schema, value: ['__parsh_probe__'] })) {
+    return { type: 'string', multiple: true };
+  }
+  if (await probeAccepts({ schema, value: [0] })) {
+    return { type: 'string', multiple: true };
+  }
+  if (await probeAccepts({ schema, value: true })) {
+    if (!(await probeAccepts({ schema, value: '__parsh_probe__' }))) {
+      return { type: 'boolean' };
+    }
+  }
+  return { type: 'string' };
+}
+
+interface OptionDescriptor {
+  name: string;
+  shape: ParserShape;
+  forwardToChildren: boolean;
+  description?: string;
+  aliases: ReadonlyArray<string>;
+  source: string;
+}
+
+async function describeLoadedOptions({
+  options,
+  source,
+}: {
+  options: OptionsRecord;
+  source: string;
+}): Promise<OptionDescriptor[]> {
+  const out: OptionDescriptor[] = [];
+  for (const [name, opt] of Object.entries(options) as Array<[string, AnyOption]>) {
+    const shape = await inferOptionParserShape(opt.schema);
+    out.push({
+      name,
+      shape,
+      forwardToChildren: opt.forwardToChildren === true,
+      ...(opt.description !== undefined ? { description: opt.description } : {}),
+      aliases: opt.aliases ?? [],
+      source,
+    });
+  }
   return out;
 }
 
-function buildAliasMap(tree: RuntimeNode): Map<string, string> {
+function buildParserConfigFromDescriptors(
+  descriptors: ReadonlyArray<OptionDescriptor>,
+): ParseArgsConfig['options'] {
+  const out: NonNullable<ParseArgsConfig['options']> = {};
+  for (const d of descriptors) {
+    out[d.name] = d.shape.multiple ? { type: 'string', multiple: true } : { type: d.shape.type };
+  }
+  return out;
+}
+
+function buildAliasMapFromDescriptors(
+  descriptors: ReadonlyArray<OptionDescriptor>,
+): Map<string, string> {
   const out = new Map<string, string>();
-  function walk(node: RuntimeNode) {
-    if (node.command) {
-      for (const opt of node.command.optionNames) {
-        for (const alias of opt.aliases ?? []) {
-          out.set(alias, opt.name);
-        }
-      }
-    }
-    for (const child of Object.values(node.literalChildren)) {
-      walk(child);
-    }
-    if (node.paramChild) {
-      walk(node.paramChild);
+  for (const d of descriptors) {
+    for (const alias of d.aliases) {
+      out.set(alias, d.name);
     }
   }
-  walk(tree);
   return out;
+}
+
+function detectParamOptionShadow({
+  visitedCommands,
+  loaded,
+}: {
+  visitedCommands: ReadonlyArray<Visited>;
+  loaded: Map<RuntimeCommand, LoadedCommand>;
+}): string | null {
+  for (const v of visitedCommands) {
+    if (!v.command || !v.paramName) {
+      continue;
+    }
+    const lc = loaded.get(v.command);
+    if (!lc) {
+      continue;
+    }
+    if (Object.hasOwn(lc.options, v.paramName)) {
+      const path = v.command.path === '' ? '(root)' : v.command.path;
+      return `command ${path} declares option "${v.paramName}" that shadows its own param [${v.paramName}]`;
+    }
+  }
+  return null;
+}
+
+function detectOptionCollisions(descriptors: ReadonlyArray<OptionDescriptor>): string[] {
+  const issues: string[] = [];
+  const seenIds = new Map<string, OptionDescriptor>();
+  const seenNames = new Map<string, OptionDescriptor>();
+  for (const d of descriptors) {
+    const prevName = seenNames.get(d.name);
+    if (prevName && prevName.source !== d.source) {
+      issues.push(
+        `option '${d.name}' on ${d.source} collides with ancestor option '${d.name}' on ${prevName.source}`,
+      );
+      continue;
+    }
+    seenNames.set(d.name, d);
+    const ids = [d.name, ...d.aliases];
+    for (const id of ids) {
+      const prev = seenIds.get(id);
+      if (prev && (prev.source !== d.source || prev.name !== d.name)) {
+        issues.push(
+          `option identifier '${id}' on ${d.source} (option '${d.name}') collides with ${prev.source} (option '${prev.name}')`,
+        );
+      } else {
+        seenIds.set(id, d);
+      }
+    }
+  }
+  return issues;
 }
 
 /**
@@ -189,65 +314,6 @@ function rewriteArgvAliases({
     }
     return tok;
   });
-}
-
-interface VisibleOption {
-  source: string;
-  meta: OptionMeta;
-}
-
-function detectAliasCollisions(tree: RuntimeNode): string[] {
-  const issues: string[] = [];
-  function visibleAt({
-    node,
-    inherited,
-  }: {
-    node: RuntimeNode;
-    inherited: ReadonlyArray<VisibleOption>;
-  }) {
-    if (node.command) {
-      const own: VisibleOption[] = node.command.optionNames.map((meta) => ({
-        source: node.command!.path === '' ? '<root>' : node.command!.path,
-        meta,
-      }));
-      const visible = [...inherited, ...own];
-      const seen = new Map<string, VisibleOption>();
-      for (const v of visible) {
-        const ids = [v.meta.name, ...(v.meta.aliases ?? [])];
-        for (const id of ids) {
-          const prev = seen.get(id);
-          if (prev && (prev.source !== v.source || prev.meta.name !== v.meta.name)) {
-            issues.push(
-              `option identifier '${id}' on ${v.source} (option '${v.meta.name}') collides with ${prev.source} (option '${prev.meta.name}')`,
-            );
-          } else {
-            seen.set(id, v);
-          }
-        }
-      }
-    }
-    let nextInherited = inherited;
-    if (node.command) {
-      const fwd = node.command.optionNames.filter((o) => o.forwardToChildren === true);
-      if (fwd.length > 0) {
-        nextInherited = [
-          ...inherited,
-          ...fwd.map((meta) => ({
-            source: node.command!.path === '' ? '<root>' : node.command!.path,
-            meta,
-          })),
-        ];
-      }
-    }
-    for (const child of Object.values(node.literalChildren)) {
-      visibleAt({ node: child, inherited: nextInherited });
-    }
-    if (node.paramChild) {
-      visibleAt({ node: node.paramChild, inherited: nextInherited });
-    }
-  }
-  visibleAt({ node: tree, inherited: [] });
-  return issues;
 }
 
 interface Visited {
@@ -373,27 +439,31 @@ async function validateRecord({
   return { ok: true, value: out };
 }
 
-function renderRootUsage({
+async function renderRootUsage({
   root,
   programName,
   programDescription,
   hasVersion,
+  loadedRoot,
 }: {
   root: RuntimeNode;
   programName: string;
   programDescription: string | undefined;
   hasVersion: boolean;
-}): string {
+  loadedRoot: LoadedCommand | null;
+}): Promise<string> {
   const lines: string[] = [];
   if (programDescription) {
     lines.push(programDescription, '');
   }
   lines.push(`${stdoutBold('Usage:')} ${programName} <command> [options]`, '');
 
-  const rootOptions = root.command?.optionNames ?? [];
-  const optionRows = rootOptions.map((o) => ({
-    label: optionLabel(o),
-    description: o.description,
+  const rootDescriptors = loadedRoot
+    ? await describeLoadedOptions({ options: loadedRoot.options, source: '<root>' })
+    : [];
+  const optionRows = rootDescriptors.map((d) => ({
+    label: optionLabel(d),
+    description: d.description,
   }));
   optionRows.push({ label: '--help, -h', description: 'Show this help message.' });
   if (hasVersion) {
@@ -447,21 +517,23 @@ function formatTwoColumn(
   });
 }
 
-function optionLabel(meta: OptionMeta): string {
-  const flag = `--${meta.name}`;
-  const aliases = (meta.aliases ?? []).map((a) => (a.length === 1 ? `-${a}` : `--${a}`));
+function optionLabel(d: { name: string; aliases?: ReadonlyArray<string> }): string {
+  const flag = `--${d.name}`;
+  const aliases = (d.aliases ?? []).map((a) => (a.length === 1 ? `-${a}` : `--${a}`));
   return [flag, ...aliases].join(', ');
 }
 
-function renderCommandUsage({
+async function renderCommandUsage({
   programName,
   node,
   visited,
+  loaded,
 }: {
   programName: string;
   node: RuntimeNode;
   visited: ReadonlyArray<RuntimeCommand>;
-}): string {
+  loaded: Map<RuntimeCommand, LoadedCommand>;
+}): Promise<string> {
   const cmd = node.command!;
   const segments = cmd.path.split(' ').map((s) => (s.startsWith('[') ? `<${s.slice(1, -1)}>` : s));
   const lines: string[] = [];
@@ -470,10 +542,17 @@ function renderCommandUsage({
   }
   lines.push(`${stdoutBold('Usage:')} ${programName} ${segments.join(' ')} [options]`, '');
 
-  if (cmd.optionNames.length > 0) {
+  const targetLoaded = loaded.get(cmd);
+  const ownDescriptors = targetLoaded
+    ? await describeLoadedOptions({
+        options: targetLoaded.options,
+        source: cmd.path === '' ? '<root>' : cmd.path,
+      })
+    : [];
+  if (ownDescriptors.length > 0) {
     lines.push(stdoutBold('Options:'));
     for (const line of formatTwoColumn(
-      cmd.optionNames.map((o) => ({ label: optionLabel(o), description: o.description })),
+      ownDescriptors.map((d) => ({ label: optionLabel(d), description: d.description })),
     )) {
       lines.push(`  ${line}`);
     }
@@ -485,13 +564,21 @@ function renderCommandUsage({
     if (v.path === cmd.path) {
       continue;
     }
+    const ancLoaded = loaded.get(v);
+    if (!ancLoaded) {
+      continue;
+    }
     const from = v.path === '' ? '<root>' : v.path;
-    for (const opt of v.optionNames) {
-      if (opt.forwardToChildren !== true) {
+    const ancDescriptors = await describeLoadedOptions({
+      options: ancLoaded.options,
+      source: from,
+    });
+    for (const d of ancDescriptors) {
+      if (!d.forwardToChildren) {
         continue;
       }
-      const descParts = [opt.description, `(inherited from ${from})`].filter(Boolean);
-      inheritedRows.push({ label: optionLabel(opt), description: descParts.join(' ') });
+      const descParts = [d.description, `(inherited from ${from})`].filter(Boolean);
+      inheritedRows.push({ label: optionLabel(d), description: descParts.join(' ') });
     }
   }
   if (inheritedRows.length > 0) {
@@ -538,30 +625,6 @@ function versionRequested(argv: string[]): boolean {
 
 function helpHint(enabled: boolean): string {
   return enabled ? stderrDim(' — use --help or -h to see usage') : '';
-}
-
-function detectSameLevelCollisions(tree: RuntimeNode): string[] {
-  const issues: string[] = [];
-  function walk({ node, path }: { node: RuntimeNode; path: string[] }) {
-    if (node.command) {
-      const paramName = node.segment?.kind === 'param' ? node.segment.name : null;
-      if (paramName !== null && node.command.optionNames.some((o) => o.name === paramName)) {
-        issues.push(
-          `command ${path.join(' ') || '(root)'} declares option "${paramName}" that shadows its own param [${paramName}]`,
-        );
-      }
-    }
-    for (const [name, child] of Object.entries(node.literalChildren)) {
-      walk({ node: child, path: [...path, name] });
-    }
-    if (node.paramChild) {
-      const seg = node.paramChild.segment;
-      const label = seg?.kind === 'param' ? `[${seg.name}]` : '';
-      walk({ node: node.paramChild, path: [...path, label] });
-    }
-  }
-  walk({ node: tree, path: [] });
-  return issues;
 }
 
 async function loadCommand(cmd: RuntimeCommand): Promise<LoadedCommand> {
@@ -614,23 +677,13 @@ export class Cli<C extends object = Record<string, never>> {
   readonly #programName: string;
   readonly #programDescription: string | undefined;
   readonly #version: string | undefined;
-  readonly #parseOptions: ParseArgsConfig['options'];
-  readonly #aliasMap: Map<string, string>;
   readonly #context: CliContextInput | undefined;
 
   constructor({ programName, programDescription, tree, version, context }: CreateCliOptions) {
-    const issues = [...detectSameLevelCollisions(tree), ...detectAliasCollisions(tree)];
-    if (issues.length > 0) {
-      throw new Error(
-        `${programName}: command tree has ${issues.length} issue(s):\n${issues.map((i) => `  - ${i}`).join('\n')}`,
-      );
-    }
     this.#tree = tree;
     this.#programName = programName;
     this.#programDescription = programDescription;
     this.#version = version;
-    this.#parseOptions = collectParseOptions(tree);
-    this.#aliasMap = buildAliasMap(tree);
     this.#context = context;
   }
 
@@ -644,12 +697,23 @@ export class Cli<C extends object = Record<string, never>> {
     return Promise.resolve(this.#context);
   }
 
-  #renderRootUsage(): string {
+  async #renderRootUsage(): Promise<string> {
+    const rootCmd = this.#tree.command;
+    let loadedRoot: LoadedCommand | null = null;
+    if (rootCmd) {
+      try {
+        loadedRoot = await loadCommand(rootCmd);
+      } catch {
+        // Help should still render even if the root command fails to load.
+        loadedRoot = null;
+      }
+    }
     return renderRootUsage({
       root: this.#tree,
       programName: this.#programName,
       programDescription: this.#programDescription,
       hasVersion: this.#version !== undefined,
+      loadedRoot,
     });
   }
 
@@ -658,65 +722,29 @@ export class Cli<C extends object = Record<string, never>> {
   }
 
   async run(argv: string[]): Promise<number> {
-    const rewritten = rewriteArgvAliases({ argv, aliasMap: this.#aliasMap });
-    let parsed: ReturnType<typeof parseArgs>;
-    try {
-      parsed = parseArgs({
-        args: rewritten,
-        options: this.#parseOptions,
-        strict: false,
-        allowPositionals: true,
-      });
-    } catch (err) {
-      process.stderr.write(`${this.#errorPrefix()}: ${(err as Error).message}\n`);
-      return 2;
-    }
+    const { positionals, flagTail } = splitArgvAtFirstFlag(argv);
+    const wantsHelp = helpRequested(flagTail);
+    const wantsVersion = versionRequested(flagTail);
 
-    if (
-      this.#version !== undefined &&
-      parsed.positionals.length === 0 &&
-      versionRequested(rewritten)
-    ) {
+    if (this.#version !== undefined && positionals.length === 0 && wantsVersion) {
       process.stdout.write(`${this.#version}\n`);
-      return 0;
-    }
-
-    const wantsHelp = helpRequested(rewritten);
-
-    if (parsed.positionals.length === 0 && wantsHelp && !this.#tree.command) {
-      process.stdout.write(`${this.#renderRootUsage()}\n`);
       return 0;
     }
 
     const { node, visitedCommands, unknown, unknownToken } = walkTree({
       tree: this.#tree,
-      positionals: parsed.positionals,
+      positionals,
     });
 
-    if (unknown) {
+    if (unknown && !wantsHelp) {
       process.stderr.write(
         `${this.#errorPrefix()}: unknown command: ${unknownToken} — run \`${this.#programName} --help\` to see available commands\n`,
       );
       return 2;
     }
 
-    if (!node.command) {
-      process.stdout.write(`${this.#renderRootUsage()}\n`);
-      return 0;
-    }
-
-    if (wantsHelp) {
-      const usage =
-        node === this.#tree
-          ? this.#renderRootUsage()
-          : renderCommandUsage({
-              programName: this.#programName,
-              node,
-              visited: visitedCommands
-                .map((v) => v.command)
-                .filter((c): c is RuntimeCommand => c !== null),
-            });
-      process.stdout.write(`${usage}\n`);
+    if (!node.command && !wantsHelp) {
+      process.stdout.write(`${await this.#renderRootUsage()}\n`);
       return 0;
     }
 
@@ -737,8 +765,79 @@ export class Cli<C extends object = Record<string, never>> {
       throw err;
     }
 
-    const targetLoaded = loaded.get(node.command)!;
+    if (wantsHelp) {
+      const usage =
+        node === this.#tree || !node.command
+          ? await this.#renderRootUsage()
+          : await renderCommandUsage({
+              programName: this.#programName,
+              node,
+              visited: visitedCmds,
+              loaded,
+            });
+      process.stdout.write(`${usage}\n`);
+      return 0;
+    }
+
+    const targetLoaded = loaded.get(node.command!)!;
     const targetHelpEnabled = targetLoaded.helpArg?.enabled !== false;
+
+    const descriptors: OptionDescriptor[] = [];
+    for (const cmd of visitedCmds) {
+      const lc = loaded.get(cmd)!;
+      const isTarget = cmd === node.command;
+      const sliced: OptionsRecord = {};
+      for (const [name, opt] of Object.entries(lc.options) as Array<[string, AnyOption]>) {
+        if (isTarget || opt.forwardToChildren === true) {
+          sliced[name] = opt;
+        }
+      }
+      const ds = await describeLoadedOptions({
+        options: sliced,
+        source: cmd.path === '' ? '<root>' : cmd.path,
+      });
+      descriptors.push(...ds);
+    }
+
+    const collisions = detectOptionCollisions(descriptors);
+    if (collisions.length > 0) {
+      process.stderr.write(
+        `${this.#errorPrefix()}: ${collisions.join('; ')}${helpHint(targetHelpEnabled)}\n`,
+      );
+      return 2;
+    }
+
+    const paramShadow = detectParamOptionShadow({
+      visitedCommands,
+      loaded,
+    });
+    if (paramShadow) {
+      process.stderr.write(`${this.#errorPrefix()}: ${paramShadow}\n`);
+      return 2;
+    }
+
+    const aliasMap = buildAliasMapFromDescriptors(descriptors);
+    const parserConfig = buildParserConfigFromDescriptors(descriptors);
+    const rewritten = rewriteArgvAliases({ argv: flagTail, aliasMap });
+    let parsed: ReturnType<typeof parseArgs>;
+    try {
+      parsed = parseArgs({
+        args: rewritten,
+        options: parserConfig,
+        strict: false,
+        allowPositionals: true,
+      });
+    } catch (err) {
+      process.stderr.write(`${this.#errorPrefix()}: ${(err as Error).message}\n`);
+      return 2;
+    }
+
+    if (parsed.positionals.length > 0) {
+      process.stderr.write(
+        `${this.#errorPrefix()}: unexpected positional after options: ${parsed.positionals[0]} — parsh requires positionals to come before flags${helpHint(targetHelpEnabled)}\n`,
+      );
+      return 2;
+    }
 
     const rawValues = parsed.values as Record<string, unknown>;
     const rootCommand = this.#tree.command;
@@ -824,11 +923,12 @@ export class Cli<C extends object = Record<string, never>> {
     if (!targetLoaded.handler) {
       const usage =
         node === this.#tree
-          ? this.#renderRootUsage()
-          : renderCommandUsage({
+          ? await this.#renderRootUsage()
+          : await renderCommandUsage({
               programName: this.#programName,
               node,
               visited: visitedCmds,
+              loaded,
             });
       process.stdout.write(`${usage}\n`);
       return 0;

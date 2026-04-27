@@ -9,7 +9,7 @@ const runCli = (args: string[]) => runFixtureCli({ bin: BIN, args });
 
 describe('lazy dispatch', () => {
   test('dispatches a leaf, loading only target + ancestors', async () => {
-    const r = await runCli(['alpha', '--name', 'x', 'sub']);
+    const r = await runCli(['alpha', 'sub', '--name', 'x']);
     expect(r.exitCode).toBe(0);
     expect(r.stdout).toContain('alpha-sub:x:flag=false');
     // alpha (ancestor), alpha/sub (target), _root (always visited).
@@ -31,17 +31,19 @@ describe('lazy dispatch', () => {
 });
 
 describe('zero-load paths', () => {
-  test('--help at root loads no handler modules', async () => {
+  test('--help at root loads only the root command', async () => {
+    // Root is loaded so we can probe its user-defined options for the help
+    // listing; siblings/descendants are not.
     const r = await runCli(['--help']);
     expect(r.exitCode).toBe(0);
-    expect(r.loaded).toEqual([]);
+    expect(r.loaded).toEqual(['_root']);
     expect(r.stdout).toContain('Usage:');
   });
 
-  test('--help on a subcommand loads no handler modules', async () => {
+  test('--help on a subcommand loads only the visited chain', async () => {
     const r = await runCli(['alpha', 'sub', '--help']);
     expect(r.exitCode).toBe(0);
-    expect(r.loaded).toEqual([]);
+    expect(new Set(r.loaded)).toEqual(new Set(['_root', 'alpha', 'alpha/sub']));
     expect(r.stdout).toContain('Usage:');
   });
 

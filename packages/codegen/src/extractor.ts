@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename, relative } from 'node:path';
 import ts from 'typescript';
-import type { ExtractedCommand, ExtractedOption, SourceSegment } from './types.js';
+import type { ExtractedCommand, SourceSegment } from './types.js';
 
 function parsePathString(pathString: string): SourceSegment[] {
   const tokens = pathString.trim().split(/\s+/).filter(Boolean);
@@ -101,52 +101,6 @@ function getProperty({
   return null;
 }
 
-function objectInitializerOf({
-  obj,
-  key,
-}: {
-  obj: ts.ObjectLiteralExpression;
-  key: string;
-}): ts.ObjectLiteralExpression | null {
-  const prop = getProperty({ obj, key });
-  if (!prop) {
-    return null;
-  }
-  return ts.isObjectLiteralExpression(prop.initializer) ? prop.initializer : null;
-}
-
-/**
- * `true` if the expression contains a call whose callee resolves to an
- * identifier named `boolean` — matches `z.boolean()`, `z.coerce.boolean()`,
- * `boolean()`, etc. Conservative semantic equivalent of the previous regex.
- */
-function isBooleanSchema(expr: ts.Expression): boolean {
-  let found = false;
-  function visit(node: ts.Node) {
-    if (found) {
-      return;
-    }
-    if (ts.isCallExpression(node)) {
-      const callee = node.expression;
-      if (ts.isIdentifier(callee) && callee.text === 'boolean') {
-        found = true;
-        return;
-      }
-      if (
-        ts.isPropertyAccessExpression(callee) &&
-        ts.isIdentifier(callee.name) &&
-        callee.name.text === 'boolean'
-      ) {
-        found = true;
-        return;
-      }
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(expr);
-  return found;
-}
-
 function readBooleanLiteral(expr: ts.Expression): boolean | null {
   if (expr.kind === ts.SyntaxKind.TrueKeyword) {
     return true;
@@ -155,95 +109,6 @@ function readBooleanLiteral(expr: ts.Expression): boolean | null {
     return false;
   }
   return null;
-}
-
-function readStringLiteral(expr: ts.Expression): string | null {
-  return ts.isStringLiteralLike(expr) ? expr.text : null;
-}
-
-function extractOption({
-  name,
-  initializer,
-  filePath,
-}: {
-  name: string;
-  initializer: ts.Expression;
-  filePath: string;
-}): ExtractedOption {
-  if (!ts.isObjectLiteralExpression(initializer)) {
-    throw new Error(
-      `parsh: ${filePath} — option '${name}' must be declared as { schema, forwardToChildren?, description? }, not a bare schema`,
-    );
-  }
-  const schemaProp = getProperty({ obj: initializer, key: 'schema' });
-  if (!schemaProp) {
-    throw new Error(
-      `parsh: ${filePath} — option '${name}' is missing required \`schema\` property`,
-    );
-  }
-  const type = isBooleanSchema(schemaProp.initializer) ? 'boolean' : 'string';
-  const forwardProp = getProperty({ obj: initializer, key: 'forwardToChildren' });
-  let forwardToChildren = false;
-  if (forwardProp) {
-    const v = readBooleanLiteral(forwardProp.initializer);
-    if (v === null) {
-      throw new Error(
-        `parsh: ${filePath} — option '${name}' \`forwardToChildren\` must be a boolean literal (true | false)`,
-      );
-    }
-    forwardToChildren = v;
-  }
-  const descProp = getProperty({ obj: initializer, key: 'description' });
-  const description = descProp ? (readStringLiteral(descProp.initializer) ?? undefined) : undefined;
-  const aliasesProp = getProperty({ obj: initializer, key: 'aliases' });
-  const aliases: string[] = [];
-  if (aliasesProp) {
-    if (!ts.isArrayLiteralExpression(aliasesProp.initializer)) {
-      throw new Error(
-        `parsh: ${filePath} — option '${name}' \`aliases\` must be an inline array of string literals`,
-      );
-    }
-    for (const el of aliasesProp.initializer.elements) {
-      const s = readStringLiteral(el);
-      if (s === null) {
-        throw new Error(
-          `parsh: ${filePath} — option '${name}' \`aliases\` entries must be string literals`,
-        );
-      }
-      aliases.push(s);
-    }
-  }
-  return {
-    name,
-    type,
-    forwardToChildren,
-    ...(description !== undefined ? { description } : {}),
-    aliases,
-  };
-}
-
-function extractOptions({
-  obj,
-  filePath,
-}: {
-  obj: ts.ObjectLiteralExpression | null;
-  filePath: string;
-}): ExtractedOption[] {
-  if (!obj) {
-    return [];
-  }
-  const out: ExtractedOption[] = [];
-  for (const p of obj.properties) {
-    if (!ts.isPropertyAssignment(p)) {
-      continue;
-    }
-    const name = propertyKey(p);
-    if (name === null) {
-      continue;
-    }
-    out.push(extractOption({ name, initializer: p.initializer, filePath }));
-  }
-  return out;
 }
 
 function extractDescription(obj: ts.ObjectLiteralExpression): string | undefined {
@@ -315,15 +180,10 @@ export async function extractRootCommand({
       `parsh: ${filePath} — defineRootCommand argument must be an inline object literal`,
     );
   }
-  const options = extractOptions({
-    obj: objectInitializerOf({ obj: def, key: 'options' }),
-    filePath,
-  });
   return {
     filePath,
     pathString: '',
     segments: [],
-    options,
     paramNames: [],
     importName: 'rootCmd',
     importSpecifier: importSpecifierFor({ outDir, filePath }),
@@ -366,10 +226,6 @@ export async function extractCommand({
       `parsh: ${filePath} — defineCommand path string '${pathString}' does not match its filesystem location '${want}'`,
     );
   }
-  const options = extractOptions({
-    obj: objectInitializerOf({ obj: defArg, key: 'options' }),
-    filePath,
-  });
   // Own param name = last segment if it's a bracket. Mirrors `OwnParamName<P>`
   // in command.ts. Ancestor params live on their own commands.
   const last = segments.at(-1);
@@ -380,7 +236,6 @@ export async function extractCommand({
     filePath,
     pathString,
     segments,
-    options,
     paramNames,
     importName: importNameFor({ filePath }),
     importSpecifier: importSpecifierFor({ outDir, filePath }),

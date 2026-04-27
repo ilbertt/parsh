@@ -15,14 +15,6 @@ function fixture(name: string) {
 
 const codegenValidationFailed = /codegen validation failed/i;
 
-function optionCollidesWithAncestor(optionName: string): RegExp {
-  return new RegExp(`option '${optionName}'.*collides with ancestor option '${optionName}'`, 'i');
-}
-
-function optionShadowsOwnParam(name: string): RegExp {
-  return new RegExp(`option '${name}' that shadows its own param \\[${name}\\]`, 'i');
-}
-
 function paramShadowsAncestorParam(name: string): RegExp {
   return new RegExp(`param \\[${name}\\].*shadows an ancestor param \\[${name}\\]`, 'i');
 }
@@ -40,17 +32,10 @@ describe('generateCommandTree', () => {
   });
 
   describe('validation rules', () => {
-    test('rejects same-name option collision across ancestry', async () => {
-      const run = generateCommandTree(fixture('collision-arg'));
-      await expect(run).rejects.toThrow(codegenValidationFailed);
-      await expect(run).rejects.toThrow(optionCollidesWithAncestor('port'));
-    });
-
-    test('rejects param/option name shadowing on the same command', async () => {
-      const run = generateCommandTree(fixture('collision-param-arg'));
-      await expect(run).rejects.toThrow(codegenValidationFailed);
-      await expect(run).rejects.toThrow(optionShadowsOwnParam('name'));
-    });
+    // Same-name option collisions and param/option shadowing depend on the
+    // `options` object body, which codegen no longer reads. Those rules now
+    // run at dispatch time on the loaded chain. See `cli.test.ts` for the
+    // runtime equivalents.
 
     test('rejects param/param shadowing across ancestry', async () => {
       const run = generateCommandTree(fixture('collision-param-param'));

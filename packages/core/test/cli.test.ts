@@ -15,7 +15,6 @@ function makeTree(opts: {
   return root({
     command: lazyCommand({
       path: '',
-      optionNames: [{ name: 'verbose', type: 'boolean' }],
       loaded: {
         options: {
           verbose: { schema: z.boolean().default(false), forwardToChildren: true },
@@ -27,7 +26,6 @@ function makeTree(opts: {
         value: 'deploy',
         command: lazyCommand({
           path: 'deploy',
-          optionNames: [{ name: 'env', type: 'string' }],
           loaded: {
             options: { env: { schema: z.enum(['staging', 'prod']) } },
             handler: rec('deploy'),
@@ -38,7 +36,6 @@ function makeTree(opts: {
         value: 'users',
         command: lazyCommand({
           path: 'users',
-          optionNames: [{ name: 'workspace', type: 'string' }],
           loaded: {
             options: { workspace: { schema: z.string(), forwardToChildren: true } },
             handler: rec('users'),
@@ -49,7 +46,6 @@ function makeTree(opts: {
             value: 'create',
             command: lazyCommand({
               path: 'users create',
-              optionNames: [{ name: 'email', type: 'string' }],
               loaded: {
                 options: { email: { schema: z.string() } },
                 handler: rec('users create'),
@@ -115,9 +111,9 @@ describe('argument parsing', () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run([
       'users',
+      'create',
       '--workspace',
       'acme',
-      'create',
       '--email',
       'a@b.com',
     ]);
@@ -159,7 +155,7 @@ describe('validation failures', () => {
 describe('param capture', () => {
   test('ancestor dynamic segment lands in ctx.parents[path].params', async () => {
     const calls: Called[] = [];
-    const code = await makeCli({ calls }).run(['users', '--workspace', 'x', '123', 'edit']);
+    const code = await makeCli({ calls }).run(['users', '123', 'edit', '--workspace', 'x']);
 
     expect(code).toBe(0);
     expect(calls[0]?.path).toBe('users [id] edit');
@@ -170,10 +166,10 @@ describe('param capture', () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls, idSchema: () => z.coerce.number() }).run([
       'users',
-      '--workspace',
-      'x',
       'abc',
       'edit',
+      '--workspace',
+      'x',
     ]);
 
     expect(code).toBe(2);
@@ -187,9 +183,6 @@ describe('option aliases', () => {
     return root({
       command: lazyCommand({
         path: '',
-        optionNames: [
-          { name: 'verbose', type: 'boolean', forwardToChildren: true, aliases: ['v'] },
-        ],
         loaded: {
           options: {
             verbose: {
@@ -205,7 +198,6 @@ describe('option aliases', () => {
           value: 'deploy',
           command: lazyCommand({
             path: 'deploy',
-            optionNames: [{ name: 'env', type: 'string', aliases: ['e', 'environment'] }],
             loaded: {
               options: {
                 env: { schema: z.enum(['staging', 'prod']), aliases: ['e', 'environment'] },
@@ -251,41 +243,56 @@ describe('option aliases', () => {
     expect(calls[0]?.ctx.rootOptions).toEqual({ verbose: true });
   });
 
-  test('alias colliding with another option name throws at construction', () => {
+  test('alias colliding with another option name errors at dispatch', async () => {
     const tree = root({
       command: lazyCommand({
         path: '',
-        optionNames: [
-          { name: 'verbose', type: 'boolean', forwardToChildren: true },
-          { name: 'version', type: 'boolean', aliases: ['verbose'] },
-        ],
-        loaded: { options: {} },
+        loaded: {
+          options: {
+            verbose: { schema: z.boolean().default(false), forwardToChildren: true },
+            version: { schema: z.boolean().default(false), aliases: ['verbose'] },
+          },
+          handler: () => {},
+        },
       }),
     });
-    expect(() => createCli({ programName: 't', tree })).toThrow(/collides/i);
+    const code = await createCli({ programName: 't', tree }).run([]);
+    expect(code).toBe(2);
+    expect(stderrText().toLowerCase()).toMatch(/collides/);
   });
 
-  test('alias colliding with forwarded ancestor option throws', () => {
+  test('alias colliding with forwarded ancestor option errors at dispatch', async () => {
     const tree = root({
       command: lazyCommand({
         path: '',
-        optionNames: [
-          { name: 'verbose', type: 'boolean', forwardToChildren: true, aliases: ['v'] },
-        ],
-        loaded: { options: {} },
+        loaded: {
+          options: {
+            verbose: {
+              schema: z.boolean().default(false),
+              forwardToChildren: true,
+              aliases: ['v'],
+            },
+          },
+        },
       }),
       children: {
         leaf: literal({
           value: 'leaf',
           command: lazyCommand({
             path: 'leaf',
-            optionNames: [{ name: 'volume', type: 'string', aliases: ['v'] }],
-            loaded: { options: {} },
+            loaded: {
+              options: {
+                volume: { schema: z.string().optional(), aliases: ['v'] },
+              },
+              handler: () => {},
+            },
           }),
         }),
       },
     });
-    expect(() => createCli({ programName: 't', tree })).toThrow(/collides/i);
+    const code = await createCli({ programName: 't', tree }).run(['leaf']);
+    expect(code).toBe(2);
+    expect(stderrText().toLowerCase()).toMatch(/collides/);
   });
 });
 

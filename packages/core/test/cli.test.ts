@@ -106,13 +106,13 @@ describe('argument parsing', () => {
     expect(calls[0]?.ctx.rootOptions.verbose).toBe(true);
   });
 
-  test('ancestor options land in ctx.parents[path].options', async () => {
+  test('ancestor options land in ctx.parents[path].options (interleaved)', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run([
       'users',
-      'create',
       '--workspace',
       'acme',
+      'create',
       '--email',
       'a@b.com',
     ]);
@@ -121,6 +121,16 @@ describe('argument parsing', () => {
     expect(calls[0]?.ctx.options).toEqual({ email: 'a@b.com' });
     expect(calls[0]?.ctx.parents.users?.options).toEqual({ workspace: 'acme' });
     expect(calls[0]?.ctx.rootOptions).toEqual({ verbose: false });
+  });
+
+  test('boolean root flag before subcommand resolves correctly', async () => {
+    const calls: Called[] = [];
+    const code = await makeCli({ calls }).run(['--verbose', 'deploy', '--env', 'prod']);
+
+    expect(code).toBe(0);
+    expect(calls[0]?.path).toBe('deploy');
+    expect(calls[0]?.ctx.options).toEqual({ env: 'prod' });
+    expect(calls[0]?.ctx.rootOptions).toEqual({ verbose: true });
   });
 });
 
@@ -154,7 +164,7 @@ describe('validation failures', () => {
 describe('param capture', () => {
   test('ancestor dynamic segment lands in ctx.parents[path].params', async () => {
     const calls: Called[] = [];
-    const code = await makeCli({ calls }).run(['users', '123', 'edit', '--workspace', 'x']);
+    const code = await makeCli({ calls }).run(['users', '--workspace', 'x', '123', 'edit']);
 
     expect(code).toBe(0);
     expect(calls[0]?.path).toBe('users [id] edit');
@@ -165,10 +175,10 @@ describe('param capture', () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls, idSchema: () => z.coerce.number() }).run([
       'users',
-      'abc',
-      'edit',
       '--workspace',
       'x',
+      'abc',
+      'edit',
     ]);
 
     expect(code).toBe(2);

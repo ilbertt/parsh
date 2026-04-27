@@ -9,7 +9,7 @@ const runCli = (args: string[]) => runFixtureCli({ bin: BIN, args });
 
 describe('lazy dispatch', () => {
   test('dispatches a leaf, loading only target + ancestors', async () => {
-    const r = await runCli(['alpha', 'sub', '--name', 'x']);
+    const r = await runCli(['alpha', '--name', 'x', 'sub']);
     expect(r.exitCode).toBe(0);
     expect(r.stdout).toContain('alpha-sub:x:flag=false');
     // alpha (ancestor), alpha/sub (target), _root (always visited).

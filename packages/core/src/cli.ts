@@ -106,27 +106,43 @@ function optionSpecsFor({
 }
 
 /**
- * Split argv into positionals (before the first flag) and the flag tail.
- * parsh uses positionals-first grammar: all positionals must come before any
- * `--flag` / `-x`. The `--` separator ends positionals explicitly. This
- * removes the need for codegen to extract option types — the runtime can walk
- * positionals first, lazy-load the target chain, then build the parseArgs
- * config from the loaded schemas.
+ * Greedy scan to recover candidate positionals before the target chain is
+ * loaded. parseArgs needs option types up-front to disambiguate `--foo bar`,
+ * but we don't know option types until the chain is loaded, and we need
+ * positionals to find the chain. The greedy assumption — every `--flag` /
+ * `-x` token consumes the next token as its value — is right for value-taking
+ * flags and wrong for booleans. After loading and running `parseArgs` with
+ * real types, the resulting positionals are authoritative and we re-walk if
+ * they differ.
+ *
+ * Tokens of shape `--name=value` consume nothing extra. Single `--` ends the
+ * scan; everything after is positional. Combined short forms like `-abc`
+ * are treated as a single flag-with-value-taking-next, which is wrong for
+ * boolean clusters but harmless because `parseArgs` corrects later.
  */
-function splitArgvAtFirstFlag(argv: readonly string[]): {
-  positionals: string[];
-  flagTail: string[];
-} {
-  for (let i = 0; i < argv.length; i++) {
+function collectCandidatePositionals(argv: readonly string[]): string[] {
+  const out: string[] = [];
+  let i = 0;
+  while (i < argv.length) {
     const tok = argv[i]!;
     if (tok === '--') {
-      return { positionals: argv.slice(0, i), flagTail: argv.slice(i + 1) };
+      for (let j = i + 1; j < argv.length; j++) {
+        out.push(argv[j]!);
+      }
+      return out;
     }
     if (tok.length > 1 && tok.startsWith('-')) {
-      return { positionals: argv.slice(0, i), flagTail: argv.slice(i) };
+      if (tok.startsWith('--') && tok.includes('=')) {
+        i += 1;
+      } else {
+        i += 2;
+      }
+      continue;
     }
+    out.push(tok);
+    i += 1;
   }
-  return { positionals: [...argv], flagTail: [] };
+  return out;
 }
 
 async function probeAccepts({
@@ -626,6 +642,55 @@ function helpHint(enabled: boolean): string {
   return enabled ? stderrDim(' — use --help or -h to see usage') : '';
 }
 
+function positionalsEqual({
+  a,
+  b,
+}: {
+  a: ReadonlyArray<string>;
+  b: ReadonlyArray<string>;
+}): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function collectDescriptors({
+  visitedCmds,
+  node,
+  loaded,
+}: {
+  visitedCmds: ReadonlyArray<RuntimeCommand>;
+  node: RuntimeNode;
+  loaded: Map<RuntimeCommand, LoadedCommand>;
+}): Promise<OptionDescriptor[]> {
+  const out: OptionDescriptor[] = [];
+  for (const cmd of visitedCmds) {
+    const lc = loaded.get(cmd);
+    if (!lc) {
+      continue;
+    }
+    const isTarget = cmd === node.command;
+    const sliced: OptionsRecord = {};
+    for (const [name, opt] of Object.entries(lc.options) as Array<[string, AnyOption]>) {
+      if (isTarget || opt.forwardToChildren === true) {
+        sliced[name] = opt;
+      }
+    }
+    const ds = await describeLoadedOptions({
+      options: sliced,
+      source: cmd.path === '' ? '<root>' : cmd.path,
+    });
+    out.push(...ds);
+  }
+  return out;
+}
+
 async function loadCommand(cmd: RuntimeCommand): Promise<LoadedCommand> {
   try {
     return await cmd.load();
@@ -721,82 +786,126 @@ export class Cli<C extends object = Record<string, never>> {
   }
 
   async run(argv: string[]): Promise<number> {
-    const { positionals, flagTail } = splitArgvAtFirstFlag(argv);
-    const wantsHelp = helpRequested(flagTail);
-    const wantsVersion = versionRequested(flagTail);
+    const wantsHelp = helpRequested(argv);
+    const wantsVersion = versionRequested(argv);
+
+    let positionals = collectCandidatePositionals(argv);
 
     if (this.#version !== undefined && positionals.length === 0 && wantsVersion) {
       process.stdout.write(`${this.#version}\n`);
       return 0;
     }
 
-    const { node, visitedCommands, unknown, unknownToken } = walkTree({
-      tree: this.#tree,
-      positionals,
-    });
+    let walk = walkTree({ tree: this.#tree, positionals });
 
-    if (unknown && !wantsHelp) {
+    // No flags in argv means greedy candidates equal the real positionals;
+    // an unknown is genuine and we can bail without loading anything.
+    const hasFlag = argv.some((t) => t.length > 1 && t.startsWith('-'));
+    if (walk.unknown && !wantsHelp && !hasFlag) {
       process.stderr.write(
-        `${this.#errorPrefix()}: unknown command: ${unknownToken} — run \`${this.#programName} --help\` to see available commands\n`,
+        `${this.#errorPrefix()}: unknown command: ${walk.unknownToken} — run \`${this.#programName} --help\` to see available commands\n`,
       );
       return 2;
     }
 
-    if (!node.command && !wantsHelp) {
+    let visitedCmds = walk.visitedCommands
+      .map((v) => v.command)
+      .filter((c): c is RuntimeCommand => c !== null);
+    const loaded = new Map<RuntimeCommand, LoadedCommand>();
+    let parsed: ReturnType<typeof parseArgs> | null = null;
+
+    // Two-phase parse: greedy candidates resolved a tentative chain; loading
+    // gives us real schemas, then `parseArgs` runs against those schemas and
+    // its positionals are authoritative. If they differ from the candidates
+    // the chain may also differ, so re-walk + re-parse. Stable after at most
+    // a handful of iterations; cap defensively.
+    const MAX_PARSE_ITERATIONS = 4;
+    for (let iter = 0; iter < MAX_PARSE_ITERATIONS; iter++) {
+      try {
+        await Promise.all(
+          visitedCmds.map(async (c) => {
+            if (!loaded.has(c)) {
+              loaded.set(c, await loadCommand(c));
+            }
+          }),
+        );
+      } catch (err) {
+        if (err instanceof CommandLoadError) {
+          process.stderr.write(`${this.#errorPrefix()}: ${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
+
+      if (wantsHelp) {
+        const usage =
+          walk.node === this.#tree || !walk.node.command
+            ? await this.#renderRootUsage()
+            : await renderCommandUsage({
+                programName: this.#programName,
+                node: walk.node,
+                visited: visitedCmds,
+                loaded,
+              });
+        process.stdout.write(`${usage}\n`);
+        return 0;
+      }
+
+      if (!walk.node.command && !walk.unknown) {
+        process.stdout.write(`${await this.#renderRootUsage()}\n`);
+        return 0;
+      }
+
+      const descriptorsForParse = await collectDescriptors({
+        visitedCmds,
+        node: walk.node,
+        loaded,
+      });
+      const aliasMap = buildAliasMapFromDescriptors(descriptorsForParse);
+      const parserConfig = buildParserConfigFromDescriptors(descriptorsForParse);
+      const rewritten = rewriteArgvAliases({ argv, aliasMap });
+      try {
+        parsed = parseArgs({
+          args: rewritten,
+          options: parserConfig,
+          strict: false,
+          allowPositionals: true,
+        });
+      } catch (err) {
+        process.stderr.write(`${this.#errorPrefix()}: ${(err as Error).message}\n`);
+        return 2;
+      }
+
+      if (positionalsEqual({ a: parsed.positionals, b: positionals })) {
+        break;
+      }
+      positionals = parsed.positionals;
+      walk = walkTree({ tree: this.#tree, positionals });
+      visitedCmds = walk.visitedCommands
+        .map((v) => v.command)
+        .filter((c): c is RuntimeCommand => c !== null);
+    }
+
+    if (walk.unknown) {
+      process.stderr.write(
+        `${this.#errorPrefix()}: unknown command: ${walk.unknownToken} — run \`${this.#programName} --help\` to see available commands\n`,
+      );
+      return 2;
+    }
+
+    if (!walk.node.command) {
       process.stdout.write(`${await this.#renderRootUsage()}\n`);
       return 0;
     }
 
-    const visitedCmds = visitedCommands
-      .map((v) => v.command)
-      .filter((c): c is RuntimeCommand => c !== null);
-    let loaded: Map<RuntimeCommand, LoadedCommand>;
-    try {
-      const pairs = await Promise.all(
-        visitedCmds.map(async (c) => [c, await loadCommand(c)] as const),
-      );
-      loaded = new Map(pairs);
-    } catch (err) {
-      if (err instanceof CommandLoadError) {
-        process.stderr.write(`${this.#errorPrefix()}: ${err.message}\n`);
-        return 1;
-      }
-      throw err;
-    }
-
-    if (wantsHelp) {
-      const usage =
-        node === this.#tree || !node.command
-          ? await this.#renderRootUsage()
-          : await renderCommandUsage({
-              programName: this.#programName,
-              node,
-              visited: visitedCmds,
-              loaded,
-            });
-      process.stdout.write(`${usage}\n`);
-      return 0;
-    }
-
-    const targetLoaded = loaded.get(node.command!)!;
+    const targetLoaded = loaded.get(walk.node.command)!;
     const targetHelpEnabled = targetLoaded.helpArg?.enabled !== false;
 
-    const descriptors: OptionDescriptor[] = [];
-    for (const cmd of visitedCmds) {
-      const lc = loaded.get(cmd)!;
-      const isTarget = cmd === node.command;
-      const sliced: OptionsRecord = {};
-      for (const [name, opt] of Object.entries(lc.options) as Array<[string, AnyOption]>) {
-        if (isTarget || opt.forwardToChildren === true) {
-          sliced[name] = opt;
-        }
-      }
-      const ds = await describeLoadedOptions({
-        options: sliced,
-        source: cmd.path === '' ? '<root>' : cmd.path,
-      });
-      descriptors.push(...ds);
-    }
+    const descriptors = await collectDescriptors({
+      visitedCmds,
+      node: walk.node,
+      loaded,
+    });
 
     const collisions = detectOptionCollisions(descriptors);
     if (collisions.length > 0) {
@@ -807,7 +916,7 @@ export class Cli<C extends object = Record<string, never>> {
     }
 
     const paramShadow = detectParamOptionShadow({
-      visitedCommands,
+      visitedCommands: walk.visitedCommands,
       loaded,
     });
     if (paramShadow) {
@@ -815,30 +924,7 @@ export class Cli<C extends object = Record<string, never>> {
       return 2;
     }
 
-    const aliasMap = buildAliasMapFromDescriptors(descriptors);
-    const parserConfig = buildParserConfigFromDescriptors(descriptors);
-    const rewritten = rewriteArgvAliases({ argv: flagTail, aliasMap });
-    let parsed: ReturnType<typeof parseArgs>;
-    try {
-      parsed = parseArgs({
-        args: rewritten,
-        options: parserConfig,
-        strict: false,
-        allowPositionals: true,
-      });
-    } catch (err) {
-      process.stderr.write(`${this.#errorPrefix()}: ${(err as Error).message}\n`);
-      return 2;
-    }
-
-    if (parsed.positionals.length > 0) {
-      process.stderr.write(
-        `${this.#errorPrefix()}: unexpected positional after options: ${parsed.positionals[0]} — parsh requires positionals to come before flags${helpHint(targetHelpEnabled)}\n`,
-      );
-      return 2;
-    }
-
-    const rawValues = parsed.values as Record<string, unknown>;
+    const rawValues = (parsed?.values ?? {}) as Record<string, unknown>;
     const rootCommand = this.#tree.command;
 
     const parents: Record<
@@ -849,13 +935,13 @@ export class Cli<C extends object = Record<string, never>> {
     let targetOwnOptions: Record<string, unknown> = {};
     let targetOwnParams: Record<string, unknown> = {};
 
-    for (let i = 0; i < visitedCommands.length; i++) {
-      const v = visitedCommands[i]!;
+    for (let i = 0; i < walk.visitedCommands.length; i++) {
+      const v = walk.visitedCommands[i]!;
       if (!v.command) {
         continue;
       }
       const loadedCmd = loaded.get(v.command)!;
-      const isTargetVisit = i === visitedCommands.length - 1;
+      const isTargetVisit = i === walk.visitedCommands.length - 1;
       const optionSpecs = optionSpecsFor({
         options: loadedCmd.options,
         includeSelfOnly: isTargetVisit,
@@ -896,7 +982,7 @@ export class Cli<C extends object = Record<string, never>> {
         return 2;
       }
 
-      const isTarget = i === visitedCommands.length - 1;
+      const isTarget = i === walk.visitedCommands.length - 1;
       const isRoot = v.command === rootCommand;
       if (isRoot) {
         rootOptions = optionsResult.value;
@@ -921,11 +1007,11 @@ export class Cli<C extends object = Record<string, never>> {
 
     if (!targetLoaded.handler) {
       const usage =
-        node === this.#tree
+        walk.node === this.#tree
           ? await this.#renderRootUsage()
           : await renderCommandUsage({
               programName: this.#programName,
-              node,
+              node: walk.node,
               visited: visitedCmds,
               loaded,
             });

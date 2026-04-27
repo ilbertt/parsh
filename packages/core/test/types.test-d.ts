@@ -164,6 +164,7 @@ defineCommand('ctxhost open', {
 });
 
 import {
+  type BuiltInErrorCode,
   type CommandLoadError,
   type ExitFn,
   ExitSignal,
@@ -181,9 +182,7 @@ createCli({
   tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
   errors: { NotLoggedIn, RateLimited },
   onError: ({ code, error, ctx, exit, print }) => {
-    expectTypeOf(code).toEqualTypeOf<
-      'NotLoggedIn' | 'RateLimited' | 'PARSE' | 'VALIDATION' | 'LOAD' | 'UNKNOWN'
-    >();
+    expectTypeOf(code).toEqualTypeOf<'NotLoggedIn' | 'RateLimited' | BuiltInErrorCode>();
     expectTypeOf(exit).toEqualTypeOf<ExitFn>();
     expectTypeOf(print).toEqualTypeOf<Print>();
     if (code === 'NotLoggedIn') {
@@ -225,7 +224,7 @@ createCli({
   programName: 'errs',
   tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
   onError: ({ code }) => {
-    expectTypeOf(code).toEqualTypeOf<'PARSE' | 'VALIDATION' | 'LOAD' | 'UNKNOWN'>();
+    expectTypeOf(code).toEqualTypeOf<BuiltInErrorCode>();
   },
 });
 

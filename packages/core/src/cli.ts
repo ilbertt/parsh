@@ -1,5 +1,6 @@
 import { type ParseArgsConfig, parseArgs } from 'node:util';
 import {
+  BuiltInErrorCode,
   CommandLoadError,
   type ErrorsRecord,
   handleError,
@@ -693,7 +694,7 @@ export class Cli<C extends object = Record<string, never>> {
     } catch (err) {
       return handleError({
         site: {
-          code: 'PARSE',
+          code: BuiltInErrorCode.Parse,
           error: err as Error,
           defaultMessage: (err as Error).message,
           defaultExitCode: 2,
@@ -727,7 +728,12 @@ export class Cli<C extends object = Record<string, never>> {
     if (unknown) {
       const msg = `unknown command: ${unknownToken} — run \`${this.#programName} --help\` to see available commands`;
       return handleError({
-        site: { code: 'PARSE', error: new Error(msg), defaultMessage: msg, defaultExitCode: 2 },
+        site: {
+          code: BuiltInErrorCode.Parse,
+          error: new Error(msg),
+          defaultMessage: msg,
+          defaultExitCode: 2,
+        },
         programName: this.#programName,
         onError: this.#onError,
       });
@@ -765,7 +771,12 @@ export class Cli<C extends object = Record<string, never>> {
     } catch (err) {
       if (err instanceof CommandLoadError) {
         return handleError({
-          site: { code: 'LOAD', error: err, defaultMessage: err.message, defaultExitCode: 1 },
+          site: {
+            code: BuiltInErrorCode.Load,
+            error: err,
+            defaultMessage: err.message,
+            defaultExitCode: 1,
+          },
           programName: this.#programName,
           onError: this.#onError,
         });
@@ -807,7 +818,7 @@ export class Cli<C extends object = Record<string, never>> {
         const msg = `${optionsResult.error}${helpHint(targetHelpEnabled)}`;
         return handleError({
           site: {
-            code: 'VALIDATION',
+            code: BuiltInErrorCode.Validation,
             error: new Error(optionsResult.error),
             defaultMessage: msg,
             defaultExitCode: 2,
@@ -838,7 +849,7 @@ export class Cli<C extends object = Record<string, never>> {
         const msg = `${paramsResult.error}${helpHint(targetHelpEnabled)}`;
         return handleError({
           site: {
-            code: 'VALIDATION',
+            code: BuiltInErrorCode.Validation,
             error: new Error(paramsResult.error),
             defaultMessage: msg,
             defaultExitCode: 2,
@@ -906,7 +917,7 @@ export class Cli<C extends object = Record<string, never>> {
     };
     return handleError({
       site: {
-        code: matchedCode ?? 'UNKNOWN',
+        code: matchedCode ?? BuiltInErrorCode.Unknown,
         error: errVal,
         ctx: errorCtx,
         defaultMessage: errVal.message,

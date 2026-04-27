@@ -1,7 +1,12 @@
 import { type Print, print } from './print.js';
 import { stderrBold, stderrRed } from './style.js';
 
-export type BuiltInErrorCode = 'PARSE' | 'VALIDATION' | 'LOAD' | 'UNKNOWN';
+export enum BuiltInErrorCode {
+  Parse = 'PARSE',
+  Validation = 'VALIDATION',
+  Load = 'LOAD',
+  Unknown = 'UNKNOWN',
+}
 
 export type ErrorClass = new (...args: never[]) => Error;
 
@@ -27,10 +32,10 @@ type RegisteredVariants<E extends ErrorsRecord, C extends object> = string exten
     }[keyof E & string];
 
 export type OnErrorPayload<E extends ErrorsRecord, C extends object> =
-  | { code: 'PARSE'; error: Error; ctx?: undefined }
-  | { code: 'VALIDATION'; error: Error; ctx?: undefined }
-  | { code: 'LOAD'; error: CommandLoadError; ctx?: undefined }
-  | { code: 'UNKNOWN'; error: Error; ctx: OnErrorHandlerCtx<C> }
+  | { code: BuiltInErrorCode.Parse; error: Error; ctx?: undefined }
+  | { code: BuiltInErrorCode.Validation; error: Error; ctx?: undefined }
+  | { code: BuiltInErrorCode.Load; error: CommandLoadError; ctx?: undefined }
+  | { code: BuiltInErrorCode.Unknown; error: Error; ctx: OnErrorHandlerCtx<C> }
   | RegisteredVariants<E, C>;
 
 export class ExitSignal {

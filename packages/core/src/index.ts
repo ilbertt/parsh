@@ -12,7 +12,7 @@ export {
 } from './cli.js';
 export { defineCommand, defineRootCommand } from './command.js';
 export {
-  type BuiltInErrorCode,
+  BuiltInErrorCode,
   type ErrorClass,
   type ErrorsRecord,
   type ExitFn,

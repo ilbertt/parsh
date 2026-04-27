@@ -14,5 +14,12 @@
     "package.json",
     "README.md"
   ],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "dependencies": {}
 }

@@ -8,6 +8,7 @@
     "test:types": "bun run --bun tsc -p tsconfig.types.json --diagnostics",
     "test": "bun test:types && bun test"
   },
+  "dependencies": {},
   "devDependencies": {
     "@repo/pack-utils": "workspace:*",
     "@repo/typescript-config": "workspace:*",

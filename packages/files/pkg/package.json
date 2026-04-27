@@ -14,7 +14,12 @@
     "package.json",
     "README.md"
   ],
-  "dependencies": {
-    "env-paths": "^3.0.0"
-  }
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {}
 }

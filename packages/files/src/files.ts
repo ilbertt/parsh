@@ -27,35 +27,102 @@ type InferOutput<S> = S extends StandardSchema<infer O> ? O : never;
 
 export interface FileSpec<Output = unknown> {
   schema: StandardSchema<Output>;
-  /**
-   * Filename of the JSON file on disk, joined with `basePath` to produce the
-   * final path. Include the extension yourself (typically `.json`).
-   */
+  /** Joined with `basePath` to form the path. Include the extension (typically `.json`). */
   filename: string;
+  /**
+   * Returned by `read()` and `load()` when the file is missing. Never
+   * written to disk implicitly — only an explicit write/update/set/replace
+   * persists state.
+   */
+  defaults?: Output;
 }
 
 export interface FileHandle<T> {
   readonly path: string;
   /**
-   * Reads the file and returns `T`. Assumes existence was already validated
-   * upstream (typically by `ensureExists()` in a `beforeHandler`). Throws an
-   * internal `FileNotFoundError` if the file is missing — that error is a
-   * developer signal, not user-facing copy. Throws `FileValidationError` on
-   * bad JSON or schema mismatch.
+   * Reads and returns the file contents — or `defaults`, if the spec
+   * provides them and the file is missing.
+   *
+   * @throws {FileNotFoundError} File missing and no `defaults`.
+   * @throws {FileValidationError} Invalid JSON or schema mismatch.
    */
   read(): Promise<T>;
-  /** Like `read()`, but returns `null` instead of throwing when the file is missing. */
+  /**
+   * Like {@link FileHandle.read}, but returns `null` for a missing file
+   * instead of throwing. Ignores `defaults`.
+   *
+   * @throws {FileValidationError} Invalid JSON or schema mismatch.
+   */
   maybeRead(): Promise<T | null>;
+  /**
+   * Validates and atomically writes `value` (write-via-rename — no
+   * half-written JSON on disk).
+   *
+   * @throws {FileValidationError} `value` fails schema validation.
+   */
   write(value: T): Promise<void>;
   /**
-   * Throws `FileNotFoundError` if the file does not exist on disk. Pass
-   * `message` to customize the error (e.g. `'Run \`mycli init\` first.'`) —
-   * the message surfaces directly to the user when called from a
-   * `beforeHandler`.
+   * Read-modify-write: reads the current value (or `defaults`), shallow-
+   * merges `partial`, validates, and writes atomically.
+   *
+   * @remarks Not concurrency-safe within a process — there is no lock
+   * between the read and the write. Serialize updates that may overlap.
+   *
+   * @throws {FileNotFoundError} File missing and no `defaults`.
+   * @throws {FileValidationError} Merged value fails schema validation.
+   */
+  update(partial: Partial<T>): Promise<void>;
+  /**
+   * Asserts the file exists. Pass `opts.message` to customize the error
+   * (e.g. `'Run `mycli init` first.'`) — it surfaces directly to the user
+   * when thrown from a `beforeHandler`.
+   *
+   * @throws {FileNotFoundError} File does not exist.
    */
   ensureExists(opts?: { message?: string }): Promise<void>;
+  /**
+   * Loads the file once into memory and returns a stateful handle with
+   * synchronous `.value` access plus async partial writes.
+   *
+   * @remarks Idempotent — repeated calls return the same handle and do not
+   * re-read disk. Use {@link StatefulFileHandle.reload} to pick up
+   * external changes. Assumes single-process ownership of the file.
+   *
+   * @throws {FileNotFoundError} First call, file missing, no `defaults`.
+   * @throws {FileValidationError} First call, invalid JSON or schema mismatch.
+   */
+  load(): Promise<StatefulFileHandle<T>>;
 }
 
+export interface StatefulFileHandle<T> {
+  readonly path: string;
+  /** The latest in-memory snapshot. Kept in sync by `set()` / `replace()` / `reload()`. */
+  readonly value: Readonly<T>;
+  /**
+   * Shallow-merges `partial` over `value`, validates, atomically writes, and
+   * updates `value`. The async equivalent of {@link FileHandle.update}.
+   *
+   * @throws {FileValidationError} Merged value fails schema validation.
+   */
+  set(partial: Partial<T>): Promise<void>;
+  /**
+   * Validates, atomically writes, and updates `value`.
+   *
+   * @throws {FileValidationError} `value` fails schema validation.
+   */
+  replace(value: T): Promise<void>;
+  /**
+   * Re-reads from disk and replaces `value`. Only needed when the file was
+   * modified externally — `set()` and `replace()` already keep `value`
+   * in sync.
+   *
+   * @throws {FileNotFoundError} File missing and no `defaults`.
+   * @throws {FileValidationError} Invalid JSON or schema mismatch.
+   */
+  reload(): Promise<void>;
+}
+
+/** Thrown when a file expected to exist on disk is missing. */
 export class FileNotFoundError extends Error {
   readonly path: string;
   constructor({ path, message }: { path: string; message?: string }) {
@@ -65,6 +132,7 @@ export class FileNotFoundError extends Error {
   }
 }
 
+/** Thrown when JSON is malformed or fails schema validation. `issues` carries one entry per failing path. */
 export class FileValidationError extends Error {
   readonly path: string;
   readonly issues: ReadonlyArray<{ message: string; path: string }>;
@@ -113,7 +181,11 @@ type CreateFilesContextInput<Files extends Record<string, FileSpec>> = {
    * ```
    */
   basePath: string;
-  files: Files;
+  files: {
+    [K in keyof Files]: Files[K] & {
+      defaults?: InferOutput<Files[K]['schema']>;
+    };
+  };
 };
 
 export type CreateFilesContextResult<Files extends Record<string, FileSpec>> = {
@@ -121,10 +193,9 @@ export type CreateFilesContextResult<Files extends Record<string, FileSpec>> = {
 };
 
 /**
- * Returns a typed handles map — assign it to whatever key you like under your
+ * Returns a typed map of {@link FileHandle}s — assign it under your
  * `createCli` `context`. Each handle is typed from its Standard Schema and
- * persists JSON to disk at `path.join(basePath, spec.filename)`. Optional
- * `defaults` narrow `read()` from `T | null` to `T`.
+ * persists JSON to disk at `path.join(basePath, spec.filename)`.
  *
  * @example
  * ```ts
@@ -150,6 +221,7 @@ export function createFilesContext<const Files extends Record<string, FileSpec>>
     handles[name] = makeHandle({
       path: join(basePath, spec.filename),
       schema: spec.schema,
+      defaults: spec.defaults,
     });
   }
   return handles as CreateFilesContextResult<Files>;
@@ -262,7 +334,7 @@ async function validateAndWriteAtomic<T>({
   path: string;
   schema: StandardSchema<T>;
   value: T;
-}): Promise<void> {
+}): Promise<T> {
   const result = await settle({ schema, value });
   if ('issues' in result && result.issues) {
     throw new FileValidationError({ path, issues: normalizeIssues(result.issues) });
@@ -276,29 +348,77 @@ async function validateAndWriteAtomic<T>({
     await unlink(tmp).catch(() => {});
     throw err;
   }
+  return result.value;
 }
 
 function makeHandle<T>({
   path,
   schema,
+  defaults,
 }: {
   path: string;
   schema: StandardSchema<T>;
+  defaults: T | undefined;
 }): FileHandle<T> {
-  return {
+  let stateful: StatefulFileHandle<T> | undefined;
+
+  const read = async (): Promise<T> => {
+    const v = await loadAndValidate({ path, schema });
+    if (v === ENOENT_MARKER) {
+      if (defaults !== undefined) {
+        return defaults;
+      }
+      throw new FileNotFoundError({ path });
+    }
+    return v;
+  };
+
+  const handle: FileHandle<T> = {
     path,
     ensureExists: (opts) => checkExists({ path, message: opts?.message }),
-    read: async () => {
-      const v = await loadAndValidate({ path, schema });
-      if (v === ENOENT_MARKER) {
-        throw new FileNotFoundError({ path });
-      }
-      return v;
-    },
+    read,
     maybeRead: async () => {
       const v = await loadAndValidate({ path, schema });
       return v === ENOENT_MARKER ? null : v;
     },
-    write: (value) => validateAndWriteAtomic({ path, schema, value }),
+    write: async (value) => {
+      await validateAndWriteAtomic({ path, schema, value });
+    },
+    update: async (partial) => {
+      const current = await read();
+      await validateAndWriteAtomic({
+        path,
+        schema,
+        value: { ...current, ...partial } as T,
+      });
+    },
+    load: async () => {
+      if (stateful) {
+        return stateful;
+      }
+      let snapshot = await read();
+      const built: StatefulFileHandle<T> = {
+        path,
+        get value() {
+          return snapshot;
+        },
+        set: async (partial) => {
+          snapshot = await validateAndWriteAtomic({
+            path,
+            schema,
+            value: { ...snapshot, ...partial } as T,
+          });
+        },
+        replace: async (value) => {
+          snapshot = await validateAndWriteAtomic({ path, schema, value });
+        },
+        reload: async () => {
+          snapshot = await read();
+        },
+      };
+      stateful = built;
+      return built;
+    },
   };
+  return handle;
 }

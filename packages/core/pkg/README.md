@@ -1,5 +1,8 @@
 # @parshjs/core
 
+[![npm version](https://img.shields.io/npm/v/@parshjs/core.svg)](https://www.npmjs.com/package/@parshjs/core)
+[![license](https://img.shields.io/npm/l/@parshjs/core.svg)](https://www.npmjs.com/package/@parshjs/core)
+
 Type-safe router for TypeScript CLIs.
 
 - **Fully type-safe** — options, params, and shared context are typed end-to-end. Zero generics at call sites, autocomplete on every `ctx`.
@@ -12,8 +15,8 @@ Type-safe router for TypeScript CLIs.
 ## Install
 
 ```sh
-bun add @parshjs/core
-bun add -d @parshjs/codegen
+npm install @parshjs/core
+npm install -D @parshjs/codegen
 ```
 
 ## Define commands

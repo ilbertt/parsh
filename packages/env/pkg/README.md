@@ -1,5 +1,8 @@
 # @parshjs/env
 
+[![npm version](https://img.shields.io/npm/v/@parshjs/env.svg)](https://www.npmjs.com/package/@parshjs/env)
+[![license](https://img.shields.io/npm/l/@parshjs/env.svg)](https://www.npmjs.com/package/@parshjs/env)
+
 Typed, lazy environment-variable access for [`@parshjs/core`](https://www.npmjs.com/package/@parshjs/core) handler `ctx`.
 
 - **Standard Schema v1** — bring your own validator (Zod, Valibot, ArkType, …).
@@ -9,7 +12,7 @@ Typed, lazy environment-variable access for [`@parshjs/core`](https://www.npmjs.
 ## Install
 
 ```sh
-bun add @parshjs/env
+npm install @parshjs/env
 ```
 
 ## Usage

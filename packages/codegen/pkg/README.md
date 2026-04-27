@@ -1,5 +1,8 @@
 # @parshjs/codegen
 
+[![npm version](https://img.shields.io/npm/v/@parshjs/codegen.svg)](https://www.npmjs.com/package/@parshjs/codegen)
+[![license](https://img.shields.io/npm/l/@parshjs/codegen.svg)](https://www.npmjs.com/package/@parshjs/codegen)
+
 Filesystem-driven command tree generator for [`@parshjs/core`](https://www.npmjs.com/package/@parshjs/core).
 
 Walks a `commands/` directory, validates each `defineCommand`, and emits a `commandTree.gen.ts` file that wires the runtime command tree and full `ctx` typing into `@parshjs/core`.
@@ -9,14 +12,13 @@ This file is **generated** — never hand-edit it. Commit it and re-run after an
 ## Install
 
 ```sh
-bun add -d @parshjs/codegen
+npm install -D @parshjs/codegen
 ```
 
 ## Usage
 
 ```sh
 parsh-codegen generate                   # one-shot
-parsh-codegen generate --watch           # regenerate on add/remove/rename
 parsh-codegen generate --help            # full flag reference
 ```
 

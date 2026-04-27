@@ -16,8 +16,8 @@ Guidelines and instructions on how to build amazing CLI applications are availab
 ## Quick start
 
 ```sh
-bun add @parshjs/core
-bun add -d @parshjs/codegen
+npm install @parshjs/core
+npm install -D @parshjs/codegen
 ```
 
 ```ts

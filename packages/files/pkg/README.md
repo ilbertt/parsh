@@ -1,5 +1,8 @@
 # @parshjs/files
 
+[![npm version](https://img.shields.io/npm/v/@parshjs/files.svg)](https://www.npmjs.com/package/@parshjs/files)
+[![license](https://img.shields.io/npm/l/@parshjs/files.svg)](https://www.npmjs.com/package/@parshjs/files)
+
 Typed JSON file storage for [`@parshjs/core`](https://www.npmjs.com/package/@parshjs/core) handler `ctx`.
 
 - **Standard Schema v1** — bring your own validator (Zod, Valibot, ArkType, …).
@@ -10,7 +13,7 @@ Typed JSON file storage for [`@parshjs/core`](https://www.npmjs.com/package/@par
 ## Install
 
 ```sh
-bun add @parshjs/files
+npm install @parshjs/files
 ```
 
 ## Usage

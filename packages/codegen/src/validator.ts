@@ -73,38 +73,6 @@ function checkOptionCollisions({
   return out;
 }
 
-function checkParamSegmentAgreement({
-  cmd,
-  segment,
-  nodePath,
-}: {
-  cmd: ExtractedCommand;
-  segment: SourceSegment | null;
-  nodePath: string[];
-}): ValidationIssue[] {
-  const out: ValidationIssue[] = [];
-  if (segmentIsParam(segment)) {
-    const segName = segment.name;
-    if (!cmd.paramNames.includes(segName)) {
-      out.push({
-        message: `command '${formatPath(nodePath)}' (${cmd.filePath}) has path segment [${segName}] but its params object does not declare '${segName}'.`,
-      });
-    }
-    for (const p of cmd.paramNames) {
-      if (p !== segName) {
-        out.push({
-          message: `command '${formatPath(nodePath)}' (${cmd.filePath}) declares param '${p}' which is not in its path string.`,
-        });
-      }
-    }
-  } else if (cmd.paramNames.length > 0) {
-    out.push({
-      message: `command '${formatPath(nodePath)}' (${cmd.filePath}) declares params but its path has no [bracket] segment.`,
-    });
-  }
-  return out;
-}
-
 /**
  * v0.1 validation rules:
  *
@@ -116,9 +84,10 @@ function checkParamSegmentAgreement({
  *    `options.name` is ambiguous at runtime.
  * 3. **Param-param shadowing across ancestry.** An ancestor `[name]` and a
  *    descendant `[name]` collide when both are passed into ctx.params.
- * 4. **Path/params agreement.** The command's `params` keys must match the
- *    bracket segment of its own path (missing, extra, or unrelated keys all
- *    reject).
+ *
+ * Path/params agreement is enforced at the type level by `ParamsConstraint`
+ * in `defineCommand`, so codegen does not need to read the `params` object
+ * body to check it.
  */
 export function validateTree(root: CommandNode): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -147,7 +116,6 @@ export function validateTree(root: CommandNode): ValidationIssue[] {
         }
       }
       issues.push(...checkOptionCollisions({ cmd, ancestors }));
-      issues.push(...checkParamSegmentAgreement({ cmd, segment, nodePath }));
 
       for (const opt of cmd.options) {
         if (opt.forwardToChildren) {

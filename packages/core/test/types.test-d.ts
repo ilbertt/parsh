@@ -1,5 +1,4 @@
 /** biome-ignore-all lint/complexity/noBannedTypes: empty-object shapes mirror the generated registry */
-/** biome-ignore-all lint/style/noMagicNumbers: literal exit codes in type-test fixtures are intentional */
 import { expectTypeOf } from 'expect-type';
 import { z } from 'zod';
 import { type CommandRegistry, defineCommand } from '#index.ts';
@@ -190,6 +189,7 @@ createCli({
     if (code === 'NotLoggedIn') {
       expectTypeOf(error).toEqualTypeOf<NotLoggedIn>();
       expectTypeOf(ctx).toEqualTypeOf<OnErrorHandlerCtx<Record<string, never>>>();
+      // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
       return exit(77);
     }
     if (code === 'RateLimited') {
@@ -216,6 +216,7 @@ createCli({
   programName: 'errs',
   tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
   // @ts-expect-error — must return void or ExitSignal
+  // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
   onError: () => 5,
 });
 

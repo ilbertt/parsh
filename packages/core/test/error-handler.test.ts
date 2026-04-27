@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/style/noMagicNumbers: exit codes in tests are intentional literals */
 import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
 import {
@@ -101,12 +100,14 @@ describe('onError — registered handler errors', () => {
       onError: ({ code, error, exit }) => {
         seen.push({ code, isInstance: error instanceof NotLoggedIn });
         if (code === 'NotLoggedIn') {
+          // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
           return exit(77);
         }
       },
     });
     const exitCode = await cli.run(['run']);
     expect(seen).toEqual([{ code: 'NotLoggedIn', isInstance: true }]);
+    // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
     expect(exitCode).toBe(77);
     expect(stderrText()).toBe('');
   });
@@ -222,11 +223,13 @@ describe('onError — pre-handler sites', () => {
       tree,
       onError: ({ code, exit }) => {
         codes.push(code);
+        // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
         return exit(9);
       },
     });
     const exitCode = await cli.run(['unknown-cmd']);
     expect(codes).toEqual(['PARSE']);
+    // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
     expect(exitCode).toBe(9);
     expect(stderrText()).toBe('');
   });
@@ -238,11 +241,13 @@ describe('onError — pre-handler sites', () => {
       tree: makeValidationTree(),
       onError: (payload) => {
         seen.push({ code: payload.code, ctx: payload.ctx });
+        // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
         return payload.exit(8);
       },
     });
     const exitCode = await cli.run(['go']);
     expect(seen).toEqual([{ code: 'VALIDATION', ctx: undefined }]);
+    // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
     expect(exitCode).toBe(8);
   });
 
@@ -253,11 +258,13 @@ describe('onError — pre-handler sites', () => {
       tree: makeParamValidationTree(),
       onError: ({ code, exit }) => {
         codes.push(code);
+        // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
         return exit(8);
       },
     });
     const exitCode = await cli.run(['pick', 'not-a-number']);
     expect(codes).toEqual(['VALIDATION']);
+    // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
     expect(exitCode).toBe(8);
   });
 
@@ -268,11 +275,13 @@ describe('onError — pre-handler sites', () => {
       onError: ({ code, print, exit }) => {
         if (code === 'VALIDATION') {
           print.error('custom validation msg');
+          // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
           return exit(8);
         }
       },
     });
     const exitCode = await cli.run(['go']);
+    // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
     expect(exitCode).toBe(8);
     expect(stderrText()).toContain('custom validation msg');
   });
@@ -284,11 +293,13 @@ describe('onError — pre-handler sites', () => {
       tree: makeLoadErrorTree(),
       onError: ({ code, error, exit }) => {
         seen.push({ code, isInstance: error instanceof CommandLoadError });
+        // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
         return exit(11);
       },
     });
     const exitCode = await cli.run(['broken']);
     expect(seen).toEqual([{ code: 'LOAD', isInstance: true }]);
+    // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
     expect(exitCode).toBe(11);
   });
 });
@@ -312,9 +323,11 @@ describe('onError — exit semantics', () => {
     const cli = createCli({
       programName: 'app',
       tree: makeTreeWithThrowingHandler(new Error('hidden')),
+      // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
       onError: ({ exit }) => exit(42),
     });
     const exitCode = await cli.run(['run']);
+    // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
     expect(exitCode).toBe(42);
     expect(stderrText()).toBe('');
     expect(stdoutText()).toBe('');
@@ -326,9 +339,11 @@ describe('onError — exit semantics', () => {
       tree: makeTreeWithThrowingHandler(new Error('boom')),
       onError: async ({ exit }) => {
         await new Promise((r) => setTimeout(r, 1));
+        // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
         return exit(3);
       },
     });
+    // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
     expect(await cli.run(['run'])).toBe(3);
     expect(stderrText()).toBe('');
   });
@@ -348,8 +363,10 @@ describe('onError — exit semantics', () => {
   });
 
   test('exit() returns an ExitSignal instance', () => {
+    // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
     const sig = new ExitSignal(5);
     expect(sig).toBeInstanceOf(ExitSignal);
+    // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
     expect(sig.code).toBe(5);
   });
 });

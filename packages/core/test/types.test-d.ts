@@ -164,7 +164,13 @@ defineCommand('ctxhost open', {
   },
 });
 
-import { type CommandLoadError, type ExitFn, ExitSignal, type OnErrorHandlerCtx } from '#index.ts';
+import {
+  type CommandLoadError,
+  type ExitFn,
+  ExitSignal,
+  type OnErrorHandlerCtx,
+  type Print,
+} from '#index.ts';
 
 class NotLoggedIn extends Error {}
 class RateLimited extends Error {
@@ -175,11 +181,12 @@ createCli({
   programName: 'errs',
   tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
   errors: { NotLoggedIn, RateLimited },
-  onError: ({ code, error, ctx, exit }) => {
+  onError: ({ code, error, ctx, exit, print }) => {
     expectTypeOf(code).toEqualTypeOf<
       'NotLoggedIn' | 'RateLimited' | 'PARSE' | 'VALIDATION' | 'LOAD' | 'UNKNOWN'
     >();
     expectTypeOf(exit).toEqualTypeOf<ExitFn>();
+    expectTypeOf(print).toEqualTypeOf<Print>();
     if (code === 'NotLoggedIn') {
       expectTypeOf(error).toEqualTypeOf<NotLoggedIn>();
       expectTypeOf(ctx).toEqualTypeOf<OnErrorHandlerCtx<Record<string, never>>>();

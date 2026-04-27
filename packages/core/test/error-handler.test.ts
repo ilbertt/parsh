@@ -261,6 +261,22 @@ describe('onError — pre-handler sites', () => {
     expect(exitCode).toBe(8);
   });
 
+  test('print is available at the payload top level for pre-handler sites', async () => {
+    const cli = createCli({
+      programName: 'app',
+      tree: makeValidationTree(),
+      onError: ({ code, print, exit }) => {
+        if (code === 'VALIDATION') {
+          print.error('custom validation msg');
+          return exit(8);
+        }
+      },
+    });
+    const exitCode = await cli.run(['go']);
+    expect(exitCode).toBe(8);
+    expect(stderrText()).toContain('custom validation msg');
+  });
+
   test('LOAD: failed import routes with CommandLoadError', async () => {
     const seen: Array<{ code: string; isInstance: boolean }> = [];
     const cli = createCli({

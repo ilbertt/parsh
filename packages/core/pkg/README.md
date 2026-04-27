@@ -128,9 +128,9 @@ createCli({
   programName: 'awslike',
   tree: commandTree,
   errors: { NotAuthorized },
-  onError: ({ code, error, ctx, exit }) => {
+  onError: ({ code, error, exit, print }) => {
     if (code === 'NotAuthorized') {
-      ctx.print.error(error.message);
+      print.error(error.message);
       return exit(1);
     }
     // void → fall through to default stderr + exit code

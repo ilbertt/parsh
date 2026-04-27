@@ -21,14 +21,14 @@ const cli = createCli({
     env: envVarsContext,
   },
   errors: { NotAuthorized, InvalidRegion },
-  onError: ({ code, error, ctx, exit }) => {
+  onError: ({ code, error, exit, print }) => {
     if (code === 'NotAuthorized') {
-      ctx.print.error(error.message);
-      ctx.print.dim('Run `awslike configure` to set credentials, then retry.');
+      print.error(error.message);
+      print.dim('Run `awslike configure` to set credentials, then retry.');
       return exit(EXIT_NOT_AUTHORIZED);
     }
     if (code === 'InvalidRegion') {
-      ctx.print.error(`unknown region: ${error.region}`);
+      print.error(`unknown region: ${error.region}`);
       return exit(EXIT_INVALID_REGION);
     }
   },

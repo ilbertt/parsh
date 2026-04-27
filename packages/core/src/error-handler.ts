@@ -1,4 +1,4 @@
-import type { Print } from './print.js';
+import { type Print, print } from './print.js';
 import { stderrBold, stderrRed } from './style.js';
 
 export type BuiltInErrorCode = 'PARSE' | 'VALIDATION' | 'LOAD' | 'UNKNOWN';
@@ -46,7 +46,7 @@ export type ExitFn = (code: number) => ExitSignal;
 export type OnErrorReturn = ExitSignal | void;
 
 export type OnError<E extends ErrorsRecord, C extends object> = (
-  payload: OnErrorPayload<E, C> & { exit: ExitFn },
+  payload: OnErrorPayload<E, C> & { exit: ExitFn; print: Print },
 ) => OnErrorReturn | Promise<OnErrorReturn>;
 
 export class CommandLoadError extends Error {
@@ -109,6 +109,7 @@ export async function handleError({
         error: site.error,
         ctx: site.ctx,
         exit: (n: number) => new ExitSignal(n),
+        print,
       };
       // biome-ignore lint/suspicious/noExplicitAny: dynamic dispatch across the discriminated union
       const ret: OnErrorReturn | Promise<OnErrorReturn> = onError(payload as any);

@@ -12,7 +12,7 @@ Reference for the non-obvious parts of `createCli({ errors, onError })`. For the
 | `'UNKNOWN'` | handler threw something unregistered (or non-Error) | `Error` (normalized) | full handler ctx |
 | any registered key | handler threw a matching class | `InstanceType<E[key]>` | full handler ctx |
 
-`ctx` is `undefined` for the three pre-handler sites because the handler context isn't built yet — narrow on `code` first.
+`ctx` is `undefined` for the three pre-handler sites because the handler context isn't built yet — narrow on `code` first. `print` is hoisted to the payload top level so you can render output from any branch without depending on `ctx`.
 
 ## Discriminant is the object key, not the class name
 

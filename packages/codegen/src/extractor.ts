@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename, relative } from 'node:path';
 import ts from 'typescript';
-import type { ExtractedCommand, ExtractedOption, SourceSegment } from '#types.ts';
+import type { ExtractedCommand, ExtractedOption, SourceSegment } from './types.js';
 
 function parsePathString(pathString: string): SourceSegment[] {
   const tokens = pathString.trim().split(/\s+/).filter(Boolean);

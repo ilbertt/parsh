@@ -2,7 +2,7 @@ import { watch } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { defineCommand } from '@repo/core';
 import { z } from 'zod';
-import { type GenerateOptions, generateCommandTree } from '#generate.ts';
+import { type GenerateOptions, generateCommandTree } from '../../generate.js';
 
 const WATCH_DEBOUNCE_MS = 75;
 

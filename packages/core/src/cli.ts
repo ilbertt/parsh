@@ -1,8 +1,8 @@
 import { type ParseArgsConfig, parseArgs } from 'node:util';
-import { print } from '#print.ts';
-import type { ResolveContext } from '#registry.ts';
-import type { AnyOption, AnyParam, AnySchema, OptionsRecord, ParamsRecord } from '#schema.ts';
-import { stderrBold, stderrDim, stderrRed, stdoutBold, stdoutCyan, stdoutDim } from '#style.ts';
+import { print } from './print.js';
+import type { ResolveContext } from './registry.js';
+import type { AnyOption, AnyParam, AnySchema, OptionsRecord, ParamsRecord } from './schema.js';
+import { stderrBold, stderrDim, stderrRed, stdoutBold, stdoutCyan, stdoutDim } from './style.js';
 
 type TreeSegment =
   | { readonly kind: 'literal'; readonly value: string }

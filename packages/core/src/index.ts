@@ -7,10 +7,10 @@ export {
   type OptionMeta,
   type RuntimeCommand,
   type RuntimeNode,
-} from '#cli.ts';
-export { defineCommand, defineRootCommand } from '#command.ts';
-export type { Print } from '#print.ts';
-export type { CommandRegistry, Register, RegisteredContext, ResolveContext } from '#registry.ts';
+} from './cli.js';
+export { defineCommand, defineRootCommand } from './command.js';
+export type { Print } from './print.js';
+export type { CommandRegistry, Register, RegisteredContext, ResolveContext } from './registry.js';
 export type {
   AnyOption,
   AnyParam,
@@ -22,4 +22,4 @@ export type {
   InferSchemas,
   OptionsRecord,
   ParamsRecord,
-} from '#schema.ts';
+} from './schema.js';

@@ -1,4 +1,4 @@
-import type { CommandNode, ExtractedCommand, SourceSegment } from '#types.ts';
+import type { CommandNode, ExtractedCommand, SourceSegment } from './types.js';
 
 export interface ValidationIssue {
   message: string;

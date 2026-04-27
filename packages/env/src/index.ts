@@ -4,4 +4,4 @@ export {
   EnvMissingError,
   EnvValidationError,
   type EnvVarSpec,
-} from '#env.ts';
+} from './env.js';

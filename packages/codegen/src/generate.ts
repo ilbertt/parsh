@@ -1,8 +1,8 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { type EmitOptions, emitGeneratedFile } from '#emitter.ts';
-import { validateTree } from '#validator.ts';
-import { walkCommandsDir } from '#walker.ts';
+import { type EmitOptions, emitGeneratedFile } from './emitter.js';
+import { validateTree } from './validator.js';
+import { walkCommandsDir } from './walker.js';
 
 export interface GenerateOptions extends EmitOptions {
   commandsDir: string;

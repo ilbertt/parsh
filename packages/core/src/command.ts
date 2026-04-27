@@ -1,6 +1,6 @@
-import type { Print } from '#print.ts';
-import type { CommandEntry, CommandRegistry, RegisteredContext, Simplify } from '#registry.ts';
-import type { AnyParam, InferOptions, InferParams, OptionsRecord } from '#schema.ts';
+import type { Print } from './print.js';
+import type { CommandEntry, CommandRegistry, RegisteredContext, Simplify } from './registry.js';
+import type { AnyParam, InferOptions, InferParams, OptionsRecord } from './schema.js';
 
 type LastSegment<P extends string> = P extends `${string} ${infer Rest}` ? LastSegment<Rest> : P;
 

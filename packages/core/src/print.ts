@@ -1,4 +1,4 @@
-import { stderrRed, stderrYellow, stdoutDim, stdoutGreen } from '#style.ts';
+import { stderrRed, stderrYellow, stdoutDim, stdoutGreen } from './style.js';
 
 export interface Print {
   info: (message: string) => void;

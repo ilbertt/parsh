@@ -1,1 +1,1 @@
-export { type GenerateOptions, generateCommandTree } from '#generate.ts';
+export { type GenerateOptions, generateCommandTree } from './generate.js';

@@ -7,4 +7,4 @@ export {
   FileValidationError,
   osHomeConfigDir,
   osHomeDir,
-} from '#files.ts';
+} from './files.js';

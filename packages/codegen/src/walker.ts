@@ -1,7 +1,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { extractCommand, extractRootCommand } from '#extractor.ts';
-import type { CommandNode, SourceSegment } from '#types.ts';
+import { extractCommand, extractRootCommand } from './extractor.js';
+import type { CommandNode, SourceSegment } from './types.js';
 
 const ROOT_FILE = '_root.ts';
 

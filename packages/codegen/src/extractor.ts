@@ -115,20 +115,6 @@ function objectInitializerOf({
   return ts.isObjectLiteralExpression(prop.initializer) ? prop.initializer : null;
 }
 
-function objectKeys(obj: ts.ObjectLiteralExpression | null): string[] {
-  if (!obj) {
-    return [];
-  }
-  const out: string[] = [];
-  for (const p of obj.properties) {
-    const k = propertyKey(p);
-    if (k !== null) {
-      out.push(k);
-    }
-  }
-  return out;
-}
-
 /**
  * `true` if the expression contains a call whose callee resolves to an
  * identifier named `boolean` — matches `z.boolean()`, `z.coerce.boolean()`,
@@ -384,7 +370,10 @@ export async function extractCommand({
     obj: objectInitializerOf({ obj: defArg, key: 'options' }),
     filePath,
   });
-  const paramNames = objectKeys(objectInitializerOf({ obj: defArg, key: 'params' }));
+  // Own param name = last segment if it's a bracket. Mirrors `OwnParamName<P>`
+  // in command.ts. Ancestor params live on their own commands.
+  const last = segments.at(-1);
+  const paramNames = last && last.kind === 'param' ? [last.name] : [];
   const description = extractDescription(defArg);
   const hidden = extractHidden({ obj: defArg, filePath });
   return {

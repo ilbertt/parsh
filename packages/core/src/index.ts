@@ -3,7 +3,6 @@
 export {
   Cli,
   type CliContextInput,
-  CommandLoadError,
   createCli,
   type LoadedCommand,
   type OptionMeta,
@@ -13,6 +12,7 @@ export {
 export { defineCommand, defineRootCommand } from './command.js';
 export {
   BuiltInErrorCode,
+  CommandLoadError,
   type ErrorClass,
   type ErrorsRecord,
   type ExitFn,

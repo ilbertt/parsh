@@ -13,8 +13,6 @@ import type { ResolveContext } from './registry.js';
 import type { AnyOption, AnyParam, AnySchema, OptionsRecord, ParamsRecord } from './schema.js';
 import { stderrDim, stdoutBold, stdoutCyan, stdoutDim } from './style.js';
 
-export { CommandLoadError } from './error-handler.js';
-
 type TreeSegment =
   | { readonly kind: 'literal'; readonly value: string }
   | { readonly kind: 'param'; readonly name: string };

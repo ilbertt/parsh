@@ -32,8 +32,6 @@ describe('lazy dispatch', () => {
 
 describe('zero-load paths', () => {
   test('--help at root loads only the root command', async () => {
-    // Root is loaded so we can probe its user-defined options for the help
-    // listing; siblings/descendants are not.
     const r = await runCli(['--help']);
     expect(r.exitCode).toBe(0);
     expect(r.loaded).toEqual(['_root']);

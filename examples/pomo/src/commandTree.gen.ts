@@ -27,32 +27,32 @@ declare module '@parshjs/core' {
     };
     'tasks add': {
       parents: {
-        'tasks': { options: InferForwardedOptions<typeof tasksCmd.options>; params: {} };
+        'tasks': { options: InferForwardedOptions<typeof tasksCmd.options>; params: InferParams<typeof tasksCmd.params> };
       };
       rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'tasks list': {
       parents: {
-        'tasks': { options: InferForwardedOptions<typeof tasksCmd.options>; params: {} };
+        'tasks': { options: InferForwardedOptions<typeof tasksCmd.options>; params: InferParams<typeof tasksCmd.params> };
       };
       rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'tasks [id]': {
       parents: {
-        'tasks': { options: InferForwardedOptions<typeof tasksCmd.options>; params: {} };
+        'tasks': { options: InferForwardedOptions<typeof tasksCmd.options>; params: InferParams<typeof tasksCmd.params> };
       };
       rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'tasks [id] done': {
       parents: {
-        'tasks': { options: InferForwardedOptions<typeof tasksCmd.options>; params: {} };
+        'tasks': { options: InferForwardedOptions<typeof tasksCmd.options>; params: InferParams<typeof tasksCmd.params> };
         'tasks [id]': { options: InferForwardedOptions<typeof tasksIdCmd.options>; params: InferParams<typeof tasksIdCmd.params> };
       };
       rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'tasks [id] remove': {
       parents: {
-        'tasks': { options: InferForwardedOptions<typeof tasksCmd.options>; params: {} };
+        'tasks': { options: InferForwardedOptions<typeof tasksCmd.options>; params: InferParams<typeof tasksCmd.params> };
         'tasks [id]': { options: InferForwardedOptions<typeof tasksIdCmd.options>; params: InferParams<typeof tasksIdCmd.params> };
       };
       rootOptions: InferForwardedOptions<typeof rootCmd.options>;
@@ -62,50 +62,50 @@ declare module '@parshjs/core' {
 
 export const commandTree: RuntimeNode = {
   segment: null,
-  command: { path: '', paramNames: [], load: () => import('./commands/_root.ts').then((m) => m.command) },
+  command: { path: '', load: () => import('./commands/_root.ts').then((m) => m.command) },
   literalChildren: {
     'start': {
       segment: { kind: 'literal', value: 'start' },
-      command: { path: 'start', paramNames: [], description: "Start a pomodoro session with a live countdown.", load: () => import('./commands/start.ts').then((m) => m.command) },
+      command: { path: 'start', description: "Start a pomodoro session with a live countdown.", load: () => import('./commands/start.ts').then((m) => m.command) },
       literalChildren: {},
       paramChild: null,
     },
     'stats': {
       segment: { kind: 'literal', value: 'stats' },
-      command: { path: 'stats', paramNames: [], description: "Show total pomodoro time and session count.", load: () => import('./commands/stats.ts').then((m) => m.command) },
+      command: { path: 'stats', description: "Show total pomodoro time and session count.", load: () => import('./commands/stats.ts').then((m) => m.command) },
       literalChildren: {},
       paramChild: null,
     },
     'tasks': {
       segment: { kind: 'literal', value: 'tasks' },
-      command: { path: 'tasks', paramNames: [], description: "Manage pomodoro tasks.", load: () => import('./commands/tasks.ts').then((m) => m.command) },
+      command: { path: 'tasks', description: "Manage pomodoro tasks.", load: () => import('./commands/tasks.ts').then((m) => m.command) },
       literalChildren: {
         'add': {
           segment: { kind: 'literal', value: 'add' },
-          command: { path: 'tasks add', paramNames: [], description: "Add a new task.", load: () => import('./commands/tasks/add.ts').then((m) => m.command) },
+          command: { path: 'tasks add', description: "Add a new task.", load: () => import('./commands/tasks/add.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },
         'list': {
           segment: { kind: 'literal', value: 'list' },
-          command: { path: 'tasks list', paramNames: [], description: "List all tasks.", load: () => import('./commands/tasks/list.ts').then((m) => m.command) },
+          command: { path: 'tasks list', description: "List all tasks.", load: () => import('./commands/tasks/list.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },
       },
       paramChild: {
         segment: { kind: 'param', name: 'id' },
-        command: { path: 'tasks [id]', paramNames: ['id'], description: "Operate on a single task.", load: () => import('./commands/tasks/[id].ts').then((m) => m.command) },
+        command: { path: 'tasks [id]', description: "Operate on a single task.", load: () => import('./commands/tasks/[id].ts').then((m) => m.command) },
         literalChildren: {
           'done': {
             segment: { kind: 'literal', value: 'done' },
-            command: { path: 'tasks [id] done', paramNames: [], description: "Mark a task as done.", load: () => import('./commands/tasks/[id]/done.ts').then((m) => m.command) },
+            command: { path: 'tasks [id] done', description: "Mark a task as done.", load: () => import('./commands/tasks/[id]/done.ts').then((m) => m.command) },
             literalChildren: {},
             paramChild: null,
           },
           'remove': {
             segment: { kind: 'literal', value: 'remove' },
-            command: { path: 'tasks [id] remove', paramNames: [], description: "Delete a task.", load: () => import('./commands/tasks/[id]/remove.ts').then((m) => m.command) },
+            command: { path: 'tasks [id] remove', description: "Delete a task.", load: () => import('./commands/tasks/[id]/remove.ts').then((m) => m.command) },
             literalChildren: {},
             paramChild: null,
           },

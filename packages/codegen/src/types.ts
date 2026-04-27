@@ -6,7 +6,6 @@ export interface ExtractedCommand {
   filePath: string;
   pathString: string;
   segments: SourceSegment[];
-  paramNames: string[];
   importName: string;
   importSpecifier: string;
   description?: string;

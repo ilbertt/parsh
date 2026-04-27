@@ -19,14 +19,14 @@ declare module '@repo/core' {
     };
     'admin users': {
       parents: {
-        'admin': { options: InferForwardedOptions<typeof adminCmd.options>; params: {} };
+        'admin': { options: InferForwardedOptions<typeof adminCmd.options>; params: InferParams<typeof adminCmd.params> };
       };
       rootOptions: {};
     };
     'admin users ban': {
       parents: {
-        'admin': { options: InferForwardedOptions<typeof adminCmd.options>; params: {} };
-        'admin users': { options: InferForwardedOptions<typeof adminUsersCmd.options>; params: {} };
+        'admin': { options: InferForwardedOptions<typeof adminCmd.options>; params: InferParams<typeof adminCmd.params> };
+        'admin users': { options: InferForwardedOptions<typeof adminUsersCmd.options>; params: InferParams<typeof adminUsersCmd.params> };
       };
       rootOptions: {};
     };
@@ -40,25 +40,25 @@ declare module '@repo/core' {
     };
     'users create': {
       parents: {
-        'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: {} };
+        'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: InferParams<typeof usersCmd.params> };
       };
       rootOptions: {};
     };
     'users list': {
       parents: {
-        'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: {} };
+        'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: InferParams<typeof usersCmd.params> };
       };
       rootOptions: {};
     };
     'users [id]': {
       parents: {
-        'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: {} };
+        'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: InferParams<typeof usersCmd.params> };
       };
       rootOptions: {};
     };
     'users [id] edit': {
       parents: {
-        'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: {} };
+        'users': { options: InferForwardedOptions<typeof usersCmd.options>; params: InferParams<typeof usersCmd.params> };
         'users [id]': { options: InferForwardedOptions<typeof usersIdCmd.options>; params: InferParams<typeof usersIdCmd.params> };
       };
       rootOptions: {};
@@ -72,15 +72,15 @@ export const commandTree: RuntimeNode = {
   literalChildren: {
     'admin': {
       segment: { kind: 'literal', value: 'admin' },
-      command: { path: 'admin', paramNames: [], load: () => import('./commands/admin.ts').then((m) => m.command) },
+      command: { path: 'admin', load: () => import('./commands/admin.ts').then((m) => m.command) },
       literalChildren: {
         'users': {
           segment: { kind: 'literal', value: 'users' },
-          command: { path: 'admin users', paramNames: [], load: () => import('./commands/admin/users.ts').then((m) => m.command) },
+          command: { path: 'admin users', load: () => import('./commands/admin/users.ts').then((m) => m.command) },
           literalChildren: {
             'ban': {
               segment: { kind: 'literal', value: 'ban' },
-              command: { path: 'admin users ban', paramNames: [], load: () => import('./commands/admin/users/ban.ts').then((m) => m.command) },
+              command: { path: 'admin users ban', load: () => import('./commands/admin/users/ban.ts').then((m) => m.command) },
               literalChildren: {},
               paramChild: null,
             },
@@ -92,34 +92,34 @@ export const commandTree: RuntimeNode = {
     },
     'deploy': {
       segment: { kind: 'literal', value: 'deploy' },
-      command: { path: 'deploy', paramNames: [], load: () => import('./commands/deploy.ts').then((m) => m.command) },
+      command: { path: 'deploy', load: () => import('./commands/deploy.ts').then((m) => m.command) },
       literalChildren: {},
       paramChild: null,
     },
     'users': {
       segment: { kind: 'literal', value: 'users' },
-      command: { path: 'users', paramNames: [], load: () => import('./commands/users.ts').then((m) => m.command) },
+      command: { path: 'users', load: () => import('./commands/users.ts').then((m) => m.command) },
       literalChildren: {
         'create': {
           segment: { kind: 'literal', value: 'create' },
-          command: { path: 'users create', paramNames: [], load: () => import('./commands/users/create.ts').then((m) => m.command) },
+          command: { path: 'users create', load: () => import('./commands/users/create.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },
         'list': {
           segment: { kind: 'literal', value: 'list' },
-          command: { path: 'users list', paramNames: [], load: () => import('./commands/users/list.ts').then((m) => m.command) },
+          command: { path: 'users list', load: () => import('./commands/users/list.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },
       },
       paramChild: {
         segment: { kind: 'param', name: 'id' },
-        command: { path: 'users [id]', paramNames: ['id'], hidden: true, load: () => import('./commands/users/[id].ts').then((m) => m.command) },
+        command: { path: 'users [id]', hidden: true, load: () => import('./commands/users/[id].ts').then((m) => m.command) },
         literalChildren: {
           'edit': {
             segment: { kind: 'literal', value: 'edit' },
-            command: { path: 'users [id] edit', paramNames: [], load: () => import('./commands/users/[id]/edit.ts').then((m) => m.command) },
+            command: { path: 'users [id] edit', load: () => import('./commands/users/[id]/edit.ts').then((m) => m.command) },
             literalChildren: {},
             paramChild: null,
           },

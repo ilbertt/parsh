@@ -31,15 +31,15 @@ declare module '#index.ts' {
 
 export const commandTree: RuntimeNode = {
   segment: null,
-  command: { path: '', paramNames: [], load: () => import('./commands/_root.ts').then((m) => m.command) },
+  command: { path: '', load: () => import('./commands/_root.ts').then((m) => m.command) },
   literalChildren: {
     'alpha': {
       segment: { kind: 'literal', value: 'alpha' },
-      command: { path: 'alpha', paramNames: [], load: () => import('./commands/alpha.ts').then((m) => m.command) },
+      command: { path: 'alpha', load: () => import('./commands/alpha.ts').then((m) => m.command) },
       literalChildren: {
         'sub': {
           segment: { kind: 'literal', value: 'sub' },
-          command: { path: 'alpha sub', paramNames: [], load: () => import('./commands/alpha/sub.ts').then((m) => m.command) },
+          command: { path: 'alpha sub', load: () => import('./commands/alpha/sub.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },
@@ -48,11 +48,11 @@ export const commandTree: RuntimeNode = {
     },
     'beta': {
       segment: { kind: 'literal', value: 'beta' },
-      command: { path: 'beta', paramNames: [], load: () => import('./commands/beta.ts').then((m) => m.command) },
+      command: { path: 'beta', load: () => import('./commands/beta.ts').then((m) => m.command) },
       literalChildren: {
         'leaf': {
           segment: { kind: 'literal', value: 'leaf' },
-          command: { path: 'beta leaf', paramNames: [], load: () => import('./commands/beta/leaf.ts').then((m) => m.command) },
+          command: { path: 'beta leaf', load: () => import('./commands/beta/leaf.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },

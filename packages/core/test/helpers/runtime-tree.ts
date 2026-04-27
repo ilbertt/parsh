@@ -11,20 +11,17 @@ export type Called = { path: string; ctx: Ctx };
 
 export function lazyCommand({
   path,
-  paramNames = [],
   description,
   hidden,
   loaded,
 }: {
   path: string;
-  paramNames?: ReadonlyArray<string>;
   description?: string;
   hidden?: boolean;
   loaded: LoadedCommand;
 }): RuntimeCommand {
   return {
     path,
-    paramNames,
     ...(description === undefined ? {} : { description }),
     ...(hidden === undefined ? {} : { hidden }),
     load: async () => loaded,

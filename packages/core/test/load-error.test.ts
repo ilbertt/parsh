@@ -5,7 +5,6 @@ import { literal, root } from './helpers/runtime-tree.ts';
 function badCommand(path: string): RuntimeCommand {
   return {
     path,
-    paramNames: [],
     load: () => Promise.reject(new Error('synthetic import failure')),
   };
 }

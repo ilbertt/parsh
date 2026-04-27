@@ -57,7 +57,6 @@ function makeTree(opts: {
           name: 'id',
           command: lazyCommand({
             path: 'users [id]',
-            paramNames: ['id'],
             loaded: {
               options: {},
               params: { id: { schema: opts.idSchema() } },
@@ -415,7 +414,6 @@ describe('root --help Commands block', () => {
   function makeNestedTree({ withGroupCommands }: { withGroupCommands: boolean }): RuntimeNode {
     const leafSet = lazyCommand({
       path: 'config set <key> <value>',
-      paramNames: ['key', 'value'],
       description: 'Set a config value',
       loaded: { options: {}, handler: () => {} },
     });
@@ -429,7 +427,7 @@ describe('root --help Commands block', () => {
     const keyNode = param({
       name: 'key',
       command: withGroupCommands
-        ? lazyCommand({ path: 'config set <key>', paramNames: ['key'], loaded: { options: {} } })
+        ? lazyCommand({ path: 'config set <key>', loaded: { options: {} } })
         : null,
       paramChild: valueNode,
     });
@@ -512,13 +510,11 @@ describe('root --help Commands block', () => {
   test('omits hidden param-segment groups from the root help (the [key] case)', async () => {
     const valueLeaf = lazyCommand({
       path: 'set [key] [value]',
-      paramNames: ['value'],
       description: 'Set a value',
       loaded: { options: {}, handler: () => {} },
     });
     const keyGroup = lazyCommand({
       path: 'set [key]',
-      paramNames: ['key'],
       hidden: true,
       loaded: { options: {} },
     });

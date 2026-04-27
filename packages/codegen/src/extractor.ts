@@ -184,7 +184,6 @@ export async function extractRootCommand({
     filePath,
     pathString: '',
     segments: [],
-    paramNames: [],
     importName: 'rootCmd',
     importSpecifier: importSpecifierFor({ outDir, filePath }),
   };
@@ -226,17 +225,12 @@ export async function extractCommand({
       `parsh: ${filePath} — defineCommand path string '${pathString}' does not match its filesystem location '${want}'`,
     );
   }
-  // Own param name = last segment if it's a bracket. Mirrors `OwnParamName<P>`
-  // in command.ts. Ancestor params live on their own commands.
-  const last = segments.at(-1);
-  const paramNames = last && last.kind === 'param' ? [last.name] : [];
   const description = extractDescription(defArg);
   const hidden = extractHidden({ obj: defArg, filePath });
   return {
     filePath,
     pathString,
     segments,
-    paramNames,
     importName: importNameFor({ filePath }),
     importSpecifier: importSpecifierFor({ outDir, filePath }),
     ...(description !== undefined ? { description } : {}),

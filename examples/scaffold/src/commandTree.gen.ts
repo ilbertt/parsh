@@ -20,19 +20,19 @@ declare module '@parshjs/core' {
     };
     'templates list': {
       parents: {
-        'templates': { options: InferForwardedOptions<typeof templatesCmd.options>; params: {} };
+        'templates': { options: InferForwardedOptions<typeof templatesCmd.options>; params: InferParams<typeof templatesCmd.params> };
       };
       rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'templates [name]': {
       parents: {
-        'templates': { options: InferForwardedOptions<typeof templatesCmd.options>; params: {} };
+        'templates': { options: InferForwardedOptions<typeof templatesCmd.options>; params: InferParams<typeof templatesCmd.params> };
       };
       rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
     'templates [name] show': {
       parents: {
-        'templates': { options: InferForwardedOptions<typeof templatesCmd.options>; params: {} };
+        'templates': { options: InferForwardedOptions<typeof templatesCmd.options>; params: InferParams<typeof templatesCmd.params> };
         'templates [name]': { options: InferForwardedOptions<typeof templatesNameCmd.options>; params: InferParams<typeof templatesNameCmd.params> };
       };
       rootOptions: InferForwardedOptions<typeof rootCmd.options>;
@@ -42,32 +42,32 @@ declare module '@parshjs/core' {
 
 export const commandTree: RuntimeNode = {
   segment: null,
-  command: { path: '', paramNames: [], load: () => import('./commands/_root.ts').then((m) => m.command) },
+  command: { path: '', load: () => import('./commands/_root.ts').then((m) => m.command) },
   literalChildren: {
     'init': {
       segment: { kind: 'literal', value: 'init' },
-      command: { path: 'init', paramNames: [], description: "Interactively scaffold a new project.", load: () => import('./commands/init.ts').then((m) => m.command) },
+      command: { path: 'init', description: "Interactively scaffold a new project.", load: () => import('./commands/init.ts').then((m) => m.command) },
       literalChildren: {},
       paramChild: null,
     },
     'templates': {
       segment: { kind: 'literal', value: 'templates' },
-      command: { path: 'templates', paramNames: [], description: "Inspect available scaffold templates.", load: () => import('./commands/templates.ts').then((m) => m.command) },
+      command: { path: 'templates', description: "Inspect available scaffold templates.", load: () => import('./commands/templates.ts').then((m) => m.command) },
       literalChildren: {
         'list': {
           segment: { kind: 'literal', value: 'list' },
-          command: { path: 'templates list', paramNames: [], description: "List available templates.", load: () => import('./commands/templates/list.ts').then((m) => m.command) },
+          command: { path: 'templates list', description: "List available templates.", load: () => import('./commands/templates/list.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },
       },
       paramChild: {
         segment: { kind: 'param', name: 'name' },
-        command: { path: 'templates [name]', paramNames: ['name'], description: "Operate on a single template.", load: () => import('./commands/templates/[name].ts').then((m) => m.command) },
+        command: { path: 'templates [name]', description: "Operate on a single template.", load: () => import('./commands/templates/[name].ts').then((m) => m.command) },
         literalChildren: {
           'show': {
             segment: { kind: 'literal', value: 'show' },
-            command: { path: 'templates [name] show', paramNames: [], description: "Show what a template would generate.", load: () => import('./commands/templates/[name]/show.ts').then((m) => m.command) },
+            command: { path: 'templates [name] show', description: "Show what a template would generate.", load: () => import('./commands/templates/[name]/show.ts').then((m) => m.command) },
             literalChildren: {},
             paramChild: null,
           },

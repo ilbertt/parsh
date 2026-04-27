@@ -32,7 +32,6 @@ export interface LoadedCommand {
  */
 export interface RuntimeCommand {
   path: string;
-  paramNames: ReadonlyArray<string>;
   description?: string;
   hidden?: boolean;
   load: () => Promise<LoadedCommand>;

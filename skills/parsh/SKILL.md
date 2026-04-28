@@ -276,6 +276,7 @@ For richer UX, render inside the handler:
 
 - [`references/options-and-params.md`](references/options-and-params.md) — schemas, `optional` / `required` / `default`, `aliases`, boolean flags, `forwardToChildren`, accessing `parents['<path>'].options` / `.params` / `rootOptions`.
 - [`references/context-and-state.md`](references/context-and-state.md) — registering shared context, factory contexts, lifecycle hooks (`beforeHandler` / `afterHandler`).
+- [`references/error-handling.md`](references/error-handling.md) — registering custom error classes, the `onError` hook, `exit(n)`, built-in error codes, and how the `instanceof` walk picks a match.
 - [`references/troubleshooting.md`](references/troubleshooting.md) — "ctx is `any`", TS errors after a rename, alias collisions, codegen ignore rules, what to check when something doesn't type.
 - [`references/testing.md`](references/testing.md) — using `cli.run(argv)` (not `main()`) for integration tests, handler unit tests, injecting test doubles through `context`, capturing stdout/stderr, and what not to test.
 

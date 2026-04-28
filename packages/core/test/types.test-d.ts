@@ -162,3 +162,70 @@ defineCommand('ctxhost open', {
     expectTypeOf(creds).toEqualTypeOf<{ token: string } | null>();
   },
 });
+
+import {
+  type BuiltInErrorCode,
+  type CommandLoadError,
+  type ExitFn,
+  ExitSignal,
+  type OnErrorHandlerCtx,
+  type Print,
+} from '#index.ts';
+
+class NotLoggedIn extends Error {}
+class RateLimited extends Error {
+  readonly retryAfter: number = 0;
+}
+
+createCli({
+  programName: 'errs',
+  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
+  errors: { NotLoggedIn, RateLimited },
+  onError: ({ code, error, ctx, exit, print }) => {
+    expectTypeOf(code).toEqualTypeOf<'NotLoggedIn' | 'RateLimited' | BuiltInErrorCode>();
+    expectTypeOf(exit).toEqualTypeOf<ExitFn>();
+    expectTypeOf(print).toEqualTypeOf<Print>();
+    if (code === 'NotLoggedIn') {
+      expectTypeOf(error).toEqualTypeOf<NotLoggedIn>();
+      expectTypeOf(ctx).toEqualTypeOf<OnErrorHandlerCtx<Record<string, never>>>();
+      // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
+      return exit(77);
+    }
+    if (code === 'RateLimited') {
+      expectTypeOf(error).toEqualTypeOf<RateLimited>();
+      expectTypeOf(ctx.context).toEqualTypeOf<Record<string, never>>();
+    }
+    if (code === 'LOAD') {
+      expectTypeOf(error).toEqualTypeOf<CommandLoadError>();
+      expectTypeOf(ctx).toEqualTypeOf<undefined>();
+    }
+    if (code === 'PARSE' || code === 'VALIDATION') {
+      expectTypeOf(error).toEqualTypeOf<Error>();
+      expectTypeOf(ctx).toEqualTypeOf<undefined>();
+    }
+    if (code === 'UNKNOWN') {
+      expectTypeOf(error).toEqualTypeOf<Error>();
+      expectTypeOf(ctx).toEqualTypeOf<OnErrorHandlerCtx<Record<string, never>>>();
+    }
+  },
+});
+
+// Returning a non-ExitSignal value other than void is rejected.
+createCli({
+  programName: 'errs',
+  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
+  // @ts-expect-error — must return void or ExitSignal
+  // biome-ignore lint/style/noMagicNumbers: exit codes are intentional literals
+  onError: () => 5,
+});
+
+// No `errors`: code union is just the built-ins.
+createCli({
+  programName: 'errs',
+  tree: { segment: null, command: null, literalChildren: {}, paramChild: null },
+  onError: ({ code }) => {
+    expectTypeOf(code).toEqualTypeOf<BuiltInErrorCode>();
+  },
+});
+
+expectTypeOf(new ExitSignal(0)).toMatchTypeOf<{ readonly code: number }>();

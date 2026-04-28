@@ -117,4 +117,25 @@ defineCommand('migrate', {
 });
 ```
 
+## Error handling
+
+Register `Error` subclasses under `errors` and centralize handling in `onError`. The object key is the `code` surfaced to the hook; `code` narrows `error` to the matching instance type:
+
+```ts
+class NotAuthorized extends Error {}
+
+createCli({
+  programName: 'awslike',
+  tree: commandTree,
+  errors: { NotAuthorized },
+  onError: ({ code, error, exit, print }) => {
+    if (code === 'NotAuthorized') {
+      print.error(error.message);
+      return exit(1);
+    }
+    // void → fall through to default stderr + exit code
+  },
+});
+```
+
 Pair with [`@parshjs/env`](https://www.npmjs.com/package/@parshjs/env) for typed env vars and [`@parshjs/files`](https://www.npmjs.com/package/@parshjs/files) for typed JSON storage.

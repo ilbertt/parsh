@@ -138,4 +138,26 @@ createCli({
 });
 ```
 
+## Aliases
+
+Point one path at another with `aliasOf`. The alias inherits the target's options, params, description, and handler — there is nothing else to configure. The target must be a registered path with the same param shape; wrong target, missing target, or mismatched params are compile errors.
+
+```ts
+// commands/s3/ls.ts — paramless alias
+import { defineCommand } from '@parshjs/core';
+
+export const command = defineCommand('s3 ls', {
+  aliasOf: 's3 buckets list',
+});
+```
+
+```ts
+// commands/s3/c/[name].ts — alias with a param
+export const command = defineCommand('s3 c [name]', {
+  aliasOf: 's3 buckets [name] create',
+});
+```
+
+Aliases participate in help output: when both alias and target are reachable in the current view, the alias is folded into the target's row; otherwise it's listed separately as `(alias of ...)`.
+
 Pair with [`@parshjs/env`](https://www.npmjs.com/package/@parshjs/env) for typed env vars and [`@parshjs/files`](https://www.npmjs.com/package/@parshjs/files) for typed JSON storage.

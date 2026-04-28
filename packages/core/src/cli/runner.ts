@@ -16,6 +16,7 @@ import {
   helpHint,
   helpRequested,
   positionalsEqual,
+  resolveAliasArgv,
   rewriteArgvAliases,
   versionRequested,
 } from './argv.js';
@@ -29,6 +30,7 @@ import {
 } from './options.js';
 import { validateRecord } from './schema-validate.js';
 import {
+  displayPathFor,
   type LoadedCommand,
   loadCommand,
   type RuntimeCommand,
@@ -36,6 +38,9 @@ import {
   walkTree,
 } from './tree.js';
 import { renderCommandUsage, renderRootUsage } from './usage.js';
+
+const MAX_ALIAS_DEPTH = 8;
+const MAX_PARSE_ITERATIONS = 4;
 
 type ContextValue = object;
 type ContextFactory<C extends ContextValue> = () => C | Promise<C>;
@@ -140,7 +145,29 @@ export class Cli<C extends object = Record<string, never>> {
     });
   }
 
-  async run(argv: string[]): Promise<number> {
+  run(argv: string[]): Promise<number> {
+    return this.#runInternal({ argv, aliasDepth: 0 });
+  }
+
+  async #runInternal({
+    argv,
+    aliasDepth,
+  }: {
+    argv: string[];
+    aliasDepth: number;
+  }): Promise<number> {
+    if (aliasDepth > MAX_ALIAS_DEPTH) {
+      return handleError({
+        site: {
+          code: BuiltInErrorCode.Validation,
+          error: new Error('alias chain too deep — possible cycle'),
+          defaultMessage: 'alias chain too deep — possible cycle',
+          defaultExitCode: EXIT_USAGE,
+        },
+        programName: this.#programName,
+        onError: this.#onError,
+      });
+    }
     const wantsHelp = helpRequested(argv);
     const wantsVersion = versionRequested(argv);
 
@@ -181,7 +208,6 @@ export class Cli<C extends object = Record<string, never>> {
     // its positionals are authoritative. If they differ from the candidates
     // the chain may also differ, so re-walk + re-parse. Stable after at most
     // a handful of iterations; cap defensively.
-    const MAX_PARSE_ITERATIONS = 4;
     for (let iter = 0; iter < MAX_PARSE_ITERATIONS; iter++) {
       try {
         await Promise.all(
@@ -207,13 +233,41 @@ export class Cli<C extends object = Record<string, never>> {
         throw err;
       }
 
+      // Alias resolution runs before help rendering and dispatch so both
+      // operate on the target. `--help` on an alias forwards through to the
+      // target's help, which is what the user actually wants to see.
+      if (walk.node.command) {
+        const here = loaded.get(walk.node.command);
+        if (here?.aliasOf !== undefined) {
+          const redirect = resolveAliasArgv({
+            aliasPath: walk.node.command.path,
+            targetPath: here.aliasOf,
+            argv,
+          });
+          if (!redirect.ok) {
+            return handleError({
+              site: {
+                code: BuiltInErrorCode.Validation,
+                error: new Error(redirect.error),
+                defaultMessage: redirect.error,
+                defaultExitCode: EXIT_USAGE,
+              },
+              programName: this.#programName,
+              onError: this.#onError,
+            });
+          }
+          return this.#runInternal({ argv: redirect.argv, aliasDepth: aliasDepth + 1 });
+        }
+      }
+
       if (wantsHelp) {
         const usage =
-          walk.node === this.#tree || !walk.node.command
+          walk.node === this.#tree
             ? await this.#renderRootUsage()
             : await renderCommandUsage({
                 programName: this.#programName,
                 node: walk.node,
+                nodePath: displayPathFor({ tree: this.#tree, positionals }),
                 visited: visitedCmds,
                 loaded,
               });
@@ -427,6 +481,7 @@ export class Cli<C extends object = Record<string, never>> {
           : await renderCommandUsage({
               programName: this.#programName,
               node: walk.node,
+              nodePath: displayPathFor({ tree: this.#tree, positionals }),
               visited: visitedCmds,
               loaded,
             });

@@ -161,6 +161,30 @@ For deeper option/param patterns (aliases, required, defaults, `forwardToChildre
 - **A parent with no `handler` is a routing group** — running it prints help and exits.
 - **`hidden: true` on `defineCommand` removes the command from parent help listings.** It can still be invoked and `--help`'d directly. Useful for `[name].ts` files that exist purely to declare a param schema for descendants and aren't meant to be run on their own.
 
+## Aliases
+
+To point one command path at another, pass `aliasOf` and **nothing else**. The alias inherits the target's options, params, description, and handler — there's nothing else to configure.
+
+```ts
+// src/commands/s3/ls.ts — paramless alias
+export const command = defineCommand('s3 ls', {
+  aliasOf: 's3 buckets list',
+});
+
+// src/commands/s3/c/[name].ts — alias with a param
+export const command = defineCommand('s3 c [name]', {
+  aliasOf: 's3 buckets [name] create',
+});
+```
+
+The compiler enforces three invariants — break any of them and it's a TypeScript error, not a runtime surprise:
+
+1. The target must be a **registered path** (a key of `CommandRegistry`).
+2. The target must be **different** from the alias's own path.
+3. The alias's param-name tuple must **match** the target's exactly (same names, same order). `'s3 ls'` aliasing `'s3 buckets [name] create'` is a type error; so is `'i [sku]'` aliasing `'items [name]'`.
+
+In help output, when both the alias and its target are reachable in the current view, the alias is folded into the target's row (`(alias: …)`); otherwise the alias is listed separately as `(alias of …)`.
+
 ## Always regenerate after editing `commands/`
 
 The `commandTree.gen.ts` file is what makes `ctx` typed. Regenerate after **structural** changes under `commands/` — adding, renaming, or deleting a command file, or changing a path string. Editing the body of an existing command (options, params, description, handler, hidden) never requires regeneration: the generated file depends only on the filesystem layout and each path-string literal.

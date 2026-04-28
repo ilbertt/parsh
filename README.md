@@ -8,6 +8,7 @@ Build type-safe CLIs in TypeScript.
 - **Extensible context** - inject shared services once, access them typed in every handler.
 - **Schemas are types** — params, options, and context infer end-to-end. Mistyped keys are compile errors.
 - **Headless core** — no Ink, chalk, or terminal deps. Plug in whatever TUI you want.
+- **Type-safe aliases** — alias one command path to another with a single prop; the compiler enforces the target exists and the param shapes match.
 
 ## For Agents
 
@@ -93,6 +94,20 @@ defineCommand('s3 buckets list', {
     rootOptions.bar;      // throws a compile-time TypeScript error
   },
 });
+```
+
+**Aliases are checked at compile time.** Point one command path at another with a single prop — the target must be a registered path with the same param shape, or it's a TypeScript error.
+
+```ts
+// commands/s3/ls.ts
+defineCommand('s3 ls', { aliasOf: 's3 buckets list' });
+
+// commands/s3/c/[name].ts
+defineCommand('s3 c [name]', { aliasOf: 's3 buckets [name] create' });
+
+// compile errors:
+defineCommand('s3 ls', { aliasOf: 'totally made up' });        // unknown target
+defineCommand('s3 ls', { aliasOf: 's3 buckets [name] create' }); // param shape mismatch
 ```
 
 **Help is auto-generated, colored, and respects `NO_COLOR`.** No need to wire up usage strings, format flags, or pull in chalk — `--help` works on the root and on every subcommand out of the box.

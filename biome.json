@@ -9,6 +9,7 @@
     "ignoreUnknown": false,
     "includes": [
       "**",
+      "!**/.claude",
       "!**/node_modules",
       "!**/dist",
       "!**/bun.lock",
@@ -33,9 +34,11 @@
           }
         }
       },
+      "performance": {
+        "noBarrelFile": "error"
+      },
       "suspicious": {
-        "useAwait": "error",
-        "noConsole": "error"
+        "useAwait": "error"
       },
       "nursery": {
         "useAwaitThenable": "error",
@@ -44,7 +47,8 @@
       "style": {
         "noNonNullAssertion": "off",
         "useBlockStatements": "error",
-        "noMagicNumbers": "error"
+        "noMagicNumbers": "error",
+        "noExportedImports": "error"
       }
     }
   },

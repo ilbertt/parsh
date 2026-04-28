@@ -55,33 +55,33 @@ export const commandTree: RuntimeNode = {
   literalChildren: {
     'config': {
       segment: { kind: 'literal', value: 'config' },
-      command: { path: 'config', description: "Manage CLI configuration stored on disk.", load: () => import('./commands/config.ts').then((m) => m.command) },
+      command: { path: 'config', load: () => import('./commands/config.ts').then((m) => m.command) },
       literalChildren: {
         'get': {
           segment: { kind: 'literal', value: 'get' },
-          command: { path: 'config get', description: "Print the current configuration.", load: () => import('./commands/config/get.ts').then((m) => m.command) },
+          command: { path: 'config get', load: () => import('./commands/config/get.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },
         'init': {
           segment: { kind: 'literal', value: 'init' },
-          command: { path: 'config init', description: "Create the config file with default values.", load: () => import('./commands/config/init.ts').then((m) => m.command) },
+          command: { path: 'config init', load: () => import('./commands/config/init.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },
         'set': {
           segment: { kind: 'literal', value: 'set' },
-          command: { path: 'config set', description: "Update a config field.", load: () => import('./commands/config/set.ts').then((m) => m.command) },
+          command: { path: 'config set', load: () => import('./commands/config/set.ts').then((m) => m.command) },
           literalChildren: {
             'default-region': {
               segment: { kind: 'literal', value: 'default-region' },
-              command: { path: 'config set default-region', description: "Set the default AWS-style region.", load: () => import('./commands/config/set/default-region.ts').then((m) => m.command) },
+              command: { path: 'config set default-region', load: () => import('./commands/config/set/default-region.ts').then((m) => m.command) },
               literalChildren: {},
               paramChild: null,
             },
             'profile': {
               segment: { kind: 'literal', value: 'profile' },
-              command: { path: 'config set profile', description: "Set the active profile name.", load: () => import('./commands/config/set/profile.ts').then((m) => m.command) },
+              command: { path: 'config set profile', load: () => import('./commands/config/set/profile.ts').then((m) => m.command) },
               literalChildren: {},
               paramChild: null,
             },

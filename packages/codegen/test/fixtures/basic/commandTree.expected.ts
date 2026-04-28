@@ -115,7 +115,7 @@ export const commandTree: RuntimeNode = {
       },
       paramChild: {
         segment: { kind: 'param', name: 'id' },
-        command: { path: 'users [id]', hidden: true, load: () => import('./commands/users/[id].ts').then((m) => m.command) },
+        command: { path: 'users [id]', load: () => import('./commands/users/[id].ts').then((m) => m.command) },
         literalChildren: {
           'edit': {
             segment: { kind: 'literal', value: 'edit' },

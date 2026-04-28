@@ -152,17 +152,17 @@ export const commandTree: RuntimeNode = {
   literalChildren: {
     'configure': {
       segment: { kind: 'literal', value: 'configure' },
-      command: { path: 'configure', description: "Persist access/secret keys to disk for later use.", load: () => import('./commands/configure.ts').then((m) => m.command) },
+      command: { path: 'configure', load: () => import('./commands/configure.ts').then((m) => m.command) },
       literalChildren: {},
       paramChild: null,
     },
     'ec2': {
       segment: { kind: 'literal', value: 'ec2' },
-      command: { path: 'ec2', description: "Manage EC2 instances.", load: () => import('./commands/ec2.ts').then((m) => m.command) },
+      command: { path: 'ec2', load: () => import('./commands/ec2.ts').then((m) => m.command) },
       literalChildren: {
         'create': {
           segment: { kind: 'literal', value: 'create' },
-          command: { path: 'ec2 create', description: "Create a new EC2 instance.", load: () => import('./commands/ec2/create.ts').then((m) => m.command) },
+          command: { path: 'ec2 create', load: () => import('./commands/ec2/create.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },
@@ -172,24 +172,24 @@ export const commandTree: RuntimeNode = {
           literalChildren: {
             'list': {
               segment: { kind: 'literal', value: 'list' },
-              command: { path: 'ec2 instances list', description: "List EC2 instances.", load: () => import('./commands/ec2/instances/list.ts').then((m) => m.command) },
+              command: { path: 'ec2 instances list', load: () => import('./commands/ec2/instances/list.ts').then((m) => m.command) },
               literalChildren: {},
               paramChild: null,
             },
           },
           paramChild: {
             segment: { kind: 'param', name: 'id' },
-            command: { path: 'ec2 instances [id]', description: "Operate on a single EC2 instance.", load: () => import('./commands/ec2/instances/[id].ts').then((m) => m.command) },
+            command: { path: 'ec2 instances [id]', load: () => import('./commands/ec2/instances/[id].ts').then((m) => m.command) },
             literalChildren: {
               'start': {
                 segment: { kind: 'literal', value: 'start' },
-                command: { path: 'ec2 instances [id] start', description: "Start a stopped EC2 instance.", load: () => import('./commands/ec2/instances/[id]/start.ts').then((m) => m.command) },
+                command: { path: 'ec2 instances [id] start', load: () => import('./commands/ec2/instances/[id]/start.ts').then((m) => m.command) },
                 literalChildren: {},
                 paramChild: null,
               },
               'stop': {
                 segment: { kind: 'literal', value: 'stop' },
-                command: { path: 'ec2 instances [id] stop', description: "Stop a running EC2 instance.", load: () => import('./commands/ec2/instances/[id]/stop.ts').then((m) => m.command) },
+                command: { path: 'ec2 instances [id] stop', load: () => import('./commands/ec2/instances/[id]/stop.ts').then((m) => m.command) },
                 literalChildren: {},
                 paramChild: null,
               },
@@ -199,7 +199,7 @@ export const commandTree: RuntimeNode = {
                 literalChildren: {
                   'add': {
                     segment: { kind: 'literal', value: 'add' },
-                    command: { path: 'ec2 instances [id] tags add', description: "Add a tag to an EC2 instance.", load: () => import('./commands/ec2/instances/[id]/tags/add.ts').then((m) => m.command) },
+                    command: { path: 'ec2 instances [id] tags add', load: () => import('./commands/ec2/instances/[id]/tags/add.ts').then((m) => m.command) },
                     literalChildren: {},
                     paramChild: null,
                   },
@@ -209,11 +209,11 @@ export const commandTree: RuntimeNode = {
                     literalChildren: {},
                     paramChild: {
                       segment: { kind: 'param', name: 'key' },
-                      command: { path: 'ec2 instances [id] tags set [key]', hidden: true, load: () => import('./commands/ec2/instances/[id]/tags/set/[key].ts').then((m) => m.command) },
+                      command: { path: 'ec2 instances [id] tags set [key]', load: () => import('./commands/ec2/instances/[id]/tags/set/[key].ts').then((m) => m.command) },
                       literalChildren: {},
                       paramChild: {
                         segment: { kind: 'param', name: 'value' },
-                        command: { path: 'ec2 instances [id] tags set [key] [value]', description: "Set a tag on an EC2 instance via positional key and value.", load: () => import('./commands/ec2/instances/[id]/tags/set/[key]/[value].ts').then((m) => m.command) },
+                        command: { path: 'ec2 instances [id] tags set [key] [value]', load: () => import('./commands/ec2/instances/[id]/tags/set/[key]/[value].ts').then((m) => m.command) },
                         literalChildren: {},
                         paramChild: null,
                       },
@@ -231,7 +231,7 @@ export const commandTree: RuntimeNode = {
     },
     's3': {
       segment: { kind: 'literal', value: 's3' },
-      command: { path: 's3', description: "Manage S3 buckets and objects.", load: () => import('./commands/s3.ts').then((m) => m.command) },
+      command: { path: 's3', load: () => import('./commands/s3.ts').then((m) => m.command) },
       literalChildren: {
         'buckets': {
           segment: { kind: 'literal', value: 'buckets' },
@@ -239,18 +239,18 @@ export const commandTree: RuntimeNode = {
           literalChildren: {
             'list': {
               segment: { kind: 'literal', value: 'list' },
-              command: { path: 's3 buckets list', description: "List S3 buckets.", load: () => import('./commands/s3/buckets/list.ts').then((m) => m.command) },
+              command: { path: 's3 buckets list', load: () => import('./commands/s3/buckets/list.ts').then((m) => m.command) },
               literalChildren: {},
               paramChild: null,
             },
           },
           paramChild: {
             segment: { kind: 'param', name: 'name' },
-            command: { path: 's3 buckets [name]', description: "Operate on a single bucket.", load: () => import('./commands/s3/buckets/[name].ts').then((m) => m.command) },
+            command: { path: 's3 buckets [name]', load: () => import('./commands/s3/buckets/[name].ts').then((m) => m.command) },
             literalChildren: {
               'create': {
                 segment: { kind: 'literal', value: 'create' },
-                command: { path: 's3 buckets [name] create', description: "Create a new S3 bucket.", load: () => import('./commands/s3/buckets/[name]/create.ts').then((m) => m.command) },
+                command: { path: 's3 buckets [name] create', load: () => import('./commands/s3/buckets/[name]/create.ts').then((m) => m.command) },
                 literalChildren: {},
                 paramChild: null,
               },
@@ -260,24 +260,24 @@ export const commandTree: RuntimeNode = {
                 literalChildren: {
                   'list': {
                     segment: { kind: 'literal', value: 'list' },
-                    command: { path: 's3 buckets [name] objects list', description: "List objects in a bucket.", load: () => import('./commands/s3/buckets/[name]/objects/list.ts').then((m) => m.command) },
+                    command: { path: 's3 buckets [name] objects list', load: () => import('./commands/s3/buckets/[name]/objects/list.ts').then((m) => m.command) },
                     literalChildren: {},
                     paramChild: null,
                   },
                 },
                 paramChild: {
                   segment: { kind: 'param', name: 'key' },
-                  command: { path: 's3 buckets [name] objects [key]', description: "Operate on a single object.", load: () => import('./commands/s3/buckets/[name]/objects/[key].ts').then((m) => m.command) },
+                  command: { path: 's3 buckets [name] objects [key]', load: () => import('./commands/s3/buckets/[name]/objects/[key].ts').then((m) => m.command) },
                   literalChildren: {
                     'get': {
                       segment: { kind: 'literal', value: 'get' },
-                      command: { path: 's3 buckets [name] objects [key] get', description: "Download an object.", load: () => import('./commands/s3/buckets/[name]/objects/[key]/get.ts').then((m) => m.command) },
+                      command: { path: 's3 buckets [name] objects [key] get', load: () => import('./commands/s3/buckets/[name]/objects/[key]/get.ts').then((m) => m.command) },
                       literalChildren: {},
                       paramChild: null,
                     },
                     'put': {
                       segment: { kind: 'literal', value: 'put' },
-                      command: { path: 's3 buckets [name] objects [key] put', description: "Upload an object.", load: () => import('./commands/s3/buckets/[name]/objects/[key]/put.ts').then((m) => m.command) },
+                      command: { path: 's3 buckets [name] objects [key] put', load: () => import('./commands/s3/buckets/[name]/objects/[key]/put.ts').then((m) => m.command) },
                       literalChildren: {},
                       paramChild: null,
                     },
@@ -294,7 +294,7 @@ export const commandTree: RuntimeNode = {
     },
     'status': {
       segment: { kind: 'literal', value: 'status' },
-      command: { path: 'status', description: "Show resolved configuration: env vars and on-disk credentials.", load: () => import('./commands/status.ts').then((m) => m.command) },
+      command: { path: 'status', load: () => import('./commands/status.ts').then((m) => m.command) },
       literalChildren: {},
       paramChild: null,
     },

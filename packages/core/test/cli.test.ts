@@ -424,13 +424,11 @@ describe('root --help Commands block', () => {
   function makeNestedTree({ withGroupCommands }: { withGroupCommands: boolean }): RuntimeNode {
     const leafSet = lazyCommand({
       path: 'config set <key> <value>',
-      description: 'Set a config value',
-      loaded: { options: {}, handler: () => {} },
+      loaded: { options: {}, description: 'Set a config value', handler: () => {} },
     });
     const leafShow = lazyCommand({
       path: 'config show',
-      description: 'Show current config',
-      loaded: { options: {}, handler: () => {} },
+      loaded: { options: {}, description: 'Show current config', handler: () => {} },
     });
 
     const valueNode = param({ name: 'value', command: leafSet });
@@ -446,8 +444,7 @@ describe('root --help Commands block', () => {
       command: withGroupCommands
         ? lazyCommand({
             path: 'config set',
-            description: 'Update a config field.',
-            loaded: { options: {} },
+            loaded: { options: {}, description: 'Update a config field.' },
           })
         : null,
       paramChild: keyNode,
@@ -458,8 +455,7 @@ describe('root --help Commands block', () => {
       command: withGroupCommands
         ? lazyCommand({
             path: 'config',
-            description: 'Manage CLI configuration.',
-            loaded: { options: {} },
+            loaded: { options: {}, description: 'Manage CLI configuration.' },
           })
         : null,
       children: { set: setNode, show: showNode },
@@ -493,17 +489,19 @@ describe('root --help Commands block', () => {
           value: 'secret',
           command: lazyCommand({
             path: 'secret',
-            description: 'should not appear',
-            hidden: true,
-            loaded: { options: {}, handler: () => {} },
+            loaded: {
+              options: {},
+              description: 'should not appear',
+              hidden: true,
+              handler: () => {},
+            },
           }),
         }),
         visible: literal({
           value: 'visible',
           command: lazyCommand({
             path: 'visible',
-            description: 'shows up',
-            loaded: { options: {}, handler: () => {} },
+            loaded: { options: {}, description: 'shows up', handler: () => {} },
           }),
         }),
       },
@@ -520,13 +518,11 @@ describe('root --help Commands block', () => {
   test('omits hidden param-segment groups from the root help (the [key] case)', async () => {
     const valueLeaf = lazyCommand({
       path: 'set [key] [value]',
-      description: 'Set a value',
-      loaded: { options: {}, handler: () => {} },
+      loaded: { options: {}, description: 'Set a value', handler: () => {} },
     });
     const keyGroup = lazyCommand({
       path: 'set [key]',
-      hidden: true,
-      loaded: { options: {} },
+      loaded: { options: {}, hidden: true },
     });
     const tree = root({
       command: null,

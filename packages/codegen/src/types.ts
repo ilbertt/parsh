@@ -8,8 +8,6 @@ export interface ExtractedCommand {
   segments: SourceSegment[];
   importName: string;
   importSpecifier: string;
-  description?: string;
-  hidden?: boolean;
 }
 
 export interface CommandNode {

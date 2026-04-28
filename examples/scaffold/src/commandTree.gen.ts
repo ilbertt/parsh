@@ -46,28 +46,28 @@ export const commandTree: RuntimeNode = {
   literalChildren: {
     'init': {
       segment: { kind: 'literal', value: 'init' },
-      command: { path: 'init', description: "Interactively scaffold a new project.", load: () => import('./commands/init.ts').then((m) => m.command) },
+      command: { path: 'init', load: () => import('./commands/init.ts').then((m) => m.command) },
       literalChildren: {},
       paramChild: null,
     },
     'templates': {
       segment: { kind: 'literal', value: 'templates' },
-      command: { path: 'templates', description: "Inspect available scaffold templates.", load: () => import('./commands/templates.ts').then((m) => m.command) },
+      command: { path: 'templates', load: () => import('./commands/templates.ts').then((m) => m.command) },
       literalChildren: {
         'list': {
           segment: { kind: 'literal', value: 'list' },
-          command: { path: 'templates list', description: "List available templates.", load: () => import('./commands/templates/list.ts').then((m) => m.command) },
+          command: { path: 'templates list', load: () => import('./commands/templates/list.ts').then((m) => m.command) },
           literalChildren: {},
           paramChild: null,
         },
       },
       paramChild: {
         segment: { kind: 'param', name: 'name' },
-        command: { path: 'templates [name]', description: "Operate on a single template.", load: () => import('./commands/templates/[name].ts').then((m) => m.command) },
+        command: { path: 'templates [name]', load: () => import('./commands/templates/[name].ts').then((m) => m.command) },
         literalChildren: {
           'show': {
             segment: { kind: 'literal', value: 'show' },
-            command: { path: 'templates [name] show', description: "Show what a template would generate.", load: () => import('./commands/templates/[name]/show.ts').then((m) => m.command) },
+            command: { path: 'templates [name] show', load: () => import('./commands/templates/[name]/show.ts').then((m) => m.command) },
             literalChildren: {},
             paramChild: null,
           },

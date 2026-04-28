@@ -11,6 +11,8 @@ type TreeSegment =
 export interface LoadedCommand {
   options: OptionsRecord;
   params?: ParamsRecord;
+  description?: string;
+  hidden?: boolean;
   /** @default { enabled: true } */
   helpArg?: { enabled: boolean };
   // `any` is required so hand-built commands can use specific `ctx` shapes —
@@ -24,16 +26,8 @@ export interface LoadedCommand {
   afterHandler?: (ctx: any) => void | Promise<void>;
 }
 
-/**
- * What sits in `RuntimeNode.command`. Carries only the metadata needed to
- * route, render help, and report unknown-command errors. The real schemas and
- * handler live behind `load()` and are fetched on dispatch (lazy mode) or
- * already in memory (eager mode).
- */
 export interface RuntimeCommand {
   path: string;
-  description?: string;
-  hidden?: boolean;
   load: () => Promise<LoadedCommand>;
 }
 
@@ -454,6 +448,34 @@ async function validateRecord({
   return { ok: true, value: out };
 }
 
+async function loadDescendants(root: RuntimeNode): Promise<Map<RuntimeCommand, LoadedCommand>> {
+  const out = new Map<RuntimeCommand, LoadedCommand>();
+  const cmds: RuntimeCommand[] = [];
+  function collect(node: RuntimeNode) {
+    if (node.command) {
+      cmds.push(node.command);
+    }
+    for (const child of Object.values(node.literalChildren)) {
+      collect(child);
+    }
+    if (node.paramChild) {
+      collect(node.paramChild);
+    }
+  }
+  collect(root);
+  await Promise.all(
+    cmds.map(async (c) => {
+      try {
+        out.set(c, await loadCommand(c));
+      } catch {
+        // A failing child shouldn't block help — leave it out of the map and
+        // the listing skips it.
+      }
+    }),
+  );
+  return out;
+}
+
 async function renderRootUsage({
   root,
   programName,
@@ -490,13 +512,17 @@ async function renderRootUsage({
   }
   lines.push('');
 
+  const descendantsLoaded = await loadDescendants(root);
   lines.push(stdoutBold('Commands:'));
   const rows: Array<{ label: string; description: string | undefined }> = [];
   function walk({ node, prefix }: { node: RuntimeNode; prefix: string[] }) {
     for (const [name, child] of Object.entries(node.literalChildren)) {
       const pieces = [...prefix, name];
-      if (child.command && child.command.hidden !== true) {
-        rows.push({ label: pieces.join(' '), description: child.command.description });
+      if (child.command) {
+        const meta = descendantsLoaded.get(child.command);
+        if (meta?.hidden !== true) {
+          rows.push({ label: pieces.join(' '), description: meta?.description });
+        }
       }
       walk({ node: child, prefix: pieces });
     }
@@ -504,8 +530,11 @@ async function renderRootUsage({
       const pc = node.paramChild;
       const segName = pc.segment?.kind === 'param' ? pc.segment.name : 'param';
       const pieces = [...prefix, `<${segName}>`];
-      if (pc.command && pc.command.hidden !== true) {
-        rows.push({ label: pieces.join(' '), description: pc.command.description });
+      if (pc.command) {
+        const meta = descendantsLoaded.get(pc.command);
+        if (meta?.hidden !== true) {
+          rows.push({ label: pieces.join(' '), description: meta?.description });
+        }
       }
       walk({ node: pc, prefix: pieces });
     }
@@ -550,14 +579,14 @@ async function renderCommandUsage({
   loaded: Map<RuntimeCommand, LoadedCommand>;
 }): Promise<string> {
   const cmd = node.command!;
+  const targetLoaded = loaded.get(cmd);
   const segments = cmd.path.split(' ').map((s) => (s.startsWith('[') ? `<${s.slice(1, -1)}>` : s));
   const lines: string[] = [];
-  if (cmd.description) {
-    lines.push(cmd.description, '');
+  if (targetLoaded?.description) {
+    lines.push(targetLoaded.description, '');
   }
   lines.push(`${stdoutBold('Usage:')} ${programName} ${segments.join(' ')} [options]`, '');
 
-  const targetLoaded = loaded.get(cmd);
   const ownDescriptors = targetLoaded
     ? await describeLoadedOptions({
         options: targetLoaded.options,
@@ -604,22 +633,32 @@ async function renderCommandUsage({
     lines.push('');
   }
 
+  const childrenLoaded = await loadDescendants(node);
+  function isVisible(child: RuntimeNode): boolean {
+    if (!child.command) {
+      return false;
+    }
+    return childrenLoaded.get(child.command)?.hidden !== true;
+  }
   const visibleSubs = Object.keys(node.literalChildren)
     .sort()
-    .filter((name) => node.literalChildren[name]!.command?.hidden !== true);
+    .filter((name) => isVisible(node.literalChildren[name]!));
   const paramChildVisible =
-    node.paramChild?.segment?.kind === 'param' && node.paramChild.command?.hidden !== true;
+    node.paramChild?.segment?.kind === 'param' && isVisible(node.paramChild);
   if (visibleSubs.length > 0 || paramChildVisible) {
     lines.push(stdoutBold('Subcommands:'));
     const rows: Array<{ label: string; description: string | undefined }> = [];
     for (const name of visibleSubs) {
       const child = node.literalChildren[name]!;
-      rows.push({ label: name, description: child.command?.description });
+      const meta = child.command ? childrenLoaded.get(child.command) : undefined;
+      rows.push({ label: name, description: meta?.description });
     }
     if (paramChildVisible && node.paramChild?.segment?.kind === 'param') {
+      const pcCmd = node.paramChild.command;
+      const meta = pcCmd ? childrenLoaded.get(pcCmd) : undefined;
       rows.push({
         label: `<${node.paramChild.segment.name}>`,
-        description: node.paramChild.command?.description,
+        description: meta?.description,
       });
     }
     for (const line of formatTwoColumn(rows)) {

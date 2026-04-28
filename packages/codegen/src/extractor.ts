@@ -72,71 +72,6 @@ function findDefineCall({
   return found;
 }
 
-function propertyKey(prop: ts.ObjectLiteralElementLike): string | null {
-  if (!ts.isPropertyAssignment(prop) && !ts.isShorthandPropertyAssignment(prop)) {
-    return null;
-  }
-  const name = prop.name;
-  if (!name) {
-    return null;
-  }
-  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) {
-    return name.text;
-  }
-  return null;
-}
-
-function getProperty({
-  obj,
-  key,
-}: {
-  obj: ts.ObjectLiteralExpression;
-  key: string;
-}): ts.PropertyAssignment | null {
-  for (const p of obj.properties) {
-    if (ts.isPropertyAssignment(p) && propertyKey(p) === key) {
-      return p;
-    }
-  }
-  return null;
-}
-
-function readBooleanLiteral(expr: ts.Expression): boolean | null {
-  if (expr.kind === ts.SyntaxKind.TrueKeyword) {
-    return true;
-  }
-  if (expr.kind === ts.SyntaxKind.FalseKeyword) {
-    return false;
-  }
-  return null;
-}
-
-function extractDescription(obj: ts.ObjectLiteralExpression): string | undefined {
-  const prop = getProperty({ obj, key: 'description' });
-  if (!prop) {
-    return undefined;
-  }
-  return ts.isStringLiteralLike(prop.initializer) ? prop.initializer.text : undefined;
-}
-
-function extractHidden({
-  obj,
-  filePath,
-}: {
-  obj: ts.ObjectLiteralExpression;
-  filePath: string;
-}): boolean | undefined {
-  const prop = getProperty({ obj, key: 'hidden' });
-  if (!prop) {
-    return undefined;
-  }
-  const v = readBooleanLiteral(prop.initializer);
-  if (v === null) {
-    throw new Error(`parsh: ${filePath} — \`hidden\` must be a boolean literal (true | false)`);
-  }
-  return v;
-}
-
 function importNameFor({ filePath }: { filePath: string }): string {
   const noExt = filePath.replace(/\.ts$/, '');
   const parts = noExt.split(/[/\\]/);
@@ -171,14 +106,8 @@ export async function extractRootCommand({
   const source = await readFile(filePath, 'utf8');
   const sourceFile = parseSourceFile({ source, filePath });
   const call = findDefineCall({ sourceFile, name: 'defineRootCommand' });
-  if (!call || call.arguments.length < 1) {
+  if (!call) {
     throw new Error(`parsh: ${filePath} does not contain a defineRootCommand({ ... }) call`);
-  }
-  const def = call.arguments[0]!;
-  if (!ts.isObjectLiteralExpression(def)) {
-    throw new Error(
-      `parsh: ${filePath} — defineRootCommand argument must be an inline object literal`,
-    );
   }
   return {
     filePath,
@@ -201,18 +130,13 @@ export async function extractCommand({
   const source = await readFile(filePath, 'utf8');
   const sourceFile = parseSourceFile({ source, filePath });
   const call = findDefineCall({ sourceFile, name: 'defineCommand' });
-  if (!call || call.arguments.length < 2) {
-    throw new Error(`parsh: ${filePath} does not contain a defineCommand('...', { ... }) call`);
+  if (!call || call.arguments.length < 1) {
+    throw new Error(`parsh: ${filePath} does not contain a defineCommand('...', ...) call`);
   }
-  const [pathArg, defArg] = call.arguments;
+  const pathArg = call.arguments[0];
   if (!pathArg || !ts.isStringLiteralLike(pathArg)) {
     throw new Error(
       `parsh: ${filePath} — defineCommand path (first argument) must be a string literal`,
-    );
-  }
-  if (!defArg || !ts.isObjectLiteralExpression(defArg)) {
-    throw new Error(
-      `parsh: ${filePath} — defineCommand definition (second argument) must be an inline object literal`,
     );
   }
   const pathString = pathArg.text;
@@ -225,15 +149,11 @@ export async function extractCommand({
       `parsh: ${filePath} — defineCommand path string '${pathString}' does not match its filesystem location '${want}'`,
     );
   }
-  const description = extractDescription(defArg);
-  const hidden = extractHidden({ obj: defArg, filePath });
   return {
     filePath,
     pathString,
     segments,
     importName: importNameFor({ filePath }),
     importSpecifier: importSpecifierFor({ outDir, filePath }),
-    ...(description !== undefined ? { description } : {}),
-    ...(hidden !== undefined ? { hidden } : {}),
   };
 }

@@ -119,10 +119,7 @@ function emitRuntimeCommand({
   pathString: string;
   eager: boolean;
 }): string {
-  const desc =
-    cmd.description !== undefined ? `, description: ${JSON.stringify(cmd.description)}` : '';
-  const hidden = cmd.hidden === true ? ', hidden: true' : '';
-  return `{ path: '${pathString}'${desc}${hidden}, load: ${emitLoadFn({ cmd, eager })} }`;
+  return `{ path: '${pathString}', load: ${emitLoadFn({ cmd, eager })} }`;
 }
 
 function emitRuntimeNode({

@@ -18,7 +18,7 @@ export const commandTree: RuntimeNode = {
   literalChildren: {
     'serve': {
       segment: { kind: 'literal', value: 'serve' },
-      command: { path: 'serve', description: "Start the (pretend) HTTP server using validated env vars.", load: () => import('./commands/serve.ts').then((m) => m.command) },
+      command: { path: 'serve', load: () => import('./commands/serve.ts').then((m) => m.command) },
       literalChildren: {},
       paramChild: null,
     },

@@ -32,11 +32,6 @@ describe('generateCommandTree', () => {
   });
 
   describe('validation rules', () => {
-    // Same-name option collisions and param/option shadowing depend on the
-    // `options` object body, which codegen no longer reads. Those rules now
-    // run at dispatch time on the loaded chain. See `cli.test.ts` for the
-    // runtime equivalents.
-
     test('rejects param/param shadowing across ancestry', async () => {
       const run = generateCommandTree(fixture('collision-param-param'));
       await expect(run).rejects.toThrow(codegenValidationFailed);

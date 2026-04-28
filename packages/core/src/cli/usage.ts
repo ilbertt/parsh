@@ -201,45 +201,16 @@ export async function renderRootUsage({
   return lines.join('\n');
 }
 
-export async function renderCommandUsage({
-  programName,
-  node,
-  nodePath,
+async function collectInheritedOptionRows({
+  cmd,
   visited,
   loaded,
 }: {
-  programName: string;
-  node: RuntimeNode;
-  nodePath: ReadonlyArray<string>;
+  cmd: RuntimeCommand | null;
   visited: ReadonlyArray<RuntimeCommand>;
   loaded: Map<RuntimeCommand, LoadedCommand>;
-}): Promise<string> {
-  const cmd = node.command;
-  const targetLoaded = cmd ? loaded.get(cmd) : undefined;
-  const lines: string[] = [];
-  if (targetLoaded?.description) {
-    lines.push(targetLoaded.description, '');
-  }
-  const usageTail = cmd ? '[options]' : '<subcommand>';
-  lines.push(`${stdoutBold('Usage:')} ${[programName, ...nodePath, usageTail].join(' ')}`, '');
-
-  const ownDescriptors = targetLoaded
-    ? await describeLoadedOptions({
-        options: targetLoaded.options,
-        source: cmd && cmd.path !== '' ? cmd.path : '<root>',
-      })
-    : [];
-  if (ownDescriptors.length > 0) {
-    lines.push(stdoutBold('Options:'));
-    for (const line of formatTwoColumn(
-      ownDescriptors.map((d) => ({ label: optionLabel(d), description: d.description })),
-    )) {
-      lines.push(`  ${line}`);
-    }
-    lines.push('');
-  }
-
-  const inheritedRows: Array<{ label: string; description: string | undefined }> = [];
+}): Promise<ListingRow[]> {
+  const rows: ListingRow[] = [];
   for (const v of visited) {
     if (cmd && v.path === cmd.path) {
       continue;
@@ -258,31 +229,99 @@ export async function renderCommandUsage({
         continue;
       }
       const descParts = [d.description, `(inherited from ${from})`].filter(Boolean);
-      inheritedRows.push({ label: optionLabel(d), description: descParts.join(' ') });
+      rows.push({ label: optionLabel(d), description: descParts.join(' ') });
     }
   }
-  if (inheritedRows.length > 0) {
-    lines.push(stdoutBold('Inherited options:'));
-    for (const line of formatTwoColumn(inheritedRows)) {
-      lines.push(`  ${line}`);
-    }
-    lines.push('');
-  }
+  return rows;
+}
 
+async function collectSubcommandRows({ node }: { node: RuntimeNode }): Promise<ListingRow[]> {
   const descendantsLoaded = await loadDescendants(node);
-  const aliasIndex = buildAliasIndex(descendantsLoaded);
-  const subcommandRows = collectListing({
+  return collectListing({
     root: node,
     loaded: descendantsLoaded,
     prefix: [],
-    aliasIndex,
+    aliasIndex: buildAliasIndex(descendantsLoaded),
   });
-  if (subcommandRows.length > 0) {
-    lines.push(stdoutBold('Subcommands:'));
-    for (const line of formatTwoColumn(subcommandRows)) {
-      lines.push(`  ${line}`);
-    }
+}
+
+function sectionLines({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: ReadonlyArray<ListingRow>;
+}): string[] {
+  if (rows.length === 0) {
+    return [];
   }
+  return [stdoutBold(title), ...formatTwoColumn(rows).map((l) => `  ${l}`), ''];
+}
+
+function buildUsageLine({
+  programName,
+  nodePath,
+  isLeaf,
+  hasOptions,
+}: {
+  programName: string;
+  nodePath: ReadonlyArray<string>;
+  isLeaf: boolean;
+  hasOptions: boolean;
+}): string {
+  const tail = isLeaf ? (hasOptions ? '[options]' : null) : '<subcommand>';
+  const parts = [programName, ...nodePath];
+  if (tail) {
+    parts.push(tail);
+  }
+  return `${stdoutBold('Usage:')} ${parts.join(' ')}`;
+}
+
+export async function renderCommandUsage({
+  programName,
+  node,
+  nodePath,
+  visited,
+  loaded,
+}: {
+  programName: string;
+  node: RuntimeNode;
+  nodePath: ReadonlyArray<string>;
+  visited: ReadonlyArray<RuntimeCommand>;
+  loaded: Map<RuntimeCommand, LoadedCommand>;
+}): Promise<string> {
+  const cmd = node.command;
+  const targetLoaded = cmd ? loaded.get(cmd) : undefined;
+
+  const ownDescriptors = targetLoaded
+    ? await describeLoadedOptions({
+        options: targetLoaded.options,
+        source: cmd && cmd.path !== '' ? cmd.path : '<root>',
+      })
+    : [];
+  const ownRows: ListingRow[] = ownDescriptors.map((d) => ({
+    label: optionLabel(d),
+    description: d.description,
+  }));
+  const inheritedRows = await collectInheritedOptionRows({ cmd, visited, loaded });
+  const subcommandRows = await collectSubcommandRows({ node });
+
+  const lines: string[] = [];
+  if (targetLoaded?.description) {
+    lines.push(targetLoaded.description, '');
+  }
+  lines.push(
+    buildUsageLine({
+      programName,
+      nodePath,
+      isLeaf: cmd !== null,
+      hasOptions: ownRows.length > 0 || inheritedRows.length > 0,
+    }),
+    '',
+  );
+  lines.push(...sectionLines({ title: 'Options:', rows: ownRows }));
+  lines.push(...sectionLines({ title: 'Inherited options:', rows: inheritedRows }));
+  lines.push(...sectionLines({ title: 'Subcommands:', rows: subcommandRows }));
 
   return lines.join('\n').trimEnd();
 }

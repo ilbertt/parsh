@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
-import { createCli, type RuntimeNode } from '#index.ts';
+import { createCli, type LoadedCommand, type RuntimeNode } from '#index.ts';
 import { type Called, lazyCommand, literal, param, record, root } from './helpers/runtime-tree.ts';
 import { captureStdio } from './helpers/stdio.ts';
 
@@ -563,6 +563,92 @@ describe('root --help Commands block', () => {
     expect(commandsBlock).toContain('config set <key>');
     expect(commandsBlock).toContain('config set <key> <value>');
     expect(commandsBlock).toContain('config show');
+  });
+});
+
+describe('subcommand --help Usage line', () => {
+  function leafTree({
+    leafOptions,
+    rootOptions,
+  }: {
+    leafOptions: LoadedCommand['options'];
+    rootOptions: LoadedCommand['options'];
+  }): RuntimeNode {
+    return root({
+      command: lazyCommand({ path: '', loaded: { options: rootOptions } }),
+      children: {
+        leaf: literal({
+          value: 'leaf',
+          command: lazyCommand({
+            path: 'leaf',
+            loaded: { options: leafOptions, handler: () => {} },
+          }),
+        }),
+      },
+    });
+  }
+
+  test('omits [options] when the leaf has no own and no inherited-forwarded options', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: leafTree({ leafOptions: {}, rootOptions: {} }),
+    });
+    await cli.run(['leaf', '--help']);
+
+    const usage = stdoutText()
+      .split('\n')
+      .find((l) => l.includes('Usage:'));
+    expect(usage).toBe('Usage: test leaf');
+  });
+
+  test('keeps [options] when the leaf has its own options', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: leafTree({
+        leafOptions: { verbose: { schema: z.boolean().default(false) } },
+        rootOptions: {},
+      }),
+    });
+    await cli.run(['leaf', '--help']);
+
+    const usage = stdoutText()
+      .split('\n')
+      .find((l) => l.includes('Usage:'));
+    expect(usage).toBe('Usage: test leaf [options]');
+  });
+
+  test('keeps [options] when only inherited-forwarded options exist', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: leafTree({
+        leafOptions: {},
+        rootOptions: {
+          region: { schema: z.string().default('us'), forwardToChildren: true },
+        },
+      }),
+    });
+    await cli.run(['leaf', '--help']);
+
+    const usage = stdoutText()
+      .split('\n')
+      .find((l) => l.includes('Usage:'));
+    expect(usage).toBe('Usage: test leaf [options]');
+  });
+
+  test('drops [options] when an ancestor has options that are not forwarded', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: leafTree({
+        leafOptions: {},
+        rootOptions: { region: { schema: z.string().default('us') } },
+      }),
+    });
+    await cli.run(['leaf', '--help']);
+
+    const usage = stdoutText()
+      .split('\n')
+      .find((l) => l.includes('Usage:'));
+    expect(usage).toBe('Usage: test leaf');
   });
 });
 

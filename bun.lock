@@ -99,6 +99,19 @@
         "typescript": "catalog:",
       },
     },
+    "examples/with-node": {
+      "name": "@repo/examples-with-node",
+      "version": "0.1.0",
+      "dependencies": {
+        "@parshjs/core": "workspace:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@parshjs/codegen": "workspace:",
+        "@repo/typescript-config": "workspace:*",
+        "typescript": "catalog:",
+      },
+    },
     "packages/codegen": {
       "name": "@repo/codegen",
       "bin": {
@@ -116,7 +129,7 @@
     },
     "packages/codegen/pkg": {
       "name": "@parshjs/codegen",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "bin": {
         "parsh-codegen": "./dist/cli/main.js",
       },
@@ -135,7 +148,7 @@
     },
     "packages/core/pkg": {
       "name": "@parshjs/core",
-      "version": "0.0.4",
+      "version": "0.0.5",
     },
     "packages/env": {
       "name": "@repo/env",
@@ -149,7 +162,7 @@
     },
     "packages/env/pkg": {
       "name": "@parshjs/env",
-      "version": "0.0.2",
+      "version": "0.0.3",
     },
     "packages/files": {
       "name": "@repo/files",
@@ -163,7 +176,7 @@
     },
     "packages/files/pkg": {
       "name": "@parshjs/files",
-      "version": "0.0.3",
+      "version": "0.0.4",
     },
     "packages/pack-utils": {
       "name": "@repo/pack-utils",
@@ -270,6 +283,8 @@
     "@repo/examples-pomo": ["@repo/examples-pomo@workspace:examples/pomo"],
 
     "@repo/examples-scaffold": ["@repo/examples-scaffold@workspace:examples/scaffold"],
+
+    "@repo/examples-with-node": ["@repo/examples-with-node@workspace:examples/with-node"],
 
     "@repo/files": ["@repo/files@workspace:packages/files"],
 

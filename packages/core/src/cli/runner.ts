@@ -236,7 +236,9 @@ export class Cli<C extends object = Record<string, never>> {
       // Alias resolution runs before help rendering and dispatch so both
       // operate on the target. `--help` on an alias forwards through to the
       // target's help, which is what the user actually wants to see.
-      if (walk.node.command) {
+      // Skip when `walk.unknown` — extras past the alias's slot are real
+      // unknown tokens and must surface as errors, not be redirected away.
+      if (walk.node.command && !walk.unknown) {
         const here = loaded.get(walk.node.command);
         if (here?.aliasOf !== undefined) {
           const redirect = resolveAliasArgv({
@@ -260,7 +262,7 @@ export class Cli<C extends object = Record<string, never>> {
         }
       }
 
-      if (wantsHelp) {
+      if (wantsHelp && !walk.unknown) {
         const usage =
           walk.node === this.#tree
             ? await this.#renderRootUsage()

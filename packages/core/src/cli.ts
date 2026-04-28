@@ -1,8 +1,12 @@
 import { type ParseArgsConfig, parseArgs } from 'node:util';
+import { BuiltInErrorCode, EXIT_FAILURE, EXIT_USAGE } from './errors/codes.js';
+import { handleError, matchRegisteredError } from './errors/handle.js';
+import { CommandLoadError } from './errors/internal-errors.js';
+import type { ErrorsRecord, OnError, OnErrorHandlerCtx } from './errors/types.js';
 import { print } from './print.js';
 import type { ResolveContext } from './registry.js';
 import type { AnyOption, AnyParam, AnySchema, OptionsRecord, ParamsRecord } from './schema.js';
-import { stderrBold, stderrDim, stderrRed, stdoutBold, stdoutCyan, stdoutDim } from './style.js';
+import { stderrDim, stdoutBold, stdoutCyan, stdoutDim } from './style.js';
 
 type TreeSegment =
   | { readonly kind: 'literal'; readonly value: string }
@@ -58,7 +62,13 @@ type ContextValue = object;
 type ContextFactory<C extends ContextValue> = () => C | Promise<C>;
 export type CliContextInput<C extends ContextValue = ContextValue> = C | ContextFactory<C>;
 
-interface CreateCliOptions<C extends CliContextInput | undefined = CliContextInput | undefined> {
+type ResolveContextOrEmpty<C> =
+  ResolveContext<C> extends never ? Record<string, never> : ResolveContext<C>;
+
+interface CreateCliOptions<
+  C extends CliContextInput | undefined = CliContextInput | undefined,
+  E extends ErrorsRecord = ErrorsRecord,
+> {
   programName: string;
   programDescription?: string;
   tree: RuntimeNode;
@@ -73,19 +83,18 @@ interface CreateCliOptions<C extends CliContextInput | undefined = CliContextInp
    * make this type visible to every handler's `ctx.context`.
    */
   context?: C;
-}
-
-export class CommandLoadError extends Error {
-  readonly path: string;
-  // biome-ignore lint/suspicious/noExplicitAny: error cause is unknown
-  override readonly cause: any;
-  constructor({ path, cause }: { path: string; cause: unknown }) {
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    super(`failed to load command '${path || '<root>'}': ${reason}`);
-    this.name = 'CommandLoadError';
-    this.path = path;
-    this.cause = cause;
-  }
+  /**
+   * Custom error classes (Error subclasses). The object key is the `code`
+   * surfaced to `onError`. Insertion order controls the `instanceof` walk;
+   * register most-specific subclasses first.
+   */
+  errors?: E;
+  /**
+   * Centralized error hook. Fires for parse, validation, load, and handler
+   * errors. Return `exit(n)` to override the exit code and suppress default
+   * stderr output; return `void` to fall through.
+   */
+  onError?: OnError<E, ResolveContextOrEmpty<C>>;
 }
 
 interface SchemaSpec {
@@ -572,7 +581,7 @@ async function loadCommand(cmd: RuntimeCommand): Promise<LoadedCommand> {
   }
 }
 
-type LifecycleResult = { ok: true } | { ok: false; error: Error };
+type LifecycleResult = { ok: true } | { ok: false; error: unknown };
 
 // biome-ignore lint/suspicious/noExplicitAny: ctx shape is enforced at the defineCommand call site (see LoadedCommand)
 type Hook = (ctx: any) => void | Promise<void>;
@@ -596,7 +605,7 @@ async function runHandlerLifecycle({
     try {
       await fn(ctx);
     } catch (error) {
-      return { ok: false, error: error as Error };
+      return { ok: false, error };
     }
   }
   return { ok: true };
@@ -617,8 +626,18 @@ export class Cli<C extends object = Record<string, never>> {
   readonly #parseOptions: ParseArgsConfig['options'];
   readonly #aliasMap: Map<string, string>;
   readonly #context: CliContextInput | undefined;
+  readonly #errors: ErrorsRecord;
+  readonly #onError: OnError<ErrorsRecord, object> | undefined;
 
-  constructor({ programName, programDescription, tree, version, context }: CreateCliOptions) {
+  constructor({
+    programName,
+    programDescription,
+    tree,
+    version,
+    context,
+    errors,
+    onError,
+  }: CreateCliOptions) {
     const issues = [...detectSameLevelCollisions(tree), ...detectAliasCollisions(tree)];
     if (issues.length > 0) {
       throw new Error(
@@ -632,6 +651,8 @@ export class Cli<C extends object = Record<string, never>> {
     this.#parseOptions = collectParseOptions(tree);
     this.#aliasMap = buildAliasMap(tree);
     this.#context = context;
+    this.#errors = (errors ?? {}) as ErrorsRecord;
+    this.#onError = onError as OnError<ErrorsRecord, object> | undefined;
   }
 
   #resolveContext(): Promise<object> {
@@ -653,10 +674,6 @@ export class Cli<C extends object = Record<string, never>> {
     });
   }
 
-  #errorPrefix(): string {
-    return stderrRed(stderrBold(this.#programName));
-  }
-
   async run(argv: string[]): Promise<number> {
     const rewritten = rewriteArgvAliases({ argv, aliasMap: this.#aliasMap });
     let parsed: ReturnType<typeof parseArgs>;
@@ -668,8 +685,16 @@ export class Cli<C extends object = Record<string, never>> {
         allowPositionals: true,
       });
     } catch (err) {
-      process.stderr.write(`${this.#errorPrefix()}: ${(err as Error).message}\n`);
-      return 2;
+      return handleError({
+        site: {
+          code: BuiltInErrorCode.Parse,
+          error: err as Error,
+          defaultMessage: (err as Error).message,
+          defaultExitCode: EXIT_USAGE,
+        },
+        programName: this.#programName,
+        onError: this.#onError,
+      });
     }
 
     if (
@@ -694,10 +719,17 @@ export class Cli<C extends object = Record<string, never>> {
     });
 
     if (unknown) {
-      process.stderr.write(
-        `${this.#errorPrefix()}: unknown command: ${unknownToken} — run \`${this.#programName} --help\` to see available commands\n`,
-      );
-      return 2;
+      const msg = `unknown command: ${unknownToken} — run \`${this.#programName} --help\` to see available commands`;
+      return handleError({
+        site: {
+          code: BuiltInErrorCode.Parse,
+          error: new Error(msg),
+          defaultMessage: msg,
+          defaultExitCode: EXIT_USAGE,
+        },
+        programName: this.#programName,
+        onError: this.#onError,
+      });
     }
 
     if (!node.command) {
@@ -731,8 +763,16 @@ export class Cli<C extends object = Record<string, never>> {
       loaded = new Map(pairs);
     } catch (err) {
       if (err instanceof CommandLoadError) {
-        process.stderr.write(`${this.#errorPrefix()}: ${err.message}\n`);
-        return 1;
+        return handleError({
+          site: {
+            code: BuiltInErrorCode.Load,
+            error: err,
+            defaultMessage: err.message,
+            defaultExitCode: EXIT_FAILURE,
+          },
+          programName: this.#programName,
+          onError: this.#onError,
+        });
       }
       throw err;
     }
@@ -768,10 +808,17 @@ export class Cli<C extends object = Record<string, never>> {
         kind: 'option',
       });
       if (!optionsResult.ok) {
-        process.stderr.write(
-          `${this.#errorPrefix()}: ${optionsResult.error}${helpHint(targetHelpEnabled)}\n`,
-        );
-        return 2;
+        const msg = `${optionsResult.error}${helpHint(targetHelpEnabled)}`;
+        return handleError({
+          site: {
+            code: BuiltInErrorCode.Validation,
+            error: new Error(optionsResult.error),
+            defaultMessage: msg,
+            defaultExitCode: EXIT_USAGE,
+          },
+          programName: this.#programName,
+          onError: this.#onError,
+        });
       }
 
       const ownParamValues: Record<string, unknown> = {};
@@ -792,10 +839,17 @@ export class Cli<C extends object = Record<string, never>> {
         kind: 'param',
       });
       if (!paramsResult.ok) {
-        process.stderr.write(
-          `${this.#errorPrefix()}: ${paramsResult.error}${helpHint(targetHelpEnabled)}\n`,
-        );
-        return 2;
+        const msg = `${paramsResult.error}${helpHint(targetHelpEnabled)}`;
+        return handleError({
+          site: {
+            code: BuiltInErrorCode.Validation,
+            error: new Error(paramsResult.error),
+            defaultMessage: msg,
+            defaultExitCode: EXIT_USAGE,
+          },
+          programName: this.#programName,
+          onError: this.#onError,
+        });
       }
 
       const isTarget = i === visitedCommands.length - 1;
@@ -843,8 +897,28 @@ export class Cli<C extends object = Record<string, never>> {
     if (result.ok) {
       return 0;
     }
-    process.stderr.write(`${this.#errorPrefix()}: ${result.error.message}\n`);
-    return 1;
+    const raw: unknown = result.error;
+    const errVal: Error = raw instanceof Error ? raw : new Error(String(raw));
+    const matchedCode = matchRegisteredError({ error: errVal, errors: this.#errors });
+    const errorCtx: OnErrorHandlerCtx = {
+      options: ctx.options,
+      params: ctx.params,
+      parents: ctx.parents,
+      rootOptions: ctx.rootOptions,
+      print: ctx.print,
+      context: ctx.context,
+    };
+    return handleError({
+      site: {
+        code: matchedCode ?? BuiltInErrorCode.Unknown,
+        error: errVal,
+        ctx: errorCtx,
+        defaultMessage: errVal.message,
+        defaultExitCode: EXIT_FAILURE,
+      },
+      programName: this.#programName,
+      onError: this.#onError,
+    });
   }
 
   async main(): Promise<never> {
@@ -853,8 +927,9 @@ export class Cli<C extends object = Record<string, never>> {
   }
 }
 
-export function createCli<const C extends CliContextInput | undefined = undefined>(
-  options: CreateCliOptions<C>,
-): Cli<ResolveContext<C>> {
-  return new Cli(options) as Cli<ResolveContext<C>>;
+export function createCli<
+  const C extends CliContextInput | undefined = undefined,
+  E extends ErrorsRecord = Record<string, never>,
+>(options: CreateCliOptions<C, E>): Cli<ResolveContext<C>> {
+  return new Cli(options as unknown as CreateCliOptions) as Cli<ResolveContext<C>>;
 }

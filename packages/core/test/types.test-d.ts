@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/complexity/noBannedTypes: empty-object shapes mirror the generated registry */
-import { expectTypeOf } from 'expect-type';
+import { expectTypeOf } from 'bun:test';
 import { z } from 'zod';
 import { type CommandRegistry, defineCommand } from '#index.ts';
 
@@ -195,8 +195,8 @@ defineCommand('i [sku]', {
   aliasOf: 'items [name]',
 });
 
-expectTypeOf<'totally made up path'>().not.toMatchTypeOf<keyof CommandRegistry>();
-expectTypeOf<'users create'>().toMatchTypeOf<keyof CommandRegistry>();
+expectTypeOf<'totally made up path'>().not.toExtend<keyof CommandRegistry>();
+expectTypeOf<'users create'>().toExtend<keyof CommandRegistry>();
 
 // User-registered Cli context flows into every handler's ctx.context.
 import { createCli } from '#index.ts';
@@ -300,4 +300,4 @@ createCli({
   },
 });
 
-expectTypeOf(new ExitSignal(0)).toMatchTypeOf<{ readonly code: number }>();
+expectTypeOf(new ExitSignal(0)).toMatchObjectType<{ readonly code: number }>();

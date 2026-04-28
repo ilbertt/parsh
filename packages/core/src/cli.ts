@@ -9,7 +9,7 @@ import {
   matchRegisteredError,
   type OnError,
   type OnErrorHandlerCtx,
-} from './error-handler.js';
+} from './errors/index.js';
 import { print } from './print.js';
 import type { ResolveContext } from './registry.js';
 import type { AnyOption, AnyParam, AnySchema, OptionsRecord, ParamsRecord } from './schema.js';

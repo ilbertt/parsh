@@ -20,7 +20,7 @@ export {
   type OnError,
   type OnErrorHandlerCtx,
   type OnErrorPayload,
-} from './error-handler.js';
+} from './errors/index.js';
 export type { Print } from './print.js';
 export type { CommandRegistry, Register, RegisteredContext, ResolveContext } from './registry.js';
 export type {

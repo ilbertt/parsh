@@ -16,7 +16,6 @@ function makeCli(loaded: LoadedCommand) {
           value: 'run',
           command: lazyCommand({
             path: 'run',
-            optionNames: [{ name: 'name', type: 'string' }],
             loaded,
           }),
         }),

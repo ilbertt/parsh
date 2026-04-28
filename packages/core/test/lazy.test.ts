@@ -31,17 +31,19 @@ describe('lazy dispatch', () => {
 });
 
 describe('zero-load paths', () => {
-  test('--help at root loads no handler modules', async () => {
+  test('--help at root loads every command to read description / hidden', async () => {
     const r = await runCli(['--help']);
     expect(r.exitCode).toBe(0);
-    expect(r.loaded).toEqual([]);
+    expect(new Set(r.loaded)).toEqual(
+      new Set(['_root', 'alpha', 'alpha/sub', 'beta', 'beta/leaf']),
+    );
     expect(r.stdout).toContain('Usage:');
   });
 
-  test('--help on a subcommand loads no handler modules', async () => {
-    const r = await runCli(['alpha', 'sub', '--help']);
+  test('--help on a subcommand loads visited chain + immediate children', async () => {
+    const r = await runCli(['alpha', '--help']);
     expect(r.exitCode).toBe(0);
-    expect(r.loaded).toEqual([]);
+    expect(new Set(r.loaded)).toEqual(new Set(['_root', 'alpha', 'alpha/sub']));
     expect(r.stdout).toContain('Usage:');
   });
 

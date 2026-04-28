@@ -163,11 +163,47 @@ For deeper option/param patterns (aliases, required, defaults, `forwardToChildre
 
 ## Always regenerate after editing `commands/`
 
-The `commandTree.gen.ts` file is what makes `ctx` typed. After **any** change under `commands/` (new file, rename, deleted file, renamed param), regenerate by running `parsh-codegen generate` (however the project wires it). Use `--watch` to keep regenerating while you iterate.
+The `commandTree.gen.ts` file is what makes `ctx` typed. Regenerate after **structural** changes under `commands/` — adding, renaming, or deleting a command file, or changing a path string. Editing the body of an existing command (options, params, description, handler, hidden) never requires regeneration: the generated file depends only on the filesystem layout and each path-string literal.
+
+```sh
+parsh-codegen generate          # one-shot
+parsh-codegen generate --watch  # while iterating
+```
 
 **Diagnostic rule:** if `ctx.options`, `ctx.params`, `ctx.parents`, or `ctx.rootOptions` looks `any` / `unknown` / wrong, **regenerate first** before debugging anything else. The most common cause of broken inference is a stale `commandTree.gen.ts`.
 
 The codegen ignores `*.gen.ts`, `*.test.ts`, and any `_*` file other than `_root.ts`.
+
+## Keep top-level imports light
+
+`--help` loads the commands it lists so it can read each one's `description` and `hidden`. For a top-level `--help` that means evaluating every command file in the tree. Module top-level runs each file's imports; the handler doesn't.
+
+To keep `--help` fast, **put heavy imports inside the handler**, not at module top:
+
+```ts
+// ❌ slow --help: every help invocation pays for the SDK import
+import { S3 } from '@aws-sdk/client-s3';
+
+export const command = defineCommand('s3 ls', {
+  options: {},
+  handler: async () => {
+    const client = new S3();
+    /* … */
+  },
+});
+
+// ✅ lazy: SDK only imports when this command actually runs
+export const command = defineCommand('s3 ls', {
+  options: {},
+  handler: async () => {
+    const { S3 } = await import('@aws-sdk/client-s3');
+    const client = new S3();
+    /* … */
+  },
+});
+```
+
+This is also what makes parsh's lazy dispatch work end-to-end on real-world CLIs — without it, every dispatch pays for every command's transitive imports.
 
 ## Shared context
 

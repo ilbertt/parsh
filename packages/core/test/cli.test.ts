@@ -15,7 +15,6 @@ function makeTree(opts: {
   return root({
     command: lazyCommand({
       path: '',
-      optionNames: [{ name: 'verbose', type: 'boolean' }],
       loaded: {
         options: {
           verbose: { schema: z.boolean().default(false), forwardToChildren: true },
@@ -27,7 +26,6 @@ function makeTree(opts: {
         value: 'deploy',
         command: lazyCommand({
           path: 'deploy',
-          optionNames: [{ name: 'env', type: 'string' }],
           loaded: {
             options: { env: { schema: z.enum(['staging', 'prod']) } },
             handler: rec('deploy'),
@@ -38,7 +36,6 @@ function makeTree(opts: {
         value: 'users',
         command: lazyCommand({
           path: 'users',
-          optionNames: [{ name: 'workspace', type: 'string' }],
           loaded: {
             options: { workspace: { schema: z.string(), forwardToChildren: true } },
             handler: rec('users'),
@@ -49,7 +46,6 @@ function makeTree(opts: {
             value: 'create',
             command: lazyCommand({
               path: 'users create',
-              optionNames: [{ name: 'email', type: 'string' }],
               loaded: {
                 options: { email: { schema: z.string() } },
                 handler: rec('users create'),
@@ -61,7 +57,6 @@ function makeTree(opts: {
           name: 'id',
           command: lazyCommand({
             path: 'users [id]',
-            paramNames: ['id'],
             loaded: {
               options: {},
               params: { id: { schema: opts.idSchema() } },
@@ -111,7 +106,7 @@ describe('argument parsing', () => {
     expect(calls[0]?.ctx.rootOptions.verbose).toBe(true);
   });
 
-  test('ancestor options land in ctx.parents[path].options', async () => {
+  test('ancestor options land in ctx.parents[path].options (interleaved)', async () => {
     const calls: Called[] = [];
     const code = await makeCli({ calls }).run([
       'users',
@@ -126,6 +121,16 @@ describe('argument parsing', () => {
     expect(calls[0]?.ctx.options).toEqual({ email: 'a@b.com' });
     expect(calls[0]?.ctx.parents.users?.options).toEqual({ workspace: 'acme' });
     expect(calls[0]?.ctx.rootOptions).toEqual({ verbose: false });
+  });
+
+  test('boolean root flag before subcommand resolves correctly', async () => {
+    const calls: Called[] = [];
+    const code = await makeCli({ calls }).run(['--verbose', 'deploy', '--env', 'prod']);
+
+    expect(code).toBe(0);
+    expect(calls[0]?.path).toBe('deploy');
+    expect(calls[0]?.ctx.options).toEqual({ env: 'prod' });
+    expect(calls[0]?.ctx.rootOptions).toEqual({ verbose: true });
   });
 });
 
@@ -187,9 +192,6 @@ describe('option aliases', () => {
     return root({
       command: lazyCommand({
         path: '',
-        optionNames: [
-          { name: 'verbose', type: 'boolean', forwardToChildren: true, aliases: ['v'] },
-        ],
         loaded: {
           options: {
             verbose: {
@@ -205,7 +207,6 @@ describe('option aliases', () => {
           value: 'deploy',
           command: lazyCommand({
             path: 'deploy',
-            optionNames: [{ name: 'env', type: 'string', aliases: ['e', 'environment'] }],
             loaded: {
               options: {
                 env: { schema: z.enum(['staging', 'prod']), aliases: ['e', 'environment'] },
@@ -251,41 +252,56 @@ describe('option aliases', () => {
     expect(calls[0]?.ctx.rootOptions).toEqual({ verbose: true });
   });
 
-  test('alias colliding with another option name throws at construction', () => {
+  test('alias colliding with another option name errors at dispatch', async () => {
     const tree = root({
       command: lazyCommand({
         path: '',
-        optionNames: [
-          { name: 'verbose', type: 'boolean', forwardToChildren: true },
-          { name: 'version', type: 'boolean', aliases: ['verbose'] },
-        ],
-        loaded: { options: {} },
+        loaded: {
+          options: {
+            verbose: { schema: z.boolean().default(false), forwardToChildren: true },
+            version: { schema: z.boolean().default(false), aliases: ['verbose'] },
+          },
+          handler: () => {},
+        },
       }),
     });
-    expect(() => createCli({ programName: 't', tree })).toThrow(/collides/i);
+    const code = await createCli({ programName: 't', tree }).run([]);
+    expect(code).toBe(2);
+    expect(stderrText().toLowerCase()).toMatch(/collides/);
   });
 
-  test('alias colliding with forwarded ancestor option throws', () => {
+  test('alias colliding with forwarded ancestor option errors at dispatch', async () => {
     const tree = root({
       command: lazyCommand({
         path: '',
-        optionNames: [
-          { name: 'verbose', type: 'boolean', forwardToChildren: true, aliases: ['v'] },
-        ],
-        loaded: { options: {} },
+        loaded: {
+          options: {
+            verbose: {
+              schema: z.boolean().default(false),
+              forwardToChildren: true,
+              aliases: ['v'],
+            },
+          },
+        },
       }),
       children: {
         leaf: literal({
           value: 'leaf',
           command: lazyCommand({
             path: 'leaf',
-            optionNames: [{ name: 'volume', type: 'string', aliases: ['v'] }],
-            loaded: { options: {} },
+            loaded: {
+              options: {
+                volume: { schema: z.string().optional(), aliases: ['v'] },
+              },
+              handler: () => {},
+            },
           }),
         }),
       },
     });
-    expect(() => createCli({ programName: 't', tree })).toThrow(/collides/i);
+    const code = await createCli({ programName: 't', tree }).run(['leaf']);
+    expect(code).toBe(2);
+    expect(stderrText().toLowerCase()).toMatch(/collides/);
   });
 });
 
@@ -408,21 +424,18 @@ describe('root --help Commands block', () => {
   function makeNestedTree({ withGroupCommands }: { withGroupCommands: boolean }): RuntimeNode {
     const leafSet = lazyCommand({
       path: 'config set <key> <value>',
-      paramNames: ['key', 'value'],
-      description: 'Set a config value',
-      loaded: { options: {}, handler: () => {} },
+      loaded: { options: {}, description: 'Set a config value', handler: () => {} },
     });
     const leafShow = lazyCommand({
       path: 'config show',
-      description: 'Show current config',
-      loaded: { options: {}, handler: () => {} },
+      loaded: { options: {}, description: 'Show current config', handler: () => {} },
     });
 
     const valueNode = param({ name: 'value', command: leafSet });
     const keyNode = param({
       name: 'key',
       command: withGroupCommands
-        ? lazyCommand({ path: 'config set <key>', paramNames: ['key'], loaded: { options: {} } })
+        ? lazyCommand({ path: 'config set <key>', loaded: { options: {} } })
         : null,
       paramChild: valueNode,
     });
@@ -431,8 +444,7 @@ describe('root --help Commands block', () => {
       command: withGroupCommands
         ? lazyCommand({
             path: 'config set',
-            description: 'Update a config field.',
-            loaded: { options: {} },
+            loaded: { options: {}, description: 'Update a config field.' },
           })
         : null,
       paramChild: keyNode,
@@ -443,8 +455,7 @@ describe('root --help Commands block', () => {
       command: withGroupCommands
         ? lazyCommand({
             path: 'config',
-            description: 'Manage CLI configuration.',
-            loaded: { options: {} },
+            loaded: { options: {}, description: 'Manage CLI configuration.' },
           })
         : null,
       children: { set: setNode, show: showNode },
@@ -478,17 +489,19 @@ describe('root --help Commands block', () => {
           value: 'secret',
           command: lazyCommand({
             path: 'secret',
-            description: 'should not appear',
-            hidden: true,
-            loaded: { options: {}, handler: () => {} },
+            loaded: {
+              options: {},
+              description: 'should not appear',
+              hidden: true,
+              handler: () => {},
+            },
           }),
         }),
         visible: literal({
           value: 'visible',
           command: lazyCommand({
             path: 'visible',
-            description: 'shows up',
-            loaded: { options: {}, handler: () => {} },
+            loaded: { options: {}, description: 'shows up', handler: () => {} },
           }),
         }),
       },
@@ -505,15 +518,11 @@ describe('root --help Commands block', () => {
   test('omits hidden param-segment groups from the root help (the [key] case)', async () => {
     const valueLeaf = lazyCommand({
       path: 'set [key] [value]',
-      paramNames: ['value'],
-      description: 'Set a value',
-      loaded: { options: {}, handler: () => {} },
+      loaded: { options: {}, description: 'Set a value', handler: () => {} },
     });
     const keyGroup = lazyCommand({
       path: 'set [key]',
-      paramNames: ['key'],
-      hidden: true,
-      loaded: { options: {} },
+      loaded: { options: {}, hidden: true },
     });
     const tree = root({
       command: null,

@@ -42,7 +42,6 @@ function makeValidationTree(): RuntimeNode {
         value: 'go',
         command: lazyCommand({
           path: 'go',
-          optionNames: [{ name: 'count', type: 'string' }],
           loaded: {
             options: { count: { schema: z.number() } },
             handler: () => {},
@@ -63,7 +62,6 @@ function makeParamValidationTree(): RuntimeNode {
           name: 'count',
           command: lazyCommand({
             path: 'pick [count]',
-            paramNames: ['count'],
             loaded: {
               params: { count: { schema: z.number() } },
               options: {},
@@ -80,8 +78,6 @@ function makeParamValidationTree(): RuntimeNode {
 function makeLoadErrorTree(): RuntimeNode {
   const broken: RuntimeCommand = {
     path: 'broken',
-    optionNames: [],
-    paramNames: [],
     load: () => Promise.reject(new Error('synthetic import failure')),
   };
   return root({
@@ -179,7 +175,6 @@ describe('onError — registered handler errors', () => {
             value: 'run',
             command: lazyCommand({
               path: 'run',
-              optionNames: [{ name: 'flag', type: 'boolean' }],
               loaded: {
                 options: { flag: { schema: z.boolean().default(false) } },
                 handler: () => {

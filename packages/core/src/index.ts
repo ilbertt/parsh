@@ -5,7 +5,6 @@ export {
   type CliContextInput,
   createCli,
   type LoadedCommand,
-  type OptionMeta,
   type RuntimeCommand,
   type RuntimeNode,
 } from './cli.js';

@@ -75,7 +75,7 @@ You're trying to read `ctx.context` from a CLI created **without** a `context` f
 
 ## Alias collisions
 
-`Cli` construction throws if an option's `aliases` collide with a sibling option, the option's own `name`, or a forwarded ancestor option visible on the same command. The error message names the conflicting alias and command — read it and rename one side.
+When a command runs, parsh checks the loaded chain for option-name and alias collisions across `own + forwarded ancestors` and exits with an error if it finds one. The error message names the conflicting identifier and the two commands declaring it — read it and rename one side. The check runs per-dispatch, so a collision in a never-invoked command won't fail other paths; if you want a build-time guarantee, exercise every command in a smoke test.
 
 ## Forwarded option not visible on a child
 
@@ -91,4 +91,4 @@ Expected — the codegen only walks `.ts` files. (Also: it ignores `*.gen.ts`, `
 
 ## Watch mode didn't pick up a change
 
-Watch mode triggers on add / remove / rename of files matching the include filter. Pure content edits to an existing file don't trigger regeneration — and they don't need to, since the path string and the `params` / `options` key shapes are what the generated file depends on. If you renamed a path or added a `[name]` segment by editing in place, save the file with a name change (or just run `parsh-codegen generate` once).
+Watch mode triggers on add / remove / rename of files matching the include filter. Pure content edits to an existing file don't trigger regeneration — and they don't need to: the generated file depends only on the filesystem layout and each command's path-string literal. Editing the body of an existing command (options, params, description, handler, hidden) never requires regenerating. Renames of files / paths / `[name]` segments do trigger watch and need a regeneration if you're not in watch mode.

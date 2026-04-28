@@ -25,7 +25,6 @@ function makeTree({
         value: 'run',
         command: lazyCommand({
           path: 'run',
-          optionNames: [{ name: 'name', type: 'string' }],
           loaded: {
             options: { name: { schema: z.string() } },
             handler: (ctx) => capture(ctx as Record<string, unknown>),

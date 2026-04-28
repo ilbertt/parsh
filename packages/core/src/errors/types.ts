@@ -1,7 +1,7 @@
 import type { Print } from '../print.js';
 import type { BuiltInErrorCode } from './codes.js';
 import type { ExitFn, ExitSignal } from './exit.js';
-import type { CommandLoadError } from './load-error.js';
+import type { CommandLoadError } from './internal-errors.js';
 
 export type ErrorClass = new (...args: never[]) => Error;
 

@@ -12,7 +12,7 @@ export {
 export { defineCommand, defineRootCommand } from './command.js';
 export { BuiltInErrorCode } from './errors/codes.js';
 export { type ExitFn, ExitSignal } from './errors/exit.js';
-export { CommandLoadError } from './errors/load-error.js';
+export { CommandLoadError } from './errors/internal-errors.js';
 export type {
   ErrorClass,
   ErrorsRecord,

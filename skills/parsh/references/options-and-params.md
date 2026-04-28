@@ -39,7 +39,7 @@ options: {
 
 ### Aliases
 
-`aliases: ['v']` produces `-v`. Multi-character entries dispatch as `--xxx`. Aliases must not collide with sibling options or with forwarded ancestor options (validated at `Cli` construction).
+`aliases: ['v']` produces `-v`. Multi-character entries dispatch as `--xxx`. Aliases must not collide with sibling options or with forwarded ancestor options — collisions are reported at dispatch time on the loaded chain.
 
 ```ts
 options: {
@@ -57,6 +57,19 @@ options: {
   dryRun: { schema: z.boolean().optional() },
 }
 ```
+
+### Repeatable flags
+
+If the schema accepts an array, the flag is automatically repeatable — pass it once per value:
+
+```ts
+options: {
+  header: { schema: z.array(z.string()).default([]) },
+  // mycli req --header 'X-A: 1' --header 'X-B: 2'  →  options.header is ['X-A: 1', 'X-B: 2']
+}
+```
+
+The "should this flag collect or overwrite" decision is made by probing the schema at dispatch — no extra config. Anything that accepts a `string[]` (or numeric/typed-element arrays) is treated as repeatable.
 
 ### Built-in coercion
 

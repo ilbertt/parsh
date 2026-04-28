@@ -48,6 +48,22 @@ type ParamsConstraint<P extends string> = [OwnParamName<P>] extends [never]
   ? { params?: never }
   : { params: { [K in OwnParamName<P>]: AnyParam } };
 
+/**
+ * Maps each key of an inferred `params` literal to `AnyParam` if the key matches
+ * the path's own bracket name, otherwise to a templated error string. Providing
+ * a value for an extra key fails type-check because the value cannot be
+ * assigned to that string literal type, and the error message tells the user
+ * exactly which key was extra and why.
+ *
+ * This is the mechanism that makes the path string the single source of truth:
+ * extra keys, missing keys, and wrong keys are all compile errors.
+ */
+type StrictParams<P extends string, Params> = {
+  [K in keyof Params]: K extends OwnParamName<P>
+    ? AnyParam
+    : `Error: '${K & string}' is not a param in the path '${P}'`;
+};
+
 type OwnParamsOf<P extends string, Params extends Record<string, AnyParam>> = [
   OwnParamName<P>,
 ] extends [never]
@@ -178,7 +194,9 @@ export function defineCommand<
     /** Runs after `handler` resolves. Skipped if `handler` or `beforeHandler` throws. */
     afterHandler?: (ctx: HandlerCtx<P, Options, Params>) => void | Promise<void>;
   } & ParamsConstraint<P & string> &
-    (Params extends Record<string, never> ? unknown : { params: Params }),
+    (Params extends Record<string, never>
+      ? unknown
+      : { params: Params } & { params: StrictParams<P & string, Params> }),
 ): DefinedCommand<P, Options, Params>;
 // biome-ignore lint/complexity/useMaxParams: DX — path-first call shape (path, def) is the declared API
 export function defineCommand(path: string, def: object): object {

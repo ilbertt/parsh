@@ -79,6 +79,16 @@ defineCommand('items [sku]', {
   handler: () => {},
 });
 
+defineCommand('items [sku]', {
+  params: {
+    sku: { schema: z.string() },
+    // @ts-expect-error — 'extra' is not a param in the path 'items [sku]'
+    extra: { schema: z.string() },
+  },
+  options: { force: { schema: z.boolean() } },
+  handler: () => {},
+});
+
 defineCommand('items [sku] edit', {
   options: { mode: { schema: z.enum(['basic', 'full']) } },
   handler: ({ options, params, parents }) => {

@@ -1,15 +1,8 @@
 import { type ParseArgsConfig, parseArgs } from 'node:util';
-import {
-  BuiltInErrorCode,
-  CommandLoadError,
-  type ErrorsRecord,
-  EXIT_FAILURE,
-  EXIT_USAGE,
-  handleError,
-  matchRegisteredError,
-  type OnError,
-  type OnErrorHandlerCtx,
-} from './errors/index.js';
+import { BuiltInErrorCode, EXIT_FAILURE, EXIT_USAGE } from './errors/codes.js';
+import { handleError, matchRegisteredError } from './errors/handle.js';
+import { CommandLoadError } from './errors/load-error.js';
+import type { ErrorsRecord, OnError, OnErrorHandlerCtx } from './errors/types.js';
 import { print } from './print.js';
 import type { ResolveContext } from './registry.js';
 import type { AnyOption, AnyParam, AnySchema, OptionsRecord, ParamsRecord } from './schema.js';

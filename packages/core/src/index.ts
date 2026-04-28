@@ -10,17 +10,16 @@ export {
   type RuntimeNode,
 } from './cli.js';
 export { defineCommand, defineRootCommand } from './command.js';
-export {
-  BuiltInErrorCode,
-  CommandLoadError,
-  type ErrorClass,
-  type ErrorsRecord,
-  type ExitFn,
-  ExitSignal,
-  type OnError,
-  type OnErrorHandlerCtx,
-  type OnErrorPayload,
-} from './errors/index.js';
+export { BuiltInErrorCode } from './errors/codes.js';
+export { type ExitFn, ExitSignal } from './errors/exit.js';
+export { CommandLoadError } from './errors/load-error.js';
+export type {
+  ErrorClass,
+  ErrorsRecord,
+  OnError,
+  OnErrorHandlerCtx,
+  OnErrorPayload,
+} from './errors/types.js';
 export type { Print } from './print.js';
 export type { CommandRegistry, Register, RegisteredContext, ResolveContext } from './registry.js';
 export type {

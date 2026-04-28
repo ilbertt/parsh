@@ -177,6 +177,7 @@ defineCommand('deploy', {
 | Example | What it shows |
 | --- | --- |
 | [`awslike`](examples/awslike) | Deeply nested commands modeled after the AWS CLI (`s3 buckets [name] create`), `forwardToChildren` flags inherited down the tree, and `@parshjs/files` for credentials on disk. |
+| [`httpie`](examples/httpie) | A small HTTPie-style CLI showing **type-safe command aliases** (`httpie https://...` → `GET [url]`) and **repeatable flags** from `z.array(z.string())` schemas. |
 | [`pomo`](examples/pomo) | Pomodoro timer with a live [Ink](https://github.com/vadimdemedes/ink) TUI rendered from inside a handler. Demonstrates that core stays headless — any TUI library plugs in. |
 | [`env-vars`](examples/env-vars) | `@parshjs/env` with `createEnvContext` for typed, lazy `process.env` access (`PORT`, `NODE_ENV`, `DATABASE_URL`). |
 | [`config-store`](examples/config-store) | `@parshjs/files` for typed JSON config in `~/.config/mycli/`, with `ensureExists()` gating reads via `beforeHandler`. |

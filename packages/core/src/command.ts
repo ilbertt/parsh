@@ -7,6 +7,40 @@ type LastSegment<P extends string> = P extends `${string} ${infer Rest}` ? LastS
 type OwnParamName<P extends string> = LastSegment<P> extends `[${infer N}]` ? N : never;
 
 /**
+ * Ordered tuple of bracket-segment names in a path string.
+ * `'s3 buckets [name] create'` → `['name']`. `'s3 ls'` → `[]`.
+ */
+type ParamNamesOf<P extends string> = P extends `${infer Head} ${infer Rest}`
+  ? Head extends `[${infer N}]`
+    ? [N, ...ParamNamesOf<Rest>]
+    : ParamNamesOf<Rest>
+  : P extends `[${infer N}]`
+    ? [N]
+    : [];
+
+/** True iff two readonly tuples have identical elements in the same order. */
+type SameTuple<A extends readonly unknown[], B extends readonly unknown[]> = A extends B
+  ? B extends A
+    ? true
+    : false
+  : false;
+
+/**
+ * The set of registered paths an alias at `P` may target: all registered
+ * paths other than `P` whose param-name tuple matches `P`'s exactly. A
+ * mismatch (e.g. `s3 ls` aliasing `s3 buckets [name] create`) is a compile
+ * error, not a runtime one.
+ */
+type AliasTarget<P extends keyof CommandRegistry> = {
+  [T in Exclude<keyof CommandRegistry, P>]: SameTuple<
+    ParamNamesOf<T & string>,
+    ParamNamesOf<P & string>
+  > extends true
+    ? T
+    : never;
+}[Exclude<keyof CommandRegistry, P>];
+
+/**
  * - path has no bracket in its last segment → `params` field is forbidden.
  * - path ends in `[name]` → `params` required with exactly one key `name`.
  */
@@ -67,6 +101,30 @@ type DefinedCommand<
   afterHandler?: (ctx: unknown) => void | Promise<void>;
 };
 
+type DefinedAliasCommand<P extends keyof CommandRegistry> = {
+  path: P;
+  aliasOf: string;
+  options: Record<string, never>;
+  helpArg: HelpArgConfig;
+};
+
+/**
+ * Alias form of `defineCommand`. The alias inherits the target's description,
+ * options, params, and behavior — there is nothing else to configure. The
+ * target must be a registered path other than the alias's own.
+ */
+type AliasConfig<P extends keyof CommandRegistry> = {
+  aliasOf: AliasTarget<P>;
+  options?: never;
+  params?: never;
+  description?: never;
+  hidden?: never;
+  helpArg?: never;
+  handler?: never;
+  beforeHandler?: never;
+  afterHandler?: never;
+};
+
 type DefinedRootCommand<Options extends OptionsRecord> = {
   path: '';
   options: Options;
@@ -95,6 +153,11 @@ export function defineRootCommand<const Options extends OptionsRecord>(def: {
   } as DefinedRootCommand<Options>;
 }
 
+// biome-ignore lint/complexity/useMaxParams: DX — path-first call shape (path, def) is the declared API
+export function defineCommand<P extends keyof CommandRegistry>(
+  path: P,
+  def: AliasConfig<P>,
+): DefinedAliasCommand<P>;
 export function defineCommand<
   P extends keyof CommandRegistry,
   const Options extends OptionsRecord,
@@ -116,11 +179,21 @@ export function defineCommand<
     afterHandler?: (ctx: HandlerCtx<P, Options, Params>) => void | Promise<void>;
   } & ParamsConstraint<P & string> &
     (Params extends Record<string, never> ? unknown : { params: Params }),
-): DefinedCommand<P, Options, Params> {
+): DefinedCommand<P, Options, Params>;
+// biome-ignore lint/complexity/useMaxParams: DX — path-first call shape (path, def) is the declared API
+export function defineCommand(path: string, def: object): object {
+  if ('aliasOf' in def) {
+    return {
+      options: {},
+      helpArg: { enabled: true },
+      ...def,
+      path,
+    };
+  }
   return {
-    params: {} as Params,
+    params: {},
     helpArg: { enabled: true },
-    ...(def as object),
+    ...def,
     path,
-  } as DefinedCommand<P, Options, Params>;
+  };
 }

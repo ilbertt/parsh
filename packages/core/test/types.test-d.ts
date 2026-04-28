@@ -123,6 +123,78 @@ defineCommand('forwardCheck child', {
   },
 });
 
+// Aliases keep `defineCommand` as the entry point but pass `{ aliasOf: target }`
+// with no other props. The alias's own param shape must mirror the target's at
+// runtime; the type system enforces only that the target is a real registered
+// path other than the alias's own.
+declare module '#index.ts' {
+  interface CommandRegistry {
+    'items lookup [sku]': {
+      parents: {};
+      rootOptions: { verbose: boolean };
+    };
+    'items ls': {
+      parents: {};
+      rootOptions: { verbose: boolean };
+    };
+  }
+}
+
+defineCommand('items lookup [sku]', { aliasOf: 'items [sku]' });
+
+defineCommand('items lookup [sku]', {
+  // @ts-expect-error — alias target must be a different command
+  aliasOf: 'items lookup [sku]',
+});
+
+defineCommand('items lookup [sku]', {
+  // @ts-expect-error — alias target must be a registered path
+  aliasOf: 'totally made up',
+});
+
+// @ts-expect-error — `options` is forbidden on the alias form
+defineCommand('items lookup [sku]', {
+  aliasOf: 'items [sku]',
+  options: { force: { schema: z.boolean() } },
+});
+
+// @ts-expect-error — `handler` is forbidden on the alias form
+defineCommand('items lookup [sku]', {
+  aliasOf: 'items [sku]',
+  handler: () => {},
+});
+
+// Paramless aliases are allowed too (paramless on both sides).
+defineCommand('items ls', { aliasOf: 'deploy' });
+
+defineCommand('items ls', {
+  // @ts-expect-error — alias param shape (none) doesn't match target [sku]
+  aliasOf: 'items [sku]',
+});
+
+defineCommand('items lookup [sku]', {
+  // @ts-expect-error — target has no [sku] to receive the alias's param
+  aliasOf: 'deploy',
+});
+
+declare module '#index.ts' {
+  interface CommandRegistry {
+    'items [name]': {
+      parents: {};
+      rootOptions: { verbose: boolean };
+    };
+    'i [sku]': {
+      parents: {};
+      rootOptions: { verbose: boolean };
+    };
+  }
+}
+
+defineCommand('i [sku]', {
+  // @ts-expect-error — param names differ ([sku] cannot alias [name])
+  aliasOf: 'items [name]',
+});
+
 expectTypeOf<'totally made up path'>().not.toMatchTypeOf<keyof CommandRegistry>();
 expectTypeOf<'users create'>().toMatchTypeOf<keyof CommandRegistry>();
 

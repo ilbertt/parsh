@@ -20,6 +20,8 @@ import type { command as s3BucketsNameObjectsKeyGetCmd } from './commands/s3/buc
 import type { command as s3BucketsNameObjectsKeyPutCmd } from './commands/s3/buckets/[name]/objects/[key]/put.ts';
 import type { command as s3BucketsNameObjectsListCmd } from './commands/s3/buckets/[name]/objects/list.ts';
 import type { command as s3Cmd } from './commands/s3.ts';
+import type { command as s3CNameCmd } from './commands/s3/c/[name].ts';
+import type { command as s3LsCmd } from './commands/s3/ls.ts';
 import type { command as statusCmd } from './commands/status.ts';
 
 declare module '@parshjs/core' {
@@ -136,6 +138,18 @@ declare module '@parshjs/core' {
         's3': { options: InferForwardedOptions<typeof s3Cmd.options>; params: InferParams<typeof s3Cmd.params> };
         's3 buckets [name]': { options: InferForwardedOptions<typeof s3BucketsNameCmd.options>; params: InferParams<typeof s3BucketsNameCmd.params> };
         's3 buckets [name] objects [key]': { options: InferForwardedOptions<typeof s3BucketsNameObjectsKeyCmd.options>; params: InferParams<typeof s3BucketsNameObjectsKeyCmd.params> };
+      };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
+    };
+    's3 c [name]': {
+      parents: {
+        's3': { options: InferForwardedOptions<typeof s3Cmd.options>; params: InferParams<typeof s3Cmd.params> };
+      };
+      rootOptions: InferForwardedOptions<typeof rootCmd.options>;
+    };
+    's3 ls': {
+      parents: {
+        's3': { options: InferForwardedOptions<typeof s3Cmd.options>; params: InferParams<typeof s3Cmd.params> };
       };
       rootOptions: InferForwardedOptions<typeof rootCmd.options>;
     };
@@ -288,6 +302,23 @@ export const commandTree: RuntimeNode = {
             },
             paramChild: null,
           },
+        },
+        'c': {
+          segment: { kind: 'literal', value: 'c' },
+          command: null,
+          literalChildren: {},
+          paramChild: {
+            segment: { kind: 'param', name: 'name' },
+            command: { path: 's3 c [name]', load: () => import('./commands/s3/c/[name].ts').then((m) => m.command) },
+            literalChildren: {},
+            paramChild: null,
+          },
+        },
+        'ls': {
+          segment: { kind: 'literal', value: 'ls' },
+          command: { path: 's3 ls', load: () => import('./commands/s3/ls.ts').then((m) => m.command) },
+          literalChildren: {},
+          paramChild: null,
         },
       },
       paramChild: null,

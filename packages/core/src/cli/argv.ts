@@ -1,4 +1,5 @@
 import { stderrDim } from '../style.js';
+import { parsePathSegments } from './tree.js';
 
 /**
  * Greedy scan to recover candidate positionals before the target chain is
@@ -104,4 +105,104 @@ export function positionalsEqual({
     }
   }
   return true;
+}
+
+/**
+ * Translate the original argv into the equivalent argv for an alias's target.
+ * The alias and target must declare the same params in the same order (so a
+ * captured param value lines up with the target's param slot). Literals can
+ * be substituted freely. The first N non-flag positionals in argv (where N
+ * is the alias's segment count) are replaced with the target's literals
+ * interleaved with the captured param values; flags and any extra positional
+ * arguments are passed through.
+ */
+export function resolveAliasArgv({
+  aliasPath,
+  targetPath,
+  argv,
+}: {
+  aliasPath: string;
+  targetPath: string;
+  argv: ReadonlyArray<string>;
+}): { ok: true; argv: string[] } | { ok: false; error: string } {
+  const aliasSegs = parsePathSegments(aliasPath);
+  const targetSegs = parsePathSegments(targetPath);
+  const aliasParams = aliasSegs.flatMap((s) => (s.kind === 'param' ? [s.name] : []));
+  const targetParams = targetSegs.flatMap((s) => (s.kind === 'param' ? [s.name] : []));
+  const paramsMatch =
+    aliasParams.length === targetParams.length &&
+    aliasParams.every(
+      // biome-ignore lint/complexity/useMaxParams: Array.every callback is inherently (item, index)
+      (n, i) => n === targetParams[i],
+    );
+  if (!paramsMatch) {
+    return {
+      ok: false,
+      error: `alias '${aliasPath || '<root>'}' → '${targetPath}': param shapes do not match (alias has [${aliasParams.join(', ')}], target has [${targetParams.join(', ')}])`,
+    };
+  }
+
+  // Walk argv with the same greedy rule as collectCandidatePositionals, but
+  // record which argv indices are positionals so we can replace just the
+  // alias's slice without disturbing flags / flag-values.
+  const positionalIndices: number[] = [];
+  let i = 0;
+  while (i < argv.length) {
+    const tok = argv[i]!;
+    if (tok === '--') {
+      for (let j = i + 1; j < argv.length; j++) {
+        positionalIndices.push(j);
+      }
+      break;
+    }
+    if (tok.length > 1 && tok.startsWith('-')) {
+      i += tok.startsWith('--') && tok.includes('=') ? 1 : 2;
+      continue;
+    }
+    positionalIndices.push(i);
+    i++;
+  }
+
+  if (positionalIndices.length < aliasSegs.length) {
+    return {
+      ok: false,
+      error: `alias '${aliasPath || '<root>'}' → '${targetPath}': not enough positional arguments to match the alias`,
+    };
+  }
+
+  const aliasIndices = positionalIndices.slice(0, aliasSegs.length);
+  const paramValues: string[] = [];
+  for (let k = 0; k < aliasSegs.length; k++) {
+    if (aliasSegs[k]!.kind === 'param') {
+      paramValues.push(argv[aliasIndices[k]!]!);
+    }
+  }
+
+  const synthesizedTargetPositionals: string[] = [];
+  let paramIndex = 0;
+  for (const seg of targetSegs) {
+    if (seg.kind === 'literal') {
+      synthesizedTargetPositionals.push(seg.value);
+    } else {
+      synthesizedTargetPositionals.push(paramValues[paramIndex++] ?? '');
+    }
+  }
+
+  const out: string[] = [];
+  const aliasIndexSet = new Set(aliasIndices);
+  const insertAt = aliasIndices[0] ?? argv.length;
+  let inserted = false;
+  for (let j = 0; j < argv.length; j++) {
+    if (!inserted && j === insertAt) {
+      out.push(...synthesizedTargetPositionals);
+      inserted = true;
+    }
+    if (!aliasIndexSet.has(j)) {
+      out.push(argv[j]!);
+    }
+  }
+  if (!inserted) {
+    out.push(...synthesizedTargetPositionals);
+  }
+  return { ok: true, argv: out };
 }

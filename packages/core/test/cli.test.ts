@@ -565,3 +565,72 @@ describe('root --help Commands block', () => {
     expect(commandsBlock).toContain('config show');
   });
 });
+
+describe('command aliases (aliasOf)', () => {
+  function aliasTree({ calls }: { calls: Called[] }): RuntimeNode {
+    return root({
+      command: null,
+      children: {
+        target: literal({
+          value: 'target',
+          command: lazyCommand({
+            path: 'target',
+            loaded: {
+              options: {},
+              description: 'The real command.',
+              handler: record({ calls, path: 'target' }),
+            },
+          }),
+        }),
+        a: literal({
+          value: 'a',
+          command: lazyCommand({
+            path: 'a',
+            loaded: { options: {}, aliasOf: 'target' },
+          }),
+        }),
+      },
+    });
+  }
+
+  test('redirects an alias call to the target handler', async () => {
+    const calls: Called[] = [];
+    const code = await createCli({ programName: 't', tree: aliasTree({ calls }) }).run(['a']);
+
+    expect(code).toBe(0);
+    expect(calls[0]?.path).toBe('target');
+  });
+
+  test('--help on an alias renders the target description', async () => {
+    const cli = createCli({ programName: 't', tree: aliasTree({ calls: [] }) });
+    const code = await cli.run(['a', '--help']);
+
+    expect(code).toBe(0);
+    expect(stdoutText()).toContain('The real command.');
+  });
+
+  test('trailing unknown token after an alias errors instead of redirecting', async () => {
+    const calls: Called[] = [];
+    const code = await createCli({ programName: 't', tree: aliasTree({ calls }) }).run([
+      'a',
+      'extra',
+    ]);
+
+    expect(code).toBe(2);
+    expect(calls).toBeEmpty();
+    expect(stderrText()).toContain('unknown command: extra');
+  });
+
+  test('--help with a trailing unknown token after an alias still errors', async () => {
+    const calls: Called[] = [];
+    const code = await createCli({ programName: 't', tree: aliasTree({ calls }) }).run([
+      'a',
+      'extra',
+      '--help',
+    ]);
+
+    expect(code).toBe(2);
+    expect(calls).toBeEmpty();
+    expect(stderrText()).toContain('unknown command: extra');
+  });
+});

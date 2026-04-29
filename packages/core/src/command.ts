@@ -169,11 +169,6 @@ export function defineRootCommand<const Options extends OptionsRecord>(def: {
   } as DefinedRootCommand<Options>;
 }
 
-// biome-ignore lint/complexity/useMaxParams: DX — path-first call shape (path, def) is the declared API
-export function defineCommand<P extends keyof CommandRegistry>(
-  path: P,
-  def: AliasConfig<P>,
-): DefinedAliasCommand<P>;
 export function defineCommand<
   P extends keyof CommandRegistry,
   const Options extends OptionsRecord,
@@ -198,6 +193,11 @@ export function defineCommand<
       ? unknown
       : { params: Params } & { params: StrictParams<P & string, Params> }),
 ): DefinedCommand<P, Options, Params>;
+// biome-ignore lint/complexity/useMaxParams: DX — path-first call shape (path, def) is the declared API
+export function defineCommand<P extends keyof CommandRegistry>(
+  path: P,
+  def: AliasConfig<P>,
+): DefinedAliasCommand<P>;
 // biome-ignore lint/complexity/useMaxParams: DX — path-first call shape (path, def) is the declared API
 export function defineCommand(path: string, def: object): object {
   if ('aliasOf' in def) {

@@ -10,11 +10,11 @@
     "generate": "parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts"
   },
   "dependencies": {
-    "@parshjs/core": "workspace:",
+    "@parshjs/core": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@parshjs/codegen": "workspace:",
+    "@parshjs/codegen": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "typescript": "catalog:"
   }

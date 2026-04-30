@@ -11,11 +11,11 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.9.1",
-    "@parshjs/core": "workspace:",
+    "@parshjs/core": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@parshjs/codegen": "workspace:",
+    "@parshjs/codegen": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "typescript": "catalog:"
   }

@@ -23,7 +23,7 @@ If that doesn't fix it, check in this order:
 
 A rename changes the path string. The old entry stays in `commandTree.gen.ts` until you regenerate, and the new entry isn't there yet — so call sites referencing `parents['<new path>']` won't compile.
 
-**Fix:** `parsh-codegen generate` (or keep `--watch` running while you iterate).
+**Fix:** `parsh-codegen generate`.
 
 If you renamed a `[name]` segment, the `params` object key needs to match the new bracket name in the same edit, or TypeScript will reject the `defineCommand` call before the codegen even runs.
 
@@ -88,7 +88,3 @@ Either the command file isn't where the path string says it should be, or you fo
 ## My non-`.ts` file under `commands/` was ignored
 
 Expected — the codegen only walks `.ts` files. (Also: it ignores `*.gen.ts`, `*.test.ts`, and `_*` other than `_root.ts`.)
-
-## Watch mode didn't pick up a change
-
-Watch mode triggers on add / remove / rename of files matching the include filter. Pure content edits to an existing file don't trigger regeneration — and they don't need to: the generated file depends only on the filesystem layout and each command's path-string literal. Editing the body of an existing command (options, params, description, handler, hidden) never requires regenerating. Renames of files / paths / `[name]` segments do trigger watch and need a regeneration if you're not in watch mode.

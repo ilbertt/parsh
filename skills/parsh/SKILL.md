@@ -78,7 +78,7 @@ Run the codegen CLI to produce `src/commandTree.gen.ts`:
 parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts
 ```
 
-How you invoke it (a `package.json` script, a `Makefile`, a pre-commit hook, watch mode in dev) is up to the project. **Commit the generated file** — without it, the next step won't type-check. See `parsh-codegen generate --help` for all flags.
+How you invoke it (a `package.json` script, a `Makefile`, a pre-commit hook) is up to the project. **Commit the generated file** — without it, the next step won't type-check. See `parsh-codegen generate --help` for all flags.
 
 ### 5. Wire the runner
 
@@ -117,7 +117,7 @@ This is the everyday workflow.
 2. **Create the file at the matching location.** `commands/s3/buckets/[name]/create.ts`. Intermediate segments become directories. A `[name]` segment is the literal directory or filename.
 3. **Make sure the `[name]` ancestor exists.** A param is declared on the command whose **last segment** is `[name]` — typically `commands/s3/buckets/[name].ts`. Descendants inherit the param and **do not redeclare** it.
 4. **Call `defineCommand` with that exact path.** TypeScript will error if the path's `[name]` segments and the `params` object disagree on keys.
-5. **Run the codegen** (`parsh-codegen generate`, or however the project wires it). Use `--watch` while iterating.
+5. **Run the codegen** (`parsh-codegen generate`, or however the project wires it).
 6. **`ctx` is now typed.** Open the new handler — autocomplete works on `ctx.options`, `ctx.params`, `ctx.parents['<ancestor path>']`, `ctx.rootOptions`.
 
 Example for the path above. The param `name` is declared once on the ancestor; the child reads it through `parents['s3 buckets [name]'].params`:
@@ -190,8 +190,7 @@ In help output, when both the alias and its target are reachable in the current 
 The `commandTree.gen.ts` file is what makes `ctx` typed. Regenerate after **structural** changes under `commands/` — adding, renaming, or deleting a command file, or changing a path string. Editing the body of an existing command (options, params, description, handler, hidden) never requires regeneration: the generated file depends only on the filesystem layout and each path-string literal.
 
 ```sh
-parsh-codegen generate          # one-shot
-parsh-codegen generate --watch  # while iterating
+parsh-codegen generate
 ```
 
 **Diagnostic rule:** if `ctx.options`, `ctx.params`, `ctx.parents`, or `ctx.rootOptions` looks `any` / `unknown` / wrong, **regenerate first** before debugging anything else. The most common cause of broken inference is a stale `commandTree.gen.ts`.

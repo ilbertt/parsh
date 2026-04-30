@@ -67,7 +67,7 @@ The path's `[name]` segment forces a `params: { name: ... }` declaration — wro
 parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts
 ```
 
-The generated file is what makes `ctx` typed inside every handler — keep it under version control and regenerate after any change under `commands/` (the codegen has a `--watch` mode for dev).
+The generated file is what makes `ctx` typed inside every handler — keep it under version control and regenerate after any change under `commands/`.
 
 ## Run
 

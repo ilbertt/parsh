@@ -48,7 +48,13 @@
         "noNonNullAssertion": "off",
         "useBlockStatements": "error",
         "noMagicNumbers": "error",
-        "noExportedImports": "error"
+        "noExportedImports": "error",
+        "useFilenamingConvention": {
+          "level": "off",
+          "options": {
+            "filenameCases": ["kebab-case"]
+          }
+        }
       }
     }
   },
@@ -66,23 +72,6 @@
       "enabled": false
     }
   },
-  "overrides": [
-    {
-      "includes": [
-        "**/build.ts",
-        "packages/pack-utils/**",
-        "packages/*/test/fixtures/**",
-        "packages/*/bench/**"
-      ],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noConsole": "off"
-          }
-        }
-      }
-    }
-  ],
   "assist": {
     "enabled": true,
     "actions": {
@@ -90,5 +79,17 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useFilenamingConvention": "error"
+          }
+        }
+      }
+    }
+  ]
 }

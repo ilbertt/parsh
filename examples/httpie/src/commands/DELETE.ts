@@ -1,3 +1,5 @@
+// biome-ignore lint/style/useFilenamingConvention: keep uppercase
+
 import { defineCommand } from '@parshjs/core';
 import { requestOptions } from '../options.ts';
 

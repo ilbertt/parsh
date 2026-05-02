@@ -70,7 +70,7 @@ type OwnParamsOf<P extends string, Params extends Record<string, AnyParam>> = [
   ? Record<string, never>
   : InferParams<Params>;
 
-type HandlerCtx<
+export type HandlerCtx<
   P extends keyof CommandRegistry,
   Options extends OptionsRecord,
   Params extends Record<string, AnyParam>,
@@ -89,7 +89,7 @@ type HandlerCtx<
     }>
   : never;
 
-type RootHandlerCtx<Options extends OptionsRecord> = Simplify<{
+export type RootHandlerCtx<Options extends OptionsRecord> = Simplify<{
   options: Simplify<InferOptions<Options>>;
   print: Print;
   /**
@@ -101,7 +101,7 @@ type RootHandlerCtx<Options extends OptionsRecord> = Simplify<{
 
 type HelpArgConfig = { enabled: boolean };
 
-type DefinedCommand<
+export type DefinedCommand<
   P extends keyof CommandRegistry,
   Options extends OptionsRecord,
   Params extends Record<string, AnyParam>,
@@ -141,7 +141,7 @@ type AliasConfig<P extends keyof CommandRegistry> = {
   afterHandler?: never;
 };
 
-type DefinedRootCommand<Options extends OptionsRecord> = {
+export type DefinedRootCommand<Options extends OptionsRecord> = {
   path: '';
   options: Options;
   params: Record<string, never>;

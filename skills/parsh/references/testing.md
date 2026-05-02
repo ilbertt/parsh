@@ -4,7 +4,7 @@ There are two useful levels for testing a parsh CLI. Pick whichever is cheaper f
 
 | Level | Use | Tools |
 | --- | --- | --- |
-| **Handler unit test** | Logic inside one `handler` / `beforeHandler` / `afterHandler`. | Import the command, build a fake `ctx`, call the function directly. |
+| **Handler unit test** | Logic inside one `handler` / `beforeHandler` / `afterHandler`, in isolation. | `@parshjs/core/testing` — `createTestCtx` to assemble a typed ctx, `runCommandHandler` (or `runCommandBeforeHandler` / `runCommandAfterHandler`) to fire just that hook. |
 | **CLI integration test** | Routing, parsing, help output, error messages, exit codes, lifecycle ordering, multi-command flows. | `createCli({ … }).run(argv)` — drive the same code path `main()` does, but as a normal function call. |
 
 ## The `run` vs `main` distinction
@@ -124,54 +124,155 @@ context: {
 }
 ```
 
-## Handler unit tests
+## Handler unit tests with `@parshjs/core/testing`
 
-When the test is really about logic inside one handler, skip the runner entirely. Import the command and call its `handler` with a fabricated `ctx` — remember to populate the framework fields (`options`, `params`, `parents`, `root`, `print`) and put your test doubles under `context`:
+The `@parshjs/core/testing` submodule is a thin wrapper. **Ctx is the unit of composition**: build a typed `ctx` once with `createTestCtx`, then run any combination of hooks against it. Errors propagate as thrown rejections — assert with your framework's normal `rejects` matchers. There is no custom result type, no opinion about how to capture output.
+
+| Helper | Purpose |
+| --- | --- |
+| `createTestCtx({ cmd, ... })` | Type-safe ctx assembler. Defaults `parents: {}`, `rootOptions: {}`, `print` to a silent no-op. |
+| `runCommandBeforeHandler({ cmd, ctx })` | Awaits only `cmd.beforeHandler`. Throws if the cmd has no `beforeHandler`. |
+| `runCommandHandler({ cmd, ctx })` | Awaits only `cmd.handler`. Throws if the cmd has no `handler`. |
+| `runCommandAfterHandler({ cmd, ctx })` | Awaits only `cmd.afterHandler`. Throws if the cmd has no `afterHandler`. |
+| `runCommand({ cmd, ctx })` | Runs `beforeHandler → handler → afterHandler` with the same "throw aborts the rest" semantics as the router. |
+
+That's the whole API. Five exports, zero exported types.
+
+### Mocking `print`
+
+`Print` is just an interface (`{ info, success, warn, error, dim }` — five callables). Build whatever satisfies it, with whatever your framework provides:
 
 ```ts
-import { expect, test } from 'bun:test';
+// vitest
+import { vi } from 'vitest';
+const print = { info: vi.fn(), success: vi.fn(), warn: vi.fn(), error: vi.fn(), dim: vi.fn() };
+expect(print.success).toHaveBeenCalledWith('uploaded');
+
+// bun:test
+import { mock } from 'bun:test';
+const print = { info: mock(), success: mock(), warn: mock(), error: mock(), dim: mock() };
+expect(print.success).toHaveBeenCalledWith('uploaded');
+
+// Framework-free — capture into your own arrays
+const stdout: string[] = [];
+const print = {
+  info: (m: string) => stdout.push(m), success: (m: string) => stdout.push(m),
+  warn: () => {}, error: () => {}, dim: () => {},
+};
+```
+
+If you don't pass one, `createTestCtx` fills in a silent no-op so the handler doesn't crash on `ctx.print.success(...)`.
+
+### Single-handler test
+
+```ts
+import { expect, test, vi } from 'vitest';
+import { createTestCtx, runCommandHandler } from '@parshjs/core/testing';
 import { command } from '../src/commands/migrate.ts';
 
 test('migrate writes the timestamp', async () => {
   const writes: unknown[] = [];
-  const noopPrint = {
-    info: () => {}, success: () => {}, warn: () => {}, error: () => {}, dim: () => {},
-  };
-
-  await command.handler!({
+  const print = { info: vi.fn(), success: vi.fn(), warn: vi.fn(), error: vi.fn(), dim: vi.fn() };
+  const ctx = createTestCtx({
+    cmd: command,
     options: {},
     params: {},
-    parents: {},
-    rootOptions: {},
-    print: noopPrint,
     context: {
       db: { write: (v: unknown) => writes.push(v) },
       now: () => new Date('2026-01-01T00:00:00Z'),
     },
-  } as never);
+    print,
+  });
+
+  await runCommandHandler({ cmd: command, ctx });
 
   expect(writes).toEqual([{ at: '2026-01-01T00:00:00.000Z' }]);
+  expect(print.success).toHaveBeenCalledWith('migrated');
 });
 ```
 
-Note the `as never` (or `as any`) cast on the fabricated ctx — bypassing the registered context's type is fine **at the test boundary only**. Don't reach for casts inside production code.
+### Atomic vs composed lifecycle
 
-This style is fastest, but it skips schema validation and lifecycle hooks. Use the integration form when you need to prove the full chain works.
-
-## Testing lifecycle hooks
-
-The `beforeHandler` → `handler` → `afterHandler` order, and the "throw aborts the rest" rule, are runner-level concerns. Test them through `cli.run(argv)`, not by calling the hooks directly:
+The atomic runners are how you prove **one hook in isolation**. The composed `runCommand` is how you prove **the lifecycle contract** without going through the router:
 
 ```ts
-test('beforeHandler throw aborts handler and afterHandler', async () => {
-  const order: string[] = [];
-  // … build a tree where each hook pushes onto `order`,
-  //    and beforeHandler throws.
-  const code = await createCli({ programName: 't', tree }).run(['cmd']);
-  expect(code).not.toBe(0);
-  expect(order).toEqual(['before']);
-});
+import { runCommand, runCommandBeforeHandler } from '@parshjs/core/testing';
+
+// Just before-handler — does it reject unauthenticated callers?
+await expect(runCommandBeforeHandler({ cmd, ctx })).rejects.toThrow('unauthenticated');
+
+// Full lifecycle — does the success path produce the right output and side effects?
+await runCommand({ cmd, ctx });
+expect(print.success).toHaveBeenCalledWith('done');
 ```
+
+After a `rejects` failure your `print` mock still holds everything captured before the throw — useful for asserting "we logged the failure context before bailing".
+
+### Validating raw inputs
+
+`createTestCtx` does **not** validate `options` / `params`. That's deliberate — it lets you feed handlers deliberately weird inputs without fighting schemas. When you do want to assert that a schema rejects something, call the schema directly — `cmd.options.<name>.schema` and `cmd.params.<name>.schema` are public Standard Schema records:
+
+```ts
+const result = await cmd.options.force.schema['~standard'].validate('not-a-bool');
+expect(result.issues).toBeDefined();
+```
+
+Or use your schema lib's native API. Validation is the schema lib's job; the testing helpers stay out of it.
+
+### What these helpers don't cover
+
+- **The "no handler → show usage" branch.** The router prints usage and exits 0 when a command has no `handler`. That's a router concern; drive it through `cli.run(argv)`.
+- **Aliases.** Aliases have no handler — they delegate to the alias target at routing time. Test them through `cli.run(argv)`.
+- **Argv parsing, help text, exit codes.** All router concerns. Use the integration form below.
+- **Argv-flavored coercion** (`'42'` → `42`, `'true'` → `true`). The runner does this on raw argv strings; tests pass typed values to `createTestCtx` directly.
+- **`onError`.** It's a router-level config, not a command. See the next section.
+
+## Testing `onError`
+
+`onError` lives on `createCli`, not on a command, so it sits between the integration and unit tiers. Two patterns, depending on what you're proving:
+
+**Integration: drive `cli.run(argv)` with argv that triggers the error.** This is what you want when checking that errors are wired up end-to-end (registered, routed to `onError`, mapped to the right exit code, message reaching stderr).
+
+```ts
+const code = await makeCli({ context }).run(['greet', '--name', '   ']);
+expect(code).toBe(3);                                    // your custom exit code
+expect(stderr).toContain('name cannot be blank');
+```
+
+**Direct call: factor `onError` into its own export and call it from the test.** This is what you want when checking branching inside the function itself ("for code X, does it return `exit(N)` and print Y?"). `ExitSignal` is public; the payload is `OnErrorPayload<E, C> & { exit, print }`; your test framework provides the spies. No parsh helper needed.
+
+```ts
+// src/cli.ts
+import { type OnError } from '@parshjs/core';
+export const errors = { BlankNameError } as const;
+export const onError: OnError<typeof errors, AppContext> = ({ code, error, exit, print }) => {
+  if (code === 'BlankNameError') {
+    print.error(`✘ ${error.message}`);
+    return exit(3);
+  }
+};
+
+// tests/onError.test.ts
+import { ExitSignal } from '@parshjs/core';
+import { onError } from '../src/cli.ts';
+
+const print = { info: vi.fn(), success: vi.fn(), warn: vi.fn(), error: vi.fn(), dim: vi.fn() };
+const result = await onError({
+  code: 'BlankNameError',
+  error: new BlankNameError(),
+  ctx: { options: {...}, params: {}, parents: {}, rootOptions: {}, print, context },
+  print,
+  exit: (n) => new ExitSignal(n),
+});
+
+expect(result).toBeInstanceOf(ExitSignal);
+expect((result as ExitSignal).code).toBe(3);
+expect(print.error).toHaveBeenCalledWith('✘ name cannot be blank');
+```
+
+For unhandled codes, the function returns `void` and the router falls back to `defaultExitCode` — assert with `expect(result).toBeUndefined()`.
+
+See [`examples/with-vitest/tests/onError.test.ts`](../../../examples/with-vitest/tests/onError.test.ts) for both patterns wired up end-to-end.
 
 ## Capturing stdout / stderr
 

@@ -1,0 +1,23 @@
+{
+  "name": "@repo/examples-with-vitest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run build.ts",
+    "start": "bun run build > /dev/null && bun dist/main.js",
+    "check:types": "bun run --bun tsc",
+    "generate": "parsh-codegen generate --commands src/commands --out src/commandTree.gen.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@parshjs/core": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@parshjs/codegen": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "^4.1.5"
+  }
+}

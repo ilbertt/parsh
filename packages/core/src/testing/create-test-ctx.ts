@@ -18,11 +18,16 @@ type CtxFields<
 > = Omit<HandlerCtx<P, Options, Params>, 'print' | 'parents' | 'rootOptions'> & {
   parents?: HandlerCtx<P, Options, Params>['parents'];
   rootOptions?: HandlerCtx<P, Options, Params>['rootOptions'];
-  print?: Print;
+  /**
+   * Partial — channels you don't supply default to a silent no-op so handlers
+   * can call `ctx.print.success(...)` without crashing. Pass spies only for
+   * the channels you assert against.
+   */
+  print?: Partial<Print>;
 };
 
 type RootCtxFields<Options extends OptionsRecord> = Omit<RootHandlerCtx<Options>, 'print'> & {
-  print?: Print;
+  print?: Partial<Print>;
 };
 
 export function createTestCtx<Options extends OptionsRecord>(
@@ -36,11 +41,11 @@ export function createTestCtx<
   input: { cmd: DefinedCommand<P, Options, Params> } & CtxFields<P, Options, Params>,
 ): HandlerCtx<P, Options, Params>;
 export function createTestCtx(input: { cmd: object } & Record<string, unknown>): object {
-  const { cmd: _cmd, ...rest } = input;
+  const { cmd: _cmd, print, ...rest } = input;
   return {
     parents: {},
     rootOptions: {},
-    print: silentPrint,
     ...rest,
+    print: { ...silentPrint, ...((print as Partial<Print> | undefined) ?? {}) },
   };
 }

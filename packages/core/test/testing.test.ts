@@ -58,17 +58,20 @@ describe('createTestCtx', () => {
     expect(typeof ctx.print.info).toBe('function');
   });
 
-  test('preserves a user-supplied print', () => {
+  test('preserves user-supplied print methods, defaults the rest to no-op', () => {
     const cmd = defineUpload();
-    const print = makeMockPrint();
+    const success = mock();
     const ctx = createTestCtx({
       cmd,
       options: { force: true },
       params: {},
       context: undefined as never,
-      print,
+      print: { success },
     });
-    expect(ctx.print).toBe(print);
+    expect(ctx.print.success).toBe(success);
+    expect(typeof ctx.print.info).toBe('function');
+    expect(typeof ctx.print.warn).toBe('function');
+    expect(() => ctx.print.warn('quiet')).not.toThrow();
   });
 
   test('works for root commands', () => {

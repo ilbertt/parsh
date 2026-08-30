@@ -22,7 +22,7 @@ export const command = defineCommand('init', {
       (await p.text({
         message: 'Project name',
         placeholder: 'my-app',
-        validate: (v) => (v.trim().length === 0 ? 'Required' : undefined),
+        validate: (v) => (!v || v.trim().length === 0 ? 'Required' : undefined),
       }));
     if (p.isCancel(name)) {
       p.cancel('Cancelled.');

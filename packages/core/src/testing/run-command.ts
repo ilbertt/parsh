@@ -1,3 +1,7 @@
+// biome-ignore-all lint/nursery/useAwaitThenable: biome 2.5.x cannot see through the
+// `void | Promise<void>` union behind an optional object property, so it flags these
+// awaits as non-Promise. Dropping them would stop async hooks being sequenced.
+
 type Hook = (ctx: unknown) => void | Promise<void>;
 
 type CommandWithHooks = {

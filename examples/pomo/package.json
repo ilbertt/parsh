@@ -11,14 +11,14 @@
   },
   "dependencies": {
     "@parshjs/core": "workspace:*",
-    "ink": "^5.2.1",
-    "react": "^18.3.1",
+    "ink": "^7.1.1",
+    "react": "^19.2.8",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@parshjs/codegen": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/react": "^18.3.12",
+    "@types/react": "^19.2.18",
     "typescript": "catalog:"
   }
 }

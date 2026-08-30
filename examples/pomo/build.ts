@@ -5,6 +5,9 @@ const result = await Bun.build({
   outdir: './dist',
   target: 'bun',
   external: ['react-devtools-core'],
+  // ink lazily imports its devtools module; without splitting Bun inlines it and hoists
+  // the optional `react-devtools-core` import to the top level, breaking every run.
+  splitting: true,
   define: { __VERSION__: JSON.stringify(pkg.version) },
 });
 

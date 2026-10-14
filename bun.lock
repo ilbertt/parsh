@@ -162,7 +162,7 @@
     },
     "packages/core/pkg": {
       "name": "@parshjs/core",
-      "version": "0.0.10",
+      "version": "0.1.0",
     },
     "packages/env": {
       "name": "@repo/env",

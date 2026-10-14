@@ -48,6 +48,16 @@ options: {
 // usage: mycli --verbose   or   mycli -v
 ```
 
+### Hidden options
+
+Set `hidden: true` to omit an option and its aliases from help, including forwarded ancestor listings. Hidden options still parse and validate, retain defaults and required-ness, and appear in typed handler contexts.
+
+```ts
+options: {
+  internal: { schema: z.boolean().default(false), hidden: true, aliases: ['i'] },
+}
+```
+
 ### Boolean flags
 
 A `z.boolean()` schema becomes a presence flag — `--flag` sets it to `true`, absence leaves it `undefined` (or whatever your default is).

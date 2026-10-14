@@ -59,6 +59,8 @@ export interface CommandOption<S extends AnySchema = AnySchema> {
   schema: S;
   forwardToChildren?: boolean;
   description?: string;
+  /** Omit this option and its aliases from help output. */
+  hidden?: boolean;
   /**
    * If `true`, a missing value errors before schema validation runs. The
    * schema still drives the static type. Default: `false`.
@@ -67,7 +69,7 @@ export interface CommandOption<S extends AnySchema = AnySchema> {
   /**
    * Alternate names for the flag. Single-char entries dispatch as `-x`;
    * longer entries dispatch as `--xxx`. Aliases must not collide with any
-   * other visible option's name or alias on the same command (own +
+   * other option's name or alias on the same command (own +
    * forwarded ancestors). Validated at `Cli` construction.
    */
   aliases?: ReadonlyArray<string>;

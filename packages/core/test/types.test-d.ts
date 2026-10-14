@@ -29,7 +29,7 @@ declare module '#index.ts' {
 }
 
 defineCommand('deploy', {
-  options: { env: { schema: z.enum(['staging', 'prod']) } },
+  options: { env: { schema: z.enum(['staging', 'prod']), hidden: true } },
   handler: ({ options, params, parents, rootOptions }) => {
     expectTypeOf(options).toEqualTypeOf<{ env: 'staging' | 'prod' }>();
     expectTypeOf(params).toEqualTypeOf<Record<string, never>>();
@@ -117,7 +117,7 @@ declare module '#index.ts' {
 
 defineCommand('forwardCheck', {
   options: {
-    shared: { schema: z.boolean(), forwardToChildren: true },
+    shared: { schema: z.boolean(), forwardToChildren: true, hidden: true },
     selfOnly: { schema: z.string() },
   },
   handler: ({ options }) => {

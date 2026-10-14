@@ -54,6 +54,19 @@ interface ListingRow {
   description: string | undefined;
 }
 
+function describeVisibleOptions({
+  options,
+  source,
+}: {
+  options: LoadedCommand['options'];
+  source: string;
+}) {
+  return describeLoadedOptions({
+    options: Object.fromEntries(Object.entries(options).filter(([, option]) => !option.hidden)),
+    source,
+  });
+}
+
 function collectListing({
   root,
   loaded,
@@ -168,7 +181,7 @@ export async function renderRootUsage({
   lines.push(`${stdoutBold('Usage:')} ${programName} <command> [options]`, '');
 
   const rootDescriptors = loadedRoot
-    ? await describeLoadedOptions({ options: loadedRoot.options, source: '<root>' })
+    ? await describeVisibleOptions({ options: loadedRoot.options, source: '<root>' })
     : [];
   const optionRows = rootDescriptors.map((d) => ({
     label: optionLabel(d),
@@ -220,7 +233,7 @@ async function collectInheritedOptionRows({
       continue;
     }
     const from = v.path === '' ? '<root>' : v.path;
-    const ancDescriptors = await describeLoadedOptions({
+    const ancDescriptors = await describeVisibleOptions({
       options: ancLoaded.options,
       source: from,
     });
@@ -294,7 +307,7 @@ export async function renderCommandUsage({
   const targetLoaded = cmd ? loaded.get(cmd) : undefined;
 
   const ownDescriptors = targetLoaded
-    ? await describeLoadedOptions({
+    ? await describeVisibleOptions({
         options: targetLoaded.options,
         source: cmd && cmd.path !== '' ? cmd.path : '<root>',
       })

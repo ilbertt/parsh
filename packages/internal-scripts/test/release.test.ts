@@ -116,12 +116,12 @@ describe('package-scoped release history', () => {
     expect(await Bun.file(release.changelogPath).text()).toContain('Initial packages');
   });
 
-  test('infers a major bump from a package breaking change and rejects unsafe package names', async () => {
+  test('infers a minor bump from a pre-1.0 breaking change and rejects unsafe package names', async () => {
     await git(['tag', 'core-v0.0.10']);
     await Bun.write(join(repoRoot, 'packages/core/src/index.ts'), 'export const changed = true;\n');
     await commit('feat(core)!: incompatible change');
     const release = await preparePackageRelease({ packageName: 'core', repoRoot });
-    expect(release.version).toBe('1.0.0');
+    expect(release.version).toBe('0.1.0');
     await expect(readReleasePackage({ packageName: '../core', repoRoot })).rejects.toThrow(
       'Invalid package',
     );
@@ -130,7 +130,14 @@ describe('package-scoped release history', () => {
   test.each([
     { baseline: '0.0.10', message: 'fix(core): repair parsing', expected: '0.0.11' },
     { baseline: '0.0.10', message: 'feat(core): add an option', expected: '0.1.0' },
-    { baseline: '0.0.10', message: 'feat(core)!: change the API', expected: '1.0.0' },
+    { baseline: '0.0.10', message: 'feat(core)!: change the API', expected: '0.1.0' },
+    { baseline: '0.1.0', message: 'fix(core): repair parsing', expected: '0.1.1' },
+    { baseline: '0.3.4', message: 'feat(core)!: change the API', expected: '0.4.0' },
+    {
+      baseline: '0.3.4',
+      message: 'fix(core): change parsing\n\nBREAKING CHANGE: removes legacy parsing',
+      expected: '0.4.0',
+    },
     { baseline: '1.4.2', message: 'fix(core): repair parsing', expected: '1.4.3' },
     { baseline: '1.4.2', message: 'feat(core): add an option', expected: '1.5.0' },
     { baseline: '1.4.2', message: 'feat(core)!: change the API', expected: '2.0.0' },

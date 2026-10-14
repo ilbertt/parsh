@@ -20,7 +20,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/) for commit m
 
 ## Releases
 
-Packages are versioned independently. Run the `prepare-release` action with just the package's directory name (for example, `core`). Git-cliff computes the next semver version from that package's unreleased Conventional Commits: fixes and other releasable changes bump patch, features bump minor, and breaking changes (`!` or `BREAKING CHANGE:`) bump major, including from `0.x` to `1.0.0`. It opens a PR updating `packages/<package>/pkg/package.json`, `packages/<package>/CHANGELOG.md`, and `bun.lock`. The action fails if there are no new releasable commits for that package.
+Packages are versioned independently. Run the `prepare-release` action with just the package's directory name (for example, `core`). Git-cliff computes the next semver version from that package's unreleased Conventional Commits: fixes and other releasable changes bump patch, features bump minor, and breaking changes (`!` or `BREAKING CHANGE:`) bump minor while the major version is zero, or major from `1.0.0` onward. For example, a breaking change moves `0.1.0` to `0.2.0`, or `1.1.0` to `2.0.0`. It opens a PR updating `packages/<package>/pkg/package.json`, `packages/<package>/CHANGELOG.md`, and `bun.lock`. The action fails if there are no new releasable commits for that package.
 
 After merging, tag the merge commit on `main` using the commands in the release PR. Tags use `<package>-v<version>`, for example `core-v0.0.11`. The `publish` action validates the tag against the package manifest, runs checks, tests, and builds, publishes that package's `pkg/` directory to npm, and creates a GitHub release with package-specific notes.
 

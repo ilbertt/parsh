@@ -41,6 +41,7 @@ export async function readReleasePackage({
     directory,
     publishDirectory,
     manifestPath,
+    manifest,
     changelogPath: join(repoRoot, directory, 'CHANGELOG.md'),
     version: manifest.version,
     tagPrefix: `${packageName}-v`,

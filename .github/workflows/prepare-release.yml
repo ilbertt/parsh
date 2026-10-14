@@ -7,15 +7,6 @@ on:
         description: Package directory name (core, codegen, env, files)
         required: true
         type: string
-      bump:
-        description: Version bump
-        required: true
-        default: patch
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
 
 permissions:
   contents: write
@@ -38,17 +29,10 @@ jobs:
 
       - uses: ./.github/actions/prepare
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          package-manager-cache: false
-
       - name: Prepare release
         id: release
         env:
           PACKAGE: ${{ inputs.package }}
-          BUMP: ${{ inputs.bump }}
           RELEASE_PR_BODY_FILE: ${{ runner.temp }}/release-pr.md
         run: bun run --filter @repo/internal-scripts prepare-release
 

@@ -26,22 +26,3 @@ export async function readPackageCliff({
   );
   return String(stdout);
 }
-
-export async function assertUnreleasedChanges(releasePackage: ReleasePackage) {
-  const context: unknown = JSON.parse(
-    await readPackageCliff({ releasePackage, options: { unreleased: true, context: true } }),
-  );
-  const hasChanges =
-    Array.isArray(context) &&
-    context.some(
-      (release: unknown) =>
-        release &&
-        typeof release === 'object' &&
-        'commits' in release &&
-        Array.isArray(release.commits) &&
-        release.commits.length > 0,
-    );
-  if (!hasChanges) {
-    throw new Error(`Nothing to release: no new commits under ${releasePackage.directory}.`);
-  }
-}

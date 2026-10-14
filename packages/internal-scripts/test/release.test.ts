@@ -3,10 +3,12 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { $ } from 'bun';
-import { assertUnreleasedChanges, readPackageCliff } from '#package-cliff.ts';
+import { nextPackageVersion } from '#next-package-version.ts';
+import { readPackageCliff } from '#package-cliff.ts';
 import { preparePackageRelease } from '#prepare-package-release.ts';
 import { readReleasePackage } from '#release-package.ts';
 import { validateReleaseTag } from '#release-tag.ts';
+import { readUnreleasedPackage } from '#unreleased-package.ts';
 
 let repoRoot: string;
 let commitTime: number;
@@ -67,7 +69,7 @@ describe('package-scoped release history', () => {
     await Bun.write(join(repoRoot, 'README.md'), '# Fixture\n');
     await commit('docs: unrelated homepage');
 
-    const release = await preparePackageRelease({ packageName: 'core', bump: 'patch', repoRoot });
+    const release = await preparePackageRelease({ packageName: 'core', repoRoot });
     expect(release.tag).toBe('core-v0.0.11');
     const changelog = await Bun.file(release.changelogPath).text();
     expect(changelog).toContain('core-v0.0.11');
@@ -93,7 +95,7 @@ describe('package-scoped release history', () => {
     expect(notes).not.toContain('Initial packages');
     expect(notes).not.toContain('unrelated');
     expect(notes).not.toContain('chore(release)');
-    await expect(assertUnreleasedChanges(validated)).rejects.toThrow('Nothing to release');
+    await expect(readUnreleasedPackage(validated)).rejects.toThrow('Nothing to release');
   });
 
   test('fails without package changes even when sibling commits and tags exist', async () => {
@@ -101,28 +103,75 @@ describe('package-scoped release history', () => {
     await Bun.write(join(repoRoot, 'packages/env/src/index.ts'), 'export const env = true;\n');
     await commit('feat(env): another feature');
     await git(['tag', 'env-v0.0.4']);
-    await expect(
-      preparePackageRelease({ packageName: 'core', bump: 'patch', repoRoot }),
-    ).rejects.toThrow('Nothing to release');
+    await expect(preparePackageRelease({ packageName: 'core', repoRoot })).rejects.toThrow(
+      'Nothing to release',
+    );
     const manifest = await Bun.file(join(repoRoot, 'packages/core/pkg/package.json')).json();
     expect(manifest.version).toBe('0.0.10');
   });
 
   test('boots from the existing manifest and scoped history when there are no tags', async () => {
-    const release = await preparePackageRelease({ packageName: 'core', bump: 'minor', repoRoot });
+    const release = await preparePackageRelease({ packageName: 'core', repoRoot });
     expect(release.version).toBe('0.1.0');
     expect(await Bun.file(release.changelogPath).text()).toContain('Initial packages');
   });
 
-  test('supports major bumps and rejects unsafe package names and invalid bump types', async () => {
-    const release = await preparePackageRelease({ packageName: 'core', bump: 'major', repoRoot });
+  test('infers a major bump from a package breaking change and rejects unsafe package names', async () => {
+    await git(['tag', 'core-v0.0.10']);
+    await Bun.write(join(repoRoot, 'packages/core/src/index.ts'), 'export const changed = true;\n');
+    await commit('feat(core)!: incompatible change');
+    const release = await preparePackageRelease({ packageName: 'core', repoRoot });
     expect(release.version).toBe('1.0.0');
     await expect(readReleasePackage({ packageName: '../core', repoRoot })).rejects.toThrow(
       'Invalid package',
     );
-    await expect(
-      preparePackageRelease({ packageName: 'core', bump: 'invalid', repoRoot }),
-    ).rejects.toThrow('Invalid version bump');
+  });
+
+  test.each([
+    { baseline: '0.0.10', message: 'fix(core): repair parsing', expected: '0.0.11' },
+    { baseline: '0.0.10', message: 'feat(core): add an option', expected: '0.1.0' },
+    { baseline: '0.0.10', message: 'feat(core)!: change the API', expected: '1.0.0' },
+    { baseline: '1.4.2', message: 'fix(core): repair parsing', expected: '1.4.3' },
+    { baseline: '1.4.2', message: 'feat(core): add an option', expected: '1.5.0' },
+    { baseline: '1.4.2', message: 'feat(core)!: change the API', expected: '2.0.0' },
+    {
+      baseline: '1.4.2',
+      message: 'fix(core): change parsing\n\nBREAKING CHANGE: removes legacy parsing',
+      expected: '2.0.0',
+    },
+  ])('infers semver from %j', async ({ baseline, message, expected }) => {
+    const manifestPath = join(repoRoot, 'packages/core/pkg/package.json');
+    const manifest = await Bun.file(manifestPath).json();
+    await Bun.write(manifestPath, JSON.stringify({ ...manifest, version: baseline }));
+    await commit('chore(release): baseline');
+    await git(['tag', `core-v${baseline}`]);
+    await Bun.write(join(repoRoot, 'packages/core/src/index.ts'), 'export const fixed = true;\n');
+    await commit('fix(core): earlier patch');
+    await Bun.write(join(repoRoot, 'packages/core/src/index.ts'), 'export const added = true;\n');
+    await commit(message);
+
+    const releasePackage = await readReleasePackage({ packageName: 'core', repoRoot });
+    expect(await nextPackageVersion(releasePackage)).toBe(expected);
+  });
+
+  test('does not release housekeeping commits', async () => {
+    await git(['tag', 'core-v0.0.10']);
+    await Bun.write(join(repoRoot, 'packages/core/CHANGELOG.md'), '# Changelog\n');
+    await commit('chore(release): update changelog');
+    await expect(preparePackageRelease({ packageName: 'core', repoRoot })).rejects.toThrow(
+      'Nothing to release',
+    );
+  });
+
+  test('rejects a version baseline that disagrees with the last package tag', async () => {
+    await git(['tag', 'core-v0.0.9']);
+    await Bun.write(join(repoRoot, 'packages/core/src/index.ts'), 'export const fixed = true;\n');
+    await commit('fix(core): repair parsing');
+    await expect(preparePackageRelease({ packageName: 'core', repoRoot })).rejects.toThrow(
+      'Last release tag core-v0.0.9 does not match core-v0.0.10',
+    );
+    const manifest = await Bun.file(join(repoRoot, 'packages/core/pkg/package.json')).json();
+    expect(manifest.version).toBe('0.0.10');
   });
 });
 

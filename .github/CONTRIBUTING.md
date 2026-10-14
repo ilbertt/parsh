@@ -18,11 +18,11 @@ We use [Conventional Commits](https://www.conventionalcommits.org/) for commit m
 
 ## Releases
 
-Packages are versioned independently. Run the `prepare-release` action with the package's directory name (for example, `core`) and a `patch`, `minor`, or `major` bump. It opens a PR updating `packages/<package>/pkg/package.json`, `packages/<package>/CHANGELOG.md`, and `bun.lock`. The action fails if there are no new releasable commits for that package.
+Packages are versioned independently. Run the `prepare-release` action with just the package's directory name (for example, `core`). Git-cliff computes the next semver version from that package's unreleased Conventional Commits: fixes and other releasable changes bump patch, features bump minor, and breaking changes (`!` or `BREAKING CHANGE:`) bump major, including from `0.x` to `1.0.0`. It opens a PR updating `packages/<package>/pkg/package.json`, `packages/<package>/CHANGELOG.md`, and `bun.lock`. The action fails if there are no new releasable commits for that package.
 
 After merging, tag the merge commit on `main` using the commands in the release PR. Tags use `<package>-v<version>`, for example `core-v0.0.11`. The `publish` action validates the tag against the package manifest, runs checks, tests, and builds, publishes that package's `pkg/` directory to npm, and creates a GitHub release with package-specific notes.
 
-Release logic lives in `packages/internal-scripts`. Its shared git-cliff configuration selects Conventional Commits touching `packages/<package>/**`, ignores release housekeeping commits, and only recognizes that package's tags. Changelogs are regenerated from history on each release. Before a package's first tag, its full history is included; sibling packages, examples, and repository-only changes are excluded. Release notes use the same scope and the current tag's commit range.
+Release logic lives in `packages/internal-scripts`. Its shared git-cliff configuration selects Conventional Commits touching `packages/<package>/**`, ignores release housekeeping commits, and only recognizes that package's tags. The last package tag must match its manifest version. Before a package's first tag, the existing manifest supplies the version baseline and its full history is included; sibling packages, examples, and repository-only changes are excluded. Changelogs are regenerated from history on each release. Release notes use the same scope and the current tag's commit range.
 
 Before the first automated release:
 

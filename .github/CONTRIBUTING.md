@@ -2,6 +2,8 @@
 
 ## Development setup
 
+Use the Bun version pinned in the root `package.json`'s `packageManager` field. CI reads the same pin.
+
 ```bash
 git clone https://github.com/ilbertt/parsh
 cd parsh

@@ -15,7 +15,7 @@
 
 ## Stack
 
-- **Runtime:** Bun
+- **Runtime:** Bun, pinned by the root `package.json`'s `packageManager` field (also read by CI)
 - **Tests:** Bun test framework
 - **Monorepo:** Bun workspaces + Turbo
 - **Linter/Formatter:** Biome (auto-formats on save)

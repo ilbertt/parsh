@@ -2,7 +2,7 @@
 
 ## Development setup
 
-Use the Bun version pinned in the root `package.json`'s `packageManager` field. CI reads the same pin.
+Use the Bun version pinned in the root `package.json`'s `packageManager` field and the Node major version pinned in `engines.node`. The shared CI prepare action reads both versions from that file.
 
 ```bash
 git clone https://github.com/ilbertt/parsh

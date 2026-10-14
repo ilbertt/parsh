@@ -16,6 +16,7 @@
 ## Stack
 
 - **Runtime:** Bun, pinned by the root `package.json`'s `packageManager` field (also read by CI)
+- **Node:** Pinned by the root `package.json`'s `engines.node` field; the shared CI prepare action reads the same file
 - **Tests:** Bun test framework
 - **Monorepo:** Bun workspaces + Turbo
 - **Linter/Formatter:** Biome (auto-formats on save)

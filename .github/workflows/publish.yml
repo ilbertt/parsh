@@ -39,13 +39,6 @@ jobs:
       - name: Build
         run: bun run build --force
 
-      - name: Setup Node for npm publish
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-          package-manager-cache: false
-
       - name: Generate release notes
         env:
           RELEASE_NOTES_FILE: ${{ runner.temp }}/release-notes.md

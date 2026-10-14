@@ -7,8 +7,8 @@ const BIN = join(FIXTURE, 'bin.ts');
 const ESC = '\x1b';
 const ANSI = new RegExp(`${ESC}\\[\\d+m`);
 
-const runCli = (opts: { args: string[]; env: Record<string, string> }) =>
-  runFixtureCli({ bin: BIN, ...opts });
+const runCli = ({ args, env }: { args: string[]; env: Record<string, string> }) =>
+  runFixtureCli({ bin: BIN, args, env: { FORCE_COLOR: '', NO_COLOR: '', ...env } });
 
 describe('help styling', () => {
   test('FORCE_COLOR=1 emits ANSI codes in --help output', async () => {

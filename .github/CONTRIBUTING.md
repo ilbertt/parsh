@@ -2,7 +2,7 @@
 
 ## Development setup
 
-Use the Bun version pinned in the root `package.json`'s `packageManager` field. CI reads the same pin.
+Use the Bun version pinned in the root `package.json`'s `packageManager` field and the Node major version pinned in `engines.node`. The shared CI prepare action reads both versions from that file.
 
 ```bash
 git clone https://github.com/ilbertt/parsh
@@ -17,3 +17,17 @@ bun run build
 ## Commit messages
 
 We use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages to the main branch. Make sure your PR title is in the correct format.
+
+## Releases
+
+Packages are versioned independently. Run the `prepare-release` action with just the package's directory name (for example, `core`). Git-cliff computes the next semver version from that package's unreleased Conventional Commits: fixes and other releasable changes bump patch, features bump minor, and breaking changes (`!` or `BREAKING CHANGE:`) bump minor while the major version is zero, or major from `1.0.0` onward. For example, a breaking change moves `0.1.0` to `0.2.0`, or `1.1.0` to `2.0.0`. It opens a PR updating `packages/<package>/pkg/package.json`, `packages/<package>/CHANGELOG.md`, and `bun.lock`. The action fails if there are no new releasable commits for that package.
+
+After merging, tag the merge commit on `main` using the commands in the release PR. Tags use `<package>-v<version>`, for example `core-v0.0.11`. The `publish` action validates the tag against the package manifest, runs checks, tests, and builds, publishes that package's `pkg/` directory to npm, and creates a GitHub release with package-specific notes.
+
+Release logic lives in `packages/internal-scripts`. Its shared git-cliff configuration selects Conventional Commits touching `packages/<package>/**`, ignores release housekeeping commits, and only recognizes that package's tags. The last package tag must match its manifest version. Before a package's first tag, the existing manifest supplies the version baseline and its full history is included; sibling packages, examples, and repository-only changes are excluded. Changelogs are regenerated from history on each release. Release notes use the same scope and the current tag's commit range.
+
+Before the first automated release:
+
+- Allow GitHub Actions to create pull requests in the repository's Actions settings.
+- Configure an [npm trusted publisher](https://docs.npmjs.com/trusted-publishers/) for each package: owner `ilbertt`, repository `parsh`, workflow `publish.yml`, environment `Publish`, with direct `npm publish` allowed. No npm token is needed.
+- Optionally set the `RELEASE_TOKEN` Actions secret to a token with repository contents and pull-request write access so release PRs trigger CI. Without it, the workflow uses `GITHUB_TOKEN`; a maintainer must close and reopen the PR to trigger the existing `pull_request` checks ([GitHub's event rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)).

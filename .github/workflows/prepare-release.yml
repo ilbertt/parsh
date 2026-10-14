@@ -1,0 +1,65 @@
+name: prepare-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package directory name (core, codegen, env, files)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: prepare-release-${{ inputs.package }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+      - uses: ./.github/actions/prepare
+
+      - name: Prepare release
+        id: release
+        env:
+          PACKAGE: ${{ inputs.package }}
+          RELEASE_PR_BODY_FILE: ${{ runner.temp }}/release-pr.md
+        run: bun run --filter @repo/internal-scripts prepare-release
+
+      - name: Configure git user
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Commit and push to release branch
+        env:
+          PACKAGE_DIR: ${{ steps.release.outputs.package_dir }}
+          CHANGELOG: ${{ steps.release.outputs.changelog }}
+          TAG_NAME: ${{ steps.release.outputs.tag }}
+        run: |
+          git switch -c "release/$TAG_NAME"
+          git add "$PACKAGE_DIR/package.json" "$CHANGELOG" bun.lock
+          git commit -m "chore(release): $TAG_NAME"
+          git push --set-upstream origin "release/$TAG_NAME"
+
+      - name: Create release PR
+        env:
+          TAG_NAME: ${{ steps.release.outputs.tag }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          RELEASE_PR_BODY_FILE: ${{ runner.temp }}/release-pr.md
+        run: |
+          gh pr create \
+            --base main \
+            --head "release/$TAG_NAME" \
+            --title "chore(release): $TAG_NAME" \
+            --body-file "$RELEASE_PR_BODY_FILE"

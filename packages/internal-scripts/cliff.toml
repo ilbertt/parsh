@@ -1,0 +1,40 @@
+[changelog]
+header = "# Changelog\n\n"
+body = """
+{% if version %}\
+    ## [{{ version }}]
+{% else %}\
+    ## [unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim }}
+    {% for commit in commits %}
+        - {% if commit.breaking %}**Breaking:** {% endif %}\
+            {{ commit.message | upper_first }} ({{ commit.id | truncate(length=7, end="") }})
+    {% endfor %}
+{% endfor %}\n
+"""
+trim = true
+render_always = false
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+commit_parsers = [
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^feat", group = "<!-- 0 -->Features" },
+    { message = "^fix", group = "<!-- 1 -->Fixes" },
+    { message = "^perf", group = "<!-- 2 -->Performance" },
+    { message = "^refactor", group = "<!-- 3 -->Refactoring" },
+    { message = "^docs?", group = "<!-- 4 -->Documentation" },
+    { message = "^build|^chore\\(deps", group = "<!-- 5 -->Build and dependencies" },
+    { message = "^test", group = "<!-- 6 -->Tests" },
+    { message = ".*", group = "<!-- 7 -->Other changes" },
+]
+protect_breaking_commits = true
+topo_order_commits = true
+sort_commits = "newest"
+
+[bump]
+features_always_bump_minor = true
+breaking_always_bump_major = false

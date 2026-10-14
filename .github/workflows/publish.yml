@@ -1,0 +1,56 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - '*-v*'
+
+permissions:
+  id-token: write
+  contents: write
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: Publish
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/prepare
+
+      - name: Validate release tag
+        id: release
+        run: bun run --filter @repo/internal-scripts validate-release
+
+      - name: Check types and codestyle
+        run: bun check:all
+
+      - name: Test
+        run: bun run test
+
+      - name: Build
+        run: bun run build --force
+
+      - name: Generate release notes
+        env:
+          RELEASE_NOTES_FILE: ${{ runner.temp }}/release-notes.md
+        run: bun run --filter @repo/internal-scripts release-notes
+
+      - name: Publish to npm
+        working-directory: ${{ steps.release.outputs.package_dir }}
+        run: npm publish --access public --provenance --workspaces=false
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+          RELEASE_NOTES_FILE: ${{ runner.temp }}/release-notes.md
+        run: gh release create "$TAG_NAME" --verify-tag --title "$TAG_NAME" --notes-file "$RELEASE_NOTES_FILE"

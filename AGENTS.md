@@ -16,6 +16,7 @@
 ## Stack
 
 - **Runtime:** Bun, pinned by the root `package.json`'s `packageManager` field (also read by CI)
+- **Node:** Pinned by the root `package.json`'s `engines.node` field; the shared CI prepare action reads the same file
 - **Tests:** Bun test framework
 - **Monorepo:** Bun workspaces + Turbo
 - **Linter/Formatter:** Biome (auto-formats on save)
@@ -43,6 +44,10 @@ After finishing an implementation, always run:
 ## Run scripts
 
 When running a script, always check `package.json` scripts (root and per-app) for available commands first.
+
+## Releases
+
+Published packages are versioned independently. Release logic belongs in `packages/internal-scripts`; git-cliff must scope commits and tags to the requested package and infer semver bumps from those commits. Before `1.0.0`, breaking changes bump the minor version. Release workflow setup and tag conventions are documented in [`.github/CONTRIBUTING.md`](./.github/CONTRIBUTING.md#releases).
 
 ## READMEs
 

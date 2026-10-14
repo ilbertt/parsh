@@ -1,0 +1,20 @@
+{
+  "name": "@repo/internal-scripts",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#*": "./src/*"
+  },
+  "scripts": {
+    "prepare-release": "bun run src/prepare-release.ts",
+    "release-notes": "bun run src/release-notes.ts",
+    "validate-release": "bun run src/validate-release.ts",
+    "check:types": "bun run --bun tsc",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "git-cliff": "^2.13.1",
+    "typescript": "catalog:"
+  }
+}

@@ -44,29 +44,13 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
-      - name: Bump package version
+      - name: Prepare release
         id: release
         env:
           PACKAGE: ${{ inputs.package }}
           BUMP: ${{ inputs.bump }}
-        run: |
-          if [[ ! "$PACKAGE" =~ ^[a-z][a-z0-9-]*$ ]]; then
-            echo "Invalid package directory name: $PACKAGE" >&2
-            exit 1
-          fi
-          package_dir="packages/$PACKAGE/pkg"
-          jq -e --arg name "@parshjs/$PACKAGE" \
-            '.name == $name and .private != true' "$package_dir/package.json" > /dev/null
-          case "$BUMP" in
-            patch|minor|major) ;;
-            *) echo "Invalid version bump: $BUMP" >&2; exit 1 ;;
-          esac
-
-          (cd "$package_dir" && npm version "$BUMP" --no-git-tag-version --ignore-scripts --workspaces=false)
-          bun install --lockfile-only
-          version=$(jq -r '.version' "$package_dir/package.json")
-          echo "package_dir=$package_dir" >> "$GITHUB_OUTPUT"
-          echo "tag=$PACKAGE-v$version" >> "$GITHUB_OUTPUT"
+          RELEASE_PR_BODY_FILE: ${{ runner.temp }}/release-pr.md
+        run: bun run --filter @repo/internal-scripts prepare-release
 
       - name: Configure git user
         run: |
@@ -76,10 +60,11 @@ jobs:
       - name: Commit and push to release branch
         env:
           PACKAGE_DIR: ${{ steps.release.outputs.package_dir }}
+          CHANGELOG: ${{ steps.release.outputs.changelog }}
           TAG_NAME: ${{ steps.release.outputs.tag }}
         run: |
           git switch -c "release/$TAG_NAME"
-          git add "$PACKAGE_DIR/package.json" bun.lock
+          git add "$PACKAGE_DIR/package.json" "$CHANGELOG" bun.lock
           git commit -m "chore(release): $TAG_NAME"
           git push --set-upstream origin "release/$TAG_NAME"
 
@@ -87,21 +72,10 @@ jobs:
         env:
           TAG_NAME: ${{ steps.release.outputs.tag }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          RELEASE_PR_BODY_FILE: ${{ runner.temp }}/release-pr.md
         run: |
-          cat > "$RUNNER_TEMP/release-pr.md" <<EOF
-          Bumps the package version for **$TAG_NAME** and updates the Bun lockfile.
-
-          After merging, tag the merge commit on main and push to trigger publishing:
-
-          \`\`\`bash
-          git switch main
-          git pull --ff-only
-          git tag $TAG_NAME
-          git push origin $TAG_NAME
-          \`\`\`
-          EOF
           gh pr create \
             --base main \
             --head "release/$TAG_NAME" \
             --title "chore(release): $TAG_NAME" \
-            --body-file "$RUNNER_TEMP/release-pr.md"
+            --body-file "$RELEASE_PR_BODY_FILE"

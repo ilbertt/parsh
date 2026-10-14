@@ -24,25 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: ./.github/actions/prepare
+
       - name: Validate release tag
         id: release
-        env:
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          if [[ ! "$TAG_NAME" =~ ^([a-z][a-z0-9-]*)-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "Expected a tag like core-v0.0.11: $TAG_NAME" >&2
-            exit 1
-          fi
-          package="${BASH_REMATCH[1]}"
-          version="${TAG_NAME##*-v}"
-          package_dir="packages/$package/pkg"
-          jq -e --arg name "@parshjs/$package" --arg version "$version" \
-            '.name == $name and .version == $version and .private != true' \
-            "$package_dir/package.json" > /dev/null
-          git merge-base --is-ancestor HEAD origin/main
-          echo "package_dir=$package_dir" >> "$GITHUB_OUTPUT"
-
-      - uses: ./.github/actions/prepare
+        run: bun run --filter @repo/internal-scripts validate-release
 
       - name: Check types and codestyle
         run: bun check:all
@@ -60,6 +46,11 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
+      - name: Generate release notes
+        env:
+          RELEASE_NOTES_FILE: ${{ runner.temp }}/release-notes.md
+        run: bun run --filter @repo/internal-scripts release-notes
+
       - name: Publish to npm
         working-directory: ${{ steps.release.outputs.package_dir }}
         run: npm publish --access public --provenance --workspaces=false
@@ -68,4 +59,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
-        run: gh release create "$TAG_NAME" --verify-tag --title "$TAG_NAME" --generate-notes
+          RELEASE_NOTES_FILE: ${{ runner.temp }}/release-notes.md
+        run: gh release create "$TAG_NAME" --verify-tag --title "$TAG_NAME" --notes-file "$RELEASE_NOTES_FILE"

@@ -11,7 +11,7 @@ body = """
 
     {% for commit in commits %}\
         - {% if commit.breaking %}**Breaking:** {% endif %}\
-            {{ commit.message | upper_first }} ({{ commit.id | truncate(length=7, end="") }})
+            {{ commit.message | upper_first }}
     {% endfor %}\
 {% endfor %}\n
 """

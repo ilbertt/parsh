@@ -44,6 +44,10 @@ After finishing an implementation, always run:
 
 When running a script, always check `package.json` scripts (root and per-app) for available commands first.
 
+## Releases
+
+Published packages are versioned independently. Release workflow setup and tag conventions are documented in [`.github/CONTRIBUTING.md`](./.github/CONTRIBUTING.md#releases).
+
 ## READMEs
 
 Packages fall in two buckets:

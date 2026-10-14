@@ -57,6 +57,25 @@ afterEach(async () => {
 });
 
 describe('package-scoped release history', () => {
+  test('renders consecutive commits as a compact Markdown list', async () => {
+    await Bun.write(join(repoRoot, 'packages/core/src/index.ts'), 'export const first = true;\n');
+    await commit('fix(core): repair first');
+    const first = (await git(['rev-parse', '--short=7', 'HEAD'])).trim();
+    await Bun.write(join(repoRoot, 'packages/core/src/index.ts'), 'export const second = true;\n');
+    await commit('fix(core): repair second');
+    const second = (await git(['rev-parse', '--short=7', 'HEAD'])).trim();
+    const releasePackage = await readReleasePackage({ packageName: 'core', repoRoot });
+    const changelog = await readPackageCliff({
+      releasePackage,
+      options: { tag: 'core-v0.1.0' },
+    });
+
+    expect(changelog).toContain(
+      `### Fixes\n\n- Repair second (${second})\n- Repair first (${first})\n`,
+    );
+    expect(changelog).not.toContain('\n\n\n');
+  });
+
   test('uses package paths and tags for both changelogs and release notes', async () => {
     await git(['tag', 'core-v0.0.10']);
     await Bun.write(join(repoRoot, 'packages/core/src/index.ts'), 'export const fixed = true;\n');

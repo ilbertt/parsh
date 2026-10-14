@@ -176,7 +176,7 @@
     },
     "packages/env/pkg": {
       "name": "@parshjs/env",
-      "version": "0.0.3",
+      "version": "0.1.0",
     },
     "packages/files": {
       "name": "@repo/files",

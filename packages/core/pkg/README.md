@@ -61,6 +61,14 @@ export const command = defineCommand('s3 buckets [name] create', {
 
 The path's `[name]` segment forces a `params: { name: ... }` declaration — wrong key, missing key, or extra key are compile errors. Children inherit params from ancestors without redeclaring them; reach them through `parents['<ancestor path>']`.
 
+An option with `hidden: true` is omitted from help output, including its aliases and inherited listings. It still parses, validates, applies defaults, and remains typed in handler contexts.
+
+```ts
+options: {
+  internal: { schema: z.boolean().default(false), hidden: true },
+}
+```
+
 ## Generate the tree
 
 ```sh

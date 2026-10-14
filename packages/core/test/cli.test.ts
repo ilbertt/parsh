@@ -617,6 +617,20 @@ describe('subcommand --help Usage line', () => {
     expect(usage).toBe('Usage: test leaf [options]');
   });
 
+  test('omits [options] when own and forwarded options are hidden', async () => {
+    const cli = createCli({
+      programName: 'test',
+      tree: leafTree({
+        leafOptions: { internal: { schema: z.boolean().optional(), hidden: true } },
+        rootOptions: {
+          token: { schema: z.string().optional(), hidden: true, forwardToChildren: true },
+        },
+      }),
+    });
+    await cli.run(['leaf', '--help']);
+    expect(stdoutText().trim()).toBe('Usage: test leaf');
+  });
+
   test('keeps [options] when only inherited-forwarded options exist', async () => {
     const cli = createCli({
       programName: 'test',

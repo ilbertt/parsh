@@ -8,10 +8,11 @@ body = """
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
     ### {{ group | striptags | trim }}
-    {% for commit in commits %}
+
+    {% for commit in commits %}\
         - {% if commit.breaking %}**Breaking:** {% endif %}\
-            {{ commit.message | upper_first }} ({{ commit.id | truncate(length=7, end="") }})
-    {% endfor %}
+            {{ commit.message | upper_first }}
+    {% endfor %}\
 {% endfor %}\n
 """
 trim = true
